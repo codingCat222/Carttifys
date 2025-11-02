@@ -2,7 +2,6 @@ import React, { useEffect, useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useCart } from '../contexts/CartContext';
-// import './Navbar.css';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
   faShoppingCart, 
@@ -19,10 +18,8 @@ import {
   faBoxes,
   faUsers,
   faBars,
-  faUserCircle,
-  faTimes
+  faUserCircle
 } from '@fortawesome/free-solid-svg-icons';
-import './Navbar.css';
 
 const Navbar = () => {
   const { currentUser, logout, isAuthenticated } = useAuth();
@@ -42,33 +39,37 @@ const Navbar = () => {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  // Close mobile menu when route changes
-  useEffect(() => {
-    closeMobileMenu();
-  }, [location.pathname]);
-
+  // SIMPLE AND RELIABLE LOGOUT FUNCTION
   const handleLogout = () => {
     console.log('Logout button clicked');
-    closeMobileMenu();
     
+    // Close mobile menu first
+    setIsMobileMenuOpen(false);
+    
+    // Call logout from context
     logout().then(() => {
       console.log('AuthContext logout completed, now redirecting...');
       
+      // Clear cart if exists
       if (clearCart) {
         clearCart();
       }
       
+      // Force clear any remaining storage
       localStorage.removeItem('cart');
       localStorage.removeItem('userPreferences');
       
+      // Navigate to home
       navigate('/');
       
+      // Force page reload after a short delay to ensure clean state
       setTimeout(() => {
         window.location.reload();
       }, 50);
       
     }).catch(error => {
       console.error('Logout error:', error);
+      // Force cleanup even if there's an error
       localStorage.clear();
       sessionStorage.clear();
       navigate('/');
@@ -78,17 +79,10 @@ const Navbar = () => {
 
   const toggleMobileMenu = () => {
     setIsMobileMenuOpen(!isMobileMenuOpen);
-    // Prevent body scroll when mobile menu is open
-    if (!isMobileMenuOpen) {
-      document.body.style.overflow = 'hidden';
-    } else {
-      document.body.style.overflow = 'unset';
-    }
   };
 
   const closeMobileMenu = () => {
     setIsMobileMenuOpen(false);
-    document.body.style.overflow = 'unset';
   };
 
   const scrollToSection = (sectionId) => {
@@ -111,275 +105,193 @@ const Navbar = () => {
   };
 
   return (
-    <>
-      <nav className={`navbar ${scrolled ? 'scrolled' : ''}`}>
-        <div className="navbar-container">
-          {/* Brand Logo */}
-          <Link className="navbar-brand" to="/" onClick={closeMobileMenu}>
-            <FontAwesomeIcon icon={faStore} className="brand-icon" />
-            <span className="brand-text">Cartlify</span>
-          </Link>
-          
-          {/* Desktop Navigation */}
-          <div className="navbar-desktop">
-            {/* Left Navigation */}
-            <div className="navbar-left">
+    <nav className={`navbar navbar-expand-lg navbar-dark bg-dark ${scrolled ? 'scrolled' : ''}`}>
+      <div className="container">
+        {/* Brand Logo */}
+        <Link className="navbar-brand" to="/" onClick={closeMobileMenu}>
+          <FontAwesomeIcon icon={faStore} className="me-2" />
+          Cartlify
+        </Link>
+        
+        {/* Mobile Menu Toggle */}
+        <button 
+          className="navbar-toggler" 
+          type="button" 
+          onClick={toggleMobileMenu}
+          aria-label="Toggle navigation"
+        >
+          <FontAwesomeIcon icon={faBars} />
+        </button>
+        
+        {/* Navigation Menu */}
+        <div className={`collapse navbar-collapse ${isMobileMenuOpen ? 'show' : ''}`} id="navbarNav">
+          {/* Left Navigation */}
+          <ul className="navbar-nav me-auto">
+            <li className="nav-item">
               <Link className="nav-link" to="/" onClick={closeMobileMenu}>
-                <FontAwesomeIcon icon={faHome} />
-                <span>Home</span>
+                <FontAwesomeIcon icon={faHome} className="me-1" />
+                Home
               </Link>
-              
+            </li>
+            
+            <li className="nav-item">
               <button 
-                className="nav-link about-btn" 
+                className="nav-link btn btn-link" 
                 onClick={() => scrollToSection('about')}
+                style={{ border: 'none', background: 'none', color: 'inherit', textDecoration: 'none' }}
               >
-                <FontAwesomeIcon icon={faInfoCircle} />
-                <span>About</span>
+                <FontAwesomeIcon icon={faInfoCircle} className="me-1" />
+                About
               </button>
-
-              {/* Buyer Navigation */}
-              {isAuthenticated && currentUser?.role === 'buyer' && (
-                <>
+            </li>
+            
+            {/* Buyer Navigation */}
+            {isAuthenticated && currentUser?.role === 'buyer' && (
+              <>
+                <li className="nav-item">
                   <Link className="nav-link" to="/buyer/products" onClick={closeMobileMenu}>
-                    <FontAwesomeIcon icon={faBox} />
-                    <span>Products</span>
+                    <FontAwesomeIcon icon={faBox} className="me-1" />
+                    Products
                   </Link>
+                </li>
+                <li className="nav-item">
                   <Link className="nav-link" to="/buyer/orders" onClick={closeMobileMenu}>
-                    <FontAwesomeIcon icon={faClipboardList} />
-                    <span>Orders</span>
+                    <FontAwesomeIcon icon={faClipboardList} className="me-1" />
+                    Orders
                   </Link>
-                </>
-              )}
-              
-              {/* Seller Navigation */}
-              {isAuthenticated && currentUser?.role === 'seller' && (
-                <>
+                </li>
+              </>
+            )}
+            
+            {/* Seller Navigation */}
+            {isAuthenticated && currentUser?.role === 'seller' && (
+              <>
+                <li className="nav-item">
                   <Link className="nav-link" to="/seller/dashboard" onClick={closeMobileMenu}>
-                    <FontAwesomeIcon icon={faTachometerAlt} />
-                    <span>Dashboard</span>
+                    <FontAwesomeIcon icon={faTachometerAlt} className="me-1" />
+                    Dashboard
                   </Link>
+                </li>
+                <li className="nav-item">
                   <Link className="nav-link" to="/seller/products" onClick={closeMobileMenu}>
-                    <FontAwesomeIcon icon={faBoxes} />
-                    <span>My Products</span>
+                    <FontAwesomeIcon icon={faBoxes} className="me-1" />
+                    My Products
                   </Link>
-                </>
-              )}
-              
-              {/* Admin Navigation */}
-              {isAuthenticated && currentUser?.role === 'admin' && (
-                <>
+                </li>
+              </>
+            )}
+            
+            {/* Admin Navigation */}
+            {isAuthenticated && currentUser?.role === 'admin' && (
+              <>
+                <li className="nav-item">
                   <Link className="nav-link" to="/admin/dashboard" onClick={closeMobileMenu}>
-                    <FontAwesomeIcon icon={faTachometerAlt} />
-                    <span>Dashboard</span>
+                    <FontAwesomeIcon icon={faTachometerAlt} className="me-1" />
+                    Dashboard
                   </Link>
+                </li>
+                <li className="nav-item">
                   <Link className="nav-link" to="/admin/users" onClick={closeMobileMenu}>
-                    <FontAwesomeIcon icon={faUsers} />
-                    <span>Users</span>
+                    <FontAwesomeIcon icon={faUsers} className="me-1" />
+                    Users
                   </Link>
-                </>
-              )}
-            </div>
+                </li>
+              </>
+            )}
+          </ul>
 
-            {/* Right Navigation */}
-            <div className="navbar-right">
-              {isAuthenticated ? (
-                <>
-                  {/* Cart for Buyers */}
-                  {currentUser?.role === 'buyer' && (
-                    <Link className="nav-link cart-link" to="/buyer/cart" onClick={closeMobileMenu}>
-                      <FontAwesomeIcon icon={faShoppingCart} />
-                      <span>Cart</span>
+          {/* Right Navigation */}
+          <ul className="navbar-nav">
+            {isAuthenticated ? (
+              <>
+                {/* Cart for Buyers */}
+                {currentUser?.role === 'buyer' && (
+                  <li className="nav-item">
+                    <Link className="nav-link position-relative" to="/buyer/cart" onClick={closeMobileMenu}>
+                      <FontAwesomeIcon icon={faShoppingCart} className="me-1" />
+                      Cart
                       {getCartItemsCount() > 0 && (
-                        <span className="cart-badge">
+                        <span className="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
                           {getCartItemsCount()}
                         </span>
                       )}
                     </Link>
-                  )}
-                  
-                  {/* User Dropdown */}
-                  <div className="user-dropdown">
-                    <button className="user-btn">
-                      <FontAwesomeIcon icon={faUserCircle} />
-                      <span className="user-name">{currentUser?.name || 'User'}</span>
-                    </button>
-                    <div className="dropdown-menu">
-                      <div className="dropdown-item user-info">
-                        <FontAwesomeIcon icon={faUser} />
-                        <span>Role: <strong className="text-capitalize">{currentUser?.role}</strong></span>
-                      </div>
-                      <div className="dropdown-divider"></div>
-                      <button className="dropdown-item logout-btn" onClick={handleLogout}>
-                        <FontAwesomeIcon icon={faSignOutAlt} />
-                        <span>Logout</span>
-                      </button>
-                    </div>
-                  </div>
-                </>
-              ) : (
-                /* Authentication Links */
-                <>
-                  <Link className="nav-link login-link" to="/login" onClick={closeMobileMenu}>
-                    <FontAwesomeIcon icon={faSignInAlt} />
-                    <span>Login</span>
-                  </Link>
-                  
-                  <div className="signup-dropdown">
-                    <button className="signup-btn">
-                      <FontAwesomeIcon icon={faUserPlus} />
-                      <span>Sign Up</span>
-                    </button>
-                    <div className="dropdown-menu">
-                      <Link className="dropdown-item" to="/signup?role=buyer" onClick={closeMobileMenu}>
-                        <FontAwesomeIcon icon={faShoppingCart} />
-                        <span>As Buyer</span>
-                      </Link>
-                      <Link className="dropdown-item" to="/signup?role=seller" onClick={closeMobileMenu}>
-                        <FontAwesomeIcon icon={faStore} />
-                        <span>As Seller</span>
-                      </Link>
-                    </div>
-                  </div>
-                </>
-              )}
-            </div>
-          </div>
-
-          {/* Mobile Menu Toggle */}
-          <button 
-            className="mobile-toggle" 
-            onClick={toggleMobileMenu}
-            aria-label="Toggle navigation"
-          >
-            <FontAwesomeIcon icon={isMobileMenuOpen ? faTimes : faBars} />
-          </button>
-        </div>
-
-        {/* Mobile Menu Overlay */}
-        {isMobileMenuOpen && <div className="mobile-overlay" onClick={closeMobileMenu}></div>}
-
-        {/* Mobile Navigation */}
-        <div className={`mobile-menu ${isMobileMenuOpen ? 'mobile-menu-open' : ''}`}>
-          <div className="mobile-menu-header">
-            <div className="user-info-mobile">
-              {isAuthenticated ? (
-                <>
-                  <FontAwesomeIcon icon={faUserCircle} className="user-avatar" />
-                  <div className="user-details">
-                    <div className="user-name">{currentUser?.name || 'User'}</div>
-                    <div className="user-role text-capitalize">{currentUser?.role}</div>
-                  </div>
-                </>
-              ) : (
-                <div className="user-details">
-                  <div className="user-name">Welcome Guest</div>
-                  <div className="user-role">Please login or sign up</div>
-                </div>
-              )}
-            </div>
-          </div>
-
-          <div className="mobile-menu-content">
-            {/* Main Navigation */}
-            <div className="mobile-nav-section">
-              <Link className="mobile-nav-link" to="/" onClick={closeMobileMenu}>
-                <FontAwesomeIcon icon={faHome} />
-                <span>Home</span>
-              </Link>
-              
-              <button 
-                className="mobile-nav-link about-btn" 
-                onClick={() => scrollToSection('about')}
-              >
-                <FontAwesomeIcon icon={faInfoCircle} />
-                <span>About</span>
-              </button>
-
-              {/* Buyer Navigation */}
-              {isAuthenticated && currentUser?.role === 'buyer' && (
-                <>
-                  <Link className="mobile-nav-link" to="/buyer/products" onClick={closeMobileMenu}>
-                    <FontAwesomeIcon icon={faBox} />
-                    <span>Products</span>
-                  </Link>
-                  <Link className="mobile-nav-link" to="/buyer/orders" onClick={closeMobileMenu}>
-                    <FontAwesomeIcon icon={faClipboardList} />
-                    <span>Orders</span>
-                  </Link>
-                  <Link className="mobile-nav-link cart-link-mobile" to="/buyer/cart" onClick={closeMobileMenu}>
-                    <FontAwesomeIcon icon={faShoppingCart} />
-                    <span>Cart</span>
-                    {getCartItemsCount() > 0 && (
-                      <span className="cart-badge-mobile">
-                        {getCartItemsCount()}
+                  </li>
+                )}
+                
+                {/* User Dropdown */}
+                <li className="nav-item dropdown">
+                  <a 
+                    className="nav-link dropdown-toggle" 
+                    href="#" 
+                    role="button" 
+                    data-bs-toggle="dropdown"
+                    onClick={(e) => e.preventDefault()}
+                  >
+                    <FontAwesomeIcon icon={faUserCircle} className="me-1" />
+                    {currentUser?.name || 'User'}
+                  </a>
+                  <ul className="dropdown-menu">
+                    <li>
+                      <span className="dropdown-item-text">
+                        <FontAwesomeIcon icon={faUser} className="me-2" />
+                        Role: <strong className="text-capitalize">{currentUser?.role}</strong>
                       </span>
-                    )}
+                    </li>
+                    <li><hr className="dropdown-divider" /></li>
+                    <li>
+                      <button 
+                        className="dropdown-item" 
+                        onClick={handleLogout}
+                      >
+                        <FontAwesomeIcon icon={faSignOutAlt} className="me-2" />
+                        Logout
+                      </button>
+                    </li>
+                  </ul>
+                </li>
+              </>
+            ) : (
+              /* Authentication Links */
+              <>
+                <li className="nav-item">
+                  <Link className="nav-link" to="/login" onClick={closeMobileMenu}>
+                    <FontAwesomeIcon icon={faSignInAlt} className="me-1" />
+                    Login
                   </Link>
-                </>
-              )}
-              
-              {/* Seller Navigation */}
-              {isAuthenticated && currentUser?.role === 'seller' && (
-                <>
-                  <Link className="mobile-nav-link" to="/seller/dashboard" onClick={closeMobileMenu}>
-                    <FontAwesomeIcon icon={faTachometerAlt} />
-                    <span>Dashboard</span>
-                  </Link>
-                  <Link className="mobile-nav-link" to="/seller/products" onClick={closeMobileMenu}>
-                    <FontAwesomeIcon icon={faBoxes} />
-                    <span>My Products</span>
-                  </Link>
-                </>
-              )}
-              
-              {/* Admin Navigation */}
-              {isAuthenticated && currentUser?.role === 'admin' && (
-                <>
-                  <Link className="mobile-nav-link" to="/admin/dashboard" onClick={closeMobileMenu}>
-                    <FontAwesomeIcon icon={faTachometerAlt} />
-                    <span>Dashboard</span>
-                  </Link>
-                  <Link className="mobile-nav-link" to="/admin/users" onClick={closeMobileMenu}>
-                    <FontAwesomeIcon icon={faUsers} />
-                    <span>Users</span>
-                  </Link>
-                </>
-              )}
-            </div>
-
-            {/* Authentication Section */}
-            <div className="mobile-auth-section">
-              {isAuthenticated ? (
-                <button className="mobile-logout-btn" onClick={handleLogout}>
-                  <FontAwesomeIcon icon={faSignOutAlt} />
-                  <span>Logout</span>
-                </button>
-              ) : (
-                <>
-                  <Link className="mobile-auth-link login" to="/login" onClick={closeMobileMenu}>
-                    <FontAwesomeIcon icon={faSignInAlt} />
-                    <span>Login</span>
-                  </Link>
-                  <div className="mobile-signup-options">
-                    <Link className="mobile-auth-link signup buyer" to="/signup?role=buyer" onClick={closeMobileMenu}>
-                      <FontAwesomeIcon icon={faShoppingCart} />
-                      <span>Sign Up as Buyer</span>
-                    </Link>
-                    <Link className="mobile-auth-link signup seller" to="/signup?role=seller" onClick={closeMobileMenu}>
-                      <FontAwesomeIcon icon={faStore} />
-                      <span>Sign Up as Seller</span>
-                    </Link>
-                  </div>
-                </>
-              )}
-            </div>
-          </div>
+                </li>
+                <li className="nav-item dropdown">
+                  <a 
+                    className="nav-link dropdown-toggle" 
+                    href="#" 
+                    role="button" 
+                    data-bs-toggle="dropdown"
+                    onClick={(e) => e.preventDefault()}
+                  >
+                    <FontAwesomeIcon icon={faUserPlus} className="me-1" />
+                    Sign Up
+                  </a>
+                  <ul className="dropdown-menu">
+                    <li>
+                      <Link className="dropdown-item" to="/signup?role=buyer" onClick={closeMobileMenu}>
+                        <FontAwesomeIcon icon={faShoppingCart} className="me-2" />
+                        As Buyer
+                      </Link>
+                    </li>
+                    <li>
+                      <Link className="dropdown-item" to="/signup?role=seller" onClick={closeMobileMenu}>
+                        <FontAwesomeIcon icon={faStore} className="me-2" />
+                        As Seller
+                      </Link>
+                    </li>
+                  </ul>
+                </li>
+              </>
+            )}
+          </ul>
         </div>
-      </nav>
-      
-      {/* Spacer to prevent content from being hidden behind fixed navbar */}
-      <div className="navbar-spacer"></div>
-    </>
+      </div>
+    </nav>
   );
 };
 
