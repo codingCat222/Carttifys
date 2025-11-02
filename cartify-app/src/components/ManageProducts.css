@@ -1,0 +1,323 @@
+/* ManageProducts.css */
+
+/* Main container styles */
+.manage-products-container {
+  background-color: #f8f9fa;
+  min-height: 100vh;
+}
+
+/* Header section */
+.manage-products-header {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  padding: 2rem 0;
+  margin-bottom: 2rem;
+  border-radius: 0 0 20px 20px;
+}
+
+.manage-products-header h1 {
+  font-weight: 700;
+  margin-bottom: 0.5rem;
+  text-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.manage-products-header p {
+  font-size: 1.1rem;
+  opacity: 0.9;
+  margin-bottom: 0;
+}
+
+/* Filter section */
+.filter-section-card {
+  background: white;
+  border-radius: 15px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.07);
+  border: 1px solid #e9ecef;
+  margin-bottom: 2rem;
+}
+
+.filter-btn {
+  border-radius: 10px;
+  padding: 0.75rem 1.5rem;
+  font-weight: 500;
+  transition: all 0.3s ease;
+  border: 2px solid transparent;
+}
+
+.filter-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.filter-btn.btn-primary {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-color: #667eea;
+}
+
+.filter-btn.btn-outline-primary {
+  border-color: #667eea;
+  color: #667eea;
+}
+
+.filter-btn.btn-outline-primary:hover {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+}
+
+/* Table styles */
+.products-table-card {
+  border: none;
+  border-radius: 15px;
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.08);
+  overflow: hidden;
+}
+
+.products-table {
+  margin-bottom: 0;
+}
+
+.products-table thead th {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  padding: 1rem 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  font-size: 0.85rem;
+  letter-spacing: 0.5px;
+}
+
+.products-table tbody tr {
+  transition: all 0.3s ease;
+  border-bottom: 1px solid #e9ecef;
+}
+
+.products-table tbody tr:hover {
+  background-color: #f8f9fa;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.products-table tbody td {
+  padding: 1rem 0.75rem;
+  vertical-align: middle;
+  border: none;
+}
+
+/* Product image */
+.product-image {
+  width: 50px;
+  height: 50px;
+  object-fit: cover;
+  border-radius: 8px;
+  border: 2px solid #e9ecef;
+}
+
+/* Status badges */
+.status-badge {
+  padding: 0.5rem 0.75rem;
+  border-radius: 20px;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+/* Form switch customization */
+.form-switch .form-check-input {
+  width: 3rem;
+  height: 1.5rem;
+  background-color: #e9ecef;
+  border: 1px solid #dee2e6;
+}
+
+.form-switch .form-check-input:checked {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-color: #667eea;
+}
+
+.form-switch .form-check-input:focus {
+  box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+}
+
+/* Dropdown styles */
+.actions-dropdown .dropdown-toggle {
+  border-radius: 8px;
+  padding: 0.5rem 1rem;
+  font-weight: 500;
+  border: 2px solid #e9ecef;
+}
+
+.actions-dropdown .dropdown-menu {
+  border: none;
+  border-radius: 10px;
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+  padding: 0.5rem;
+}
+
+.actions-dropdown .dropdown-item {
+  border-radius: 6px;
+  padding: 0.75rem 1rem;
+  margin: 0.1rem 0;
+  transition: all 0.2s ease;
+  font-weight: 500;
+}
+
+.actions-dropdown .dropdown-item:hover {
+  background-color: #f8f9fa;
+  transform: translateX(5px);
+}
+
+.actions-dropdown .dropdown-item.text-danger:hover {
+  background-color: #fee;
+  color: #dc3545 !important;
+}
+
+/* Stats cards */
+.stats-card {
+  border: none;
+  border-radius: 15px;
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.08);
+  transition: all 0.3s ease;
+  background: white;
+}
+
+.stats-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+}
+
+.stats-card .card-body {
+  padding: 2rem 1rem;
+}
+
+.stats-card h3 {
+  font-size: 2.5rem;
+  font-weight: 700;
+  margin-bottom: 0.5rem;
+  color: #2d3748;
+}
+
+.stats-card p {
+  color: #718096;
+  font-weight: 500;
+  margin-bottom: 0;
+  font-size: 0.95rem;
+}
+
+.stats-card i {
+  font-size: 1.5rem;
+  margin-right: 0.5rem;
+}
+
+/* No products state */
+.no-products-state {
+  padding: 4rem 2rem;
+  background: white;
+  border-radius: 15px;
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.08);
+  margin: 2rem 0;
+}
+
+.no-products-state h4 {
+  color: #4a5568;
+  margin-bottom: 1rem;
+  font-weight: 600;
+}
+
+.no-products-state p {
+  color: #718096;
+  font-size: 1.1rem;
+  margin-bottom: 2rem;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .filter-section-card .d-flex {
+    flex-direction: column;
+    gap: 0.5rem !important;
+  }
+  
+  .filter-btn {
+    width: 100%;
+    margin-bottom: 0.5rem;
+  }
+  
+  .products-table {
+    font-size: 0.9rem;
+  }
+  
+  .stats-card .card-body {
+    padding: 1.5rem 1rem;
+  }
+  
+  .stats-card h3 {
+    font-size: 2rem;
+  }
+}
+
+@media (max-width: 576px) {
+  .products-table thead {
+    display: none;
+  }
+  
+  .products-table tbody tr {
+    display: block;
+    margin-bottom: 1rem;
+    border: 1px solid #e9ecef;
+    border-radius: 10px;
+    padding: 1rem;
+  }
+  
+  .products-table tbody td {
+    display: block;
+    text-align: right;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid #f8f9fa;
+  }
+  
+  .products-table tbody td::before {
+    content: attr(data-label);
+    float: left;
+    font-weight: bold;
+    text-transform: uppercase;
+    font-size: 0.8rem;
+    color: #6c757d;
+  }
+  
+  .products-table tbody td:last-child {
+    border-bottom: none;
+  }
+}
+
+/* Animation for icons */
+.fas {
+  transition: all 0.3s ease;
+}
+
+.btn:hover .fas,
+.dropdown-item:hover .fas {
+  transform: scale(1.1);
+}
+
+/* Loading animation */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.products-table tbody tr {
+  animation: fadeIn 0.5s ease forwards;
+}
+
+.products-table tbody tr:nth-child(odd) {
+  animation-delay: 0.1s;
+}
+
+.products-table tbody tr:nth-child(even) {
+  animation-delay: 0.2s;
+}
