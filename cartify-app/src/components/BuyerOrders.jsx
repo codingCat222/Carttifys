@@ -29,7 +29,7 @@ import {
   faExclamationTriangle,
   faStore
 } from '@fortawesome/free-solid-svg-icons';
-import { orderAPI } from '../services/api';
+import { orderAPI } from '../services/Api';
 
 // Temporary Skeleton Component (Put this in your components folder later)
 const OrderCardSkeleton = () => (
