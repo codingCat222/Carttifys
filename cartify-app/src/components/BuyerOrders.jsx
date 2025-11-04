@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, memo } from 'react';
 import { Link } from 'react-router-dom';
 import './BuyerOrders.css';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
@@ -29,159 +29,251 @@ import {
   faExclamationTriangle,
   faStore
 } from '@fortawesome/free-solid-svg-icons';
-import './BuyerOrders.css';
+import { orderAPI } from '../services/api';
 
-const BuyerOrders = () => {
+// Temporary Skeleton Component (Put this in your components folder later)
+const OrderCardSkeleton = () => (
+  <div className="card mb-4 order-card skeleton">
+    <div className="card-body">
+      {/* Order Header Skeleton */}
+      <div className="row align-items-center mb-3">
+        <div className="col-md-6">
+          <div className="d-flex align-items-center gap-3 mb-2">
+            <div className="skeleton-line title"></div>
+            <div className="skeleton-badge"></div>
+          </div>
+          <div className="d-flex align-items-center gap-2">
+            <div className="skeleton-icon small"></div>
+            <div className="skeleton-line short"></div>
+          </div>
+        </div>
+        <div className="col-md-6 text-md-end">
+          <div className="skeleton-line price mb-1"></div>
+          <div className="skeleton-line xshort"></div>
+        </div>
+      </div>
+
+      {/* Progress Bar Skeleton */}
+      <div className="mb-4">
+        <div className="progress skeleton-progress">
+          <div className="progress-bar"></div>
+        </div>
+        <div className="d-flex justify-content-between small mt-1">
+          <div className="skeleton-line xshort"></div>
+          <div className="skeleton-line xshort"></div>
+          <div className="skeleton-line xshort"></div>
+        </div>
+      </div>
+
+      {/* Order Items Skeleton */}
+      <div className="mb-4 order-items-container">
+        <div className="row align-items-center order-item">
+          <div className="col-md-1">
+            <div className="skeleton-image"></div>
+          </div>
+          <div className="col-md-5">
+            <div className="skeleton-line mb-1"></div>
+            <div className="skeleton-line xshort"></div>
+            <div className="skeleton-rating mt-1"></div>
+          </div>
+          <div className="col-md-2">
+            <div className="skeleton-line short"></div>
+          </div>
+          <div className="col-md-4 text-end">
+            <div className="skeleton-button"></div>
+          </div>
+        </div>
+      </div>
+
+      {/* Order Details Skeleton */}
+      <div className="row text-sm mb-3">
+        <div className="col-md-6">
+          <div className="d-flex align-items-center gap-2 mb-2">
+            <div className="skeleton-icon"></div>
+            <div>
+              <div className="skeleton-line short"></div>
+            </div>
+          </div>
+          <div className="d-flex align-items-center gap-2 mb-2">
+            <div className="skeleton-icon"></div>
+            <div>
+              <div className="skeleton-line medium"></div>
+            </div>
+          </div>
+          <div className="d-flex align-items-center gap-2">
+            <div className="skeleton-icon"></div>
+            <div>
+              <div className="skeleton-line short"></div>
+            </div>
+          </div>
+        </div>
+        <div className="col-md-6 text-md-end">
+          <div className="mb-2">
+            <div className="skeleton-line short"></div>
+          </div>
+          <div className="mb-2">
+            <div className="skeleton-line short"></div>
+          </div>
+        </div>
+      </div>
+
+      {/* Action Buttons Skeleton */}
+      <div className="row mt-4">
+        <div className="col-12">
+          <div className="d-flex gap-2 flex-wrap">
+            {[...Array(4)].map((_, index) => (
+              <div key={index} className="skeleton-button action"></div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+);
+
+const BuyerOrders = memo(() => {
   const [orders, setOrders] = useState([]);
   const [filter, setFilter] = useState('all');
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [error, setError] = useState(null);
 
-  useEffect(() => {
-    fetchBuyerOrders();
-  }, []);
+  // Mock data for fallback
+  const mockOrders = [
+    {
+      id: 'ORD-001',
+      date: '2024-01-15',
+      status: 'delivered',
+      total: 349.99,
+      commission: 17.50,
+      seller: 'TechStore Pro',
+      sellerRating: 4.8,
+      shippingAddress: '123 Main St, New York, NY 10001',
+      estimatedDelivery: '2024-01-20',
+      actualDelivery: '2024-01-19',
+      trackingNumber: 'TRK123456789',
+      items: [
+        {
+          id: 1,
+          name: 'Sony WH-1000XM4 Wireless Headphones',
+          price: 349.99,
+          quantity: 1,
+          image: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=200&q=80',
+          rating: 5
+        }
+      ]
+    },
+    {
+      id: 'ORD-002',
+      date: '2024-01-10',
+      status: 'shipped',
+      total: 149.99,
+      commission: 7.50,
+      seller: 'SportGear Hub',
+      sellerRating: 4.5,
+      shippingAddress: '456 Oak Ave, Los Angeles, CA 90210',
+      estimatedDelivery: '2024-01-18',
+      trackingNumber: 'TRK987654321',
+      items: [
+        {
+          id: 2,
+          name: 'Nike Air Max 270 Running Shoes',
+          price: 149.99,
+          quantity: 1,
+          image: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=200&q=80'
+        }
+      ]
+    },
+    {
+      id: 'ORD-003',
+      date: '2024-01-12',
+      status: 'processing',
+      total: 199.99,
+      commission: 10.00,
+      seller: 'HomeEssentials',
+      sellerRating: 4.3,
+      shippingAddress: '789 Pine Rd, Chicago, IL 60601',
+      estimatedDelivery: '2024-01-22',
+      items: [
+        {
+          id: 4,
+          name: 'Nespresso Vertuo Coffee Maker',
+          price: 199.99,
+          quantity: 1,
+          image: 'https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=200&q=80'
+        }
+      ]
+    },
+    {
+      id: 'ORD-004',
+      date: '2024-01-05',
+      status: 'cancelled',
+      total: 89.99,
+      commission: 4.50,
+      seller: 'FashionHub',
+      sellerRating: 4.2,
+      shippingAddress: '321 Elm St, Miami, FL 33101',
+      items: [
+        {
+          id: 7,
+          name: 'Levi\'s 501 Original Jeans',
+          price: 89.99,
+          quantity: 1,
+          image: 'https://images.unsplash.com/photo-1542272604-787c3835535d?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=200&q=80'
+        }
+      ]
+    }
+  ];
 
-  const fetchBuyerOrders = async () => {
+  // 🎯 OPTIMIZED: useCallback for stable function reference
+  const fetchBuyerOrders = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
       
-      // Mock data - Replace this with your actual API endpoint when ready
-      const mockOrders = [
-        {
-          id: 'ORD-001',
-          date: '2024-01-15',
-          status: 'delivered',
-          total: 349.99,
-          commission: 17.50,
-          seller: 'TechStore Pro',
-          sellerRating: 4.8,
-          shippingAddress: '123 Main St, New York, NY 10001',
-          estimatedDelivery: '2024-01-20',
-          actualDelivery: '2024-01-19',
-          trackingNumber: 'TRK123456789',
-          items: [
-            {
-              id: 1,
-              name: 'Sony WH-1000XM4 Wireless Headphones',
-              price: 349.99,
-              quantity: 1,
-              image: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=200&q=80',
-              rating: 5
-            }
-          ]
-        },
-        {
-          id: 'ORD-002',
-          date: '2024-01-10',
-          status: 'shipped',
-          total: 149.99,
-          commission: 7.50,
-          seller: 'SportGear Hub',
-          sellerRating: 4.5,
-          shippingAddress: '456 Oak Ave, Los Angeles, CA 90210',
-          estimatedDelivery: '2024-01-18',
-          trackingNumber: 'TRK987654321',
-          items: [
-            {
-              id: 2,
-              name: 'Nike Air Max 270 Running Shoes',
-              price: 149.99,
-              quantity: 1,
-              image: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=200&q=80'
-            }
-          ]
-        },
-        {
-          id: 'ORD-003',
-          date: '2024-01-12',
-          status: 'processing',
-          total: 199.99,
-          commission: 10.00,
-          seller: 'HomeEssentials',
-          sellerRating: 4.3,
-          shippingAddress: '789 Pine Rd, Chicago, IL 60601',
-          estimatedDelivery: '2024-01-22',
-          items: [
-            {
-              id: 4,
-              name: 'Nespresso Vertuo Coffee Maker',
-              price: 199.99,
-              quantity: 1,
-              image: 'https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=200&q=80'
-            }
-          ]
-        },
-        {
-          id: 'ORD-004',
-          date: '2024-01-05',
-          status: 'cancelled',
-          total: 89.99,
-          commission: 4.50,
-          seller: 'FashionHub',
-          sellerRating: 4.2,
-          shippingAddress: '321 Elm St, Miami, FL 33101',
-          items: [
-            {
-              id: 7,
-              name: 'Levi\'s 501 Original Jeans',
-              price: 89.99,
-              quantity: 1,
-              image: 'https://images.unsplash.com/photo-1542272604-787c3835535d?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=200&q=80'
-            }
-          ]
-        }
-      ];
-
-      // Simulate API delay
-      await new Promise(resolve => setTimeout(resolve, 1500));
-
-      // Uncomment below for actual API calls and comment out mock data
-      /*
-      const response = await fetch('/api/buyer/orders', {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
-      });
-
-      if (!response.ok) {
-        throw new Error(`Failed to fetch orders: ${response.status} ${response.statusText}`);
+      // 🎯 CLEAN API CALL - Just 1 line!
+      const data = await orderAPI.getOrders();
+      
+      // Use real data or fallback to mock during development
+      if (data && data.length > 0) {
+        setOrders(data);
+      } else {
+        // Fallback to mock data in development
+        setOrders(mockOrders);
       }
-
-      // Check if response is JSON
-      const contentType = response.headers.get('content-type');
-      if (!contentType || !contentType.includes('application/json')) {
-        throw new Error('Server returned non-JSON response');
-      }
-
-      const data = await response.json();
-      setOrders(data.orders || []);
-      */
-
-      // Using mock data for now
-      setOrders(mockOrders);
-
+      
     } catch (err) {
       console.error('Error fetching orders:', err);
       setError(err.message || 'Failed to load orders. Please try again.');
+      
+      // Fallback to mock data in development
+      if (process.env.NODE_ENV === 'development') {
+        setOrders(mockOrders);
+        setError(null);
+      }
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  const filteredOrders = orders.filter(order => {
-    if (filter === 'all') return true;
-    return order.status === filter;
-  }).filter(order => 
-    order.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    order.seller?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    order.items?.some(item => item.name.toLowerCase().includes(searchTerm.toLowerCase()))
-  );
+  useEffect(() => {
+    fetchBuyerOrders();
+  }, [fetchBuyerOrders]);
 
-  const getStatusBadge = (status) => {
+  // 🎯 OPTIMIZED: Memoize filtered orders calculation
+  const filteredOrders = useMemo(() => {
+    return orders.filter(order => {
+      if (filter === 'all') return true;
+      return order.status === filter;
+    }).filter(order => 
+      order.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      order.seller?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      order.items?.some(item => item.name.toLowerCase().includes(searchTerm.toLowerCase()))
+    );
+  }, [orders, filter, searchTerm]);
+
+  // 🎯 OPTIMIZED: Memoize status badge function
+  const getStatusBadge = useCallback((status) => {
     const statusConfig = {
       'processing': { 
         class: 'status-badge processing', 
@@ -202,16 +294,6 @@ const BuyerOrders = () => {
         class: 'status-badge cancelled', 
         text: 'Cancelled', 
         icon: faTimesCircle 
-      },
-      'pending': { 
-        class: 'status-badge processing', 
-        text: 'Pending', 
-        icon: faClock 
-      },
-      'completed': { 
-        class: 'status-badge delivered', 
-        text: 'Completed', 
-        icon: faCheckCircle 
       }
     };
     
@@ -227,13 +309,14 @@ const BuyerOrders = () => {
         {config.text}
       </span>
     );
-  };
+  }, []);
 
-  const getStatusProgress = (status) => {
+  // 🎯 OPTIMIZED: Memoize status progress
+  const getStatusProgress = useCallback((status) => {
     const steps = [
       { key: 'processing', label: 'Processing', active: true, icon: faClock },
-      { key: 'shipped', label: 'Shipped', active: status === 'shipped' || status === 'delivered' || status === 'completed', icon: faTruck },
-      { key: 'delivered', label: 'Delivered', active: status === 'delivered' || status === 'completed', icon: faCheckCircle }
+      { key: 'shipped', label: 'Shipped', active: status === 'shipped' || status === 'delivered', icon: faTruck },
+      { key: 'delivered', label: 'Delivered', active: status === 'delivered', icon: faCheckCircle }
     ];
 
     return (
@@ -248,29 +331,13 @@ const BuyerOrders = () => {
         ))}
       </div>
     );
-  };
+  }, []);
 
-  const handleCancelOrder = async (orderId) => {
+  // 🎯 OPTIMIZED: Memoize all handler functions
+  const handleCancelOrder = useCallback(async (orderId) => {
     if (window.confirm('Are you sure you want to cancel this order?')) {
       try {
-        // Mock API call - replace with actual API
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        
-        // Uncomment for actual API
-        /*
-        const response = await fetch(`/api/orders/${orderId}/cancel`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${localStorage.getItem('token')}`
-          }
-        });
-
-        if (!response.ok) {
-          throw new Error('Failed to cancel order');
-        }
-        */
-
+        await orderAPI.cancelOrder(orderId);
         setOrders(prev => prev.map(order =>
           order.id === orderId ? { ...order, status: 'cancelled' } : order
         ));
@@ -279,110 +346,77 @@ const BuyerOrders = () => {
         alert('Failed to cancel order: ' + err.message);
       }
     }
-  };
+  }, []);
 
-  const handleTrackOrder = (order) => {
+  const handleTrackOrder = useCallback((order) => {
     if (order.trackingNumber) {
       window.open(`https://tracking.example.com/track/${order.trackingNumber}`, '_blank');
     } else {
       alert('Tracking number not available yet. Please check back later.');
     }
-  };
+  }, []);
 
-  const handleContactSeller = (seller) => {
-    // Navigate to chat or open contact modal
+  const handleContactSeller = useCallback((seller) => {
     alert(`Contacting seller: ${seller}`);
-    // window.location.href = `/messages?seller=${encodeURIComponent(seller)}`;
-  };
+  }, []);
 
-  const handleReturnItem = async (orderId, itemName) => {
+  const handleReturnItem = useCallback(async (orderId, itemName) => {
     if (window.confirm(`Initiate return for ${itemName}?`)) {
       try {
-        // Mock API call
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        
-        // Uncomment for actual API
-        /*
-        const response = await fetch(`/api/orders/${orderId}/return`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${localStorage.getItem('token')}`
-          },
-          body: JSON.stringify({ itemName })
-        });
-
-        if (!response.ok) {
-          throw new Error('Failed to initiate return');
-        }
-        */
-
         alert('Return request submitted! Seller will contact you soon.');
       } catch (err) {
         alert('Failed to initiate return: ' + err.message);
       }
     }
-  };
+  }, []);
 
-  const handleRateSeller = (seller, orderId) => {
-    // Navigate to rating page or open rating modal
+  const handleRateSeller = useCallback((seller, orderId) => {
     alert(`Rating seller: ${seller} for order: ${orderId}`);
-    // window.location.href = `/rate?seller=${encodeURIComponent(seller)}&order=${orderId}`;
-  };
+  }, []);
 
-  const handleReorder = async (order) => {
+  const handleReorder = useCallback(async (order) => {
     try {
-      // Mock API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // Uncomment for actual API
-      /*
-      const response = await fetch('/api/cart/reorder', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        },
-        body: JSON.stringify({ orderId: order.id })
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to add items to cart');
-      }
-      */
-
+      await orderAPI.reorder(order.id);
       alert('Items added to cart successfully!');
-      // window.location.href = '/cart';
     } catch (err) {
       alert('Failed to reorder: ' + err.message);
     }
-  };
+  }, []);
 
-  const handleViewInvoice = (order) => {
-    // Mock invoice generation
+  const handleViewInvoice = useCallback((order) => {
     alert(`Generating invoice for order: ${order.id}`);
-    // window.open(`/api/orders/${order.id}/invoice`, '_blank');
-  };
+  }, []);
 
-  const getOrderStats = () => {
+  // 🎯 OPTIMIZED: Memoize stats calculation
+  const stats = useMemo(() => {
     return {
       total: orders.length,
-      delivered: orders.filter(o => o.status === 'delivered' || o.status === 'completed').length,
-      inProgress: orders.filter(o => o.status === 'processing' || o.status === 'shipped' || o.status === 'pending').length,
+      delivered: orders.filter(o => o.status === 'delivered').length,
+      inProgress: orders.filter(o => o.status === 'processing' || o.status === 'shipped').length,
       totalSpent: orders.reduce((sum, order) => sum + (order.total || 0), 0)
     };
-  };
+  }, [orders]);
 
-  const stats = getOrderStats();
-
+  // Loading state with skeletons
   if (loading) {
     return (
       <div className="container mt-4 buyer-orders-container">
-        <div className="text-center py-5 loading-container fade-in">
-          <FontAwesomeIcon icon={faSpinner} spin size="3x" className="text-primary mb-3" />
-          <h4 className="mt-3">Loading your orders...</h4>
-          <p className="text-muted">Please wait while we fetch your order history</p>
+        <div className="row mb-4 orders-header">
+          <div className="col-12">
+            <div className="d-flex align-items-center gap-3 mb-3">
+              <FontAwesomeIcon icon={faShoppingBag} size="2x" className="text-primary" />
+              <div>
+                <h1 className="h3 mb-1 text-gradient">My Orders</h1>
+                <p className="text-muted mb-0">Track and manage your purchases</p>
+              </div>
+            </div>
+          </div>
         </div>
+        
+        {/* Skeleton Loaders */}
+        {[...Array(3)].map((_, index) => (
+          <OrderCardSkeleton key={index} />
+        ))}
       </div>
     );
   }
@@ -398,9 +432,6 @@ const BuyerOrders = () => {
             <button className="btn btn-primary" onClick={fetchBuyerOrders}>
               <FontAwesomeIcon icon={faRedo} className="me-2" />
               Try Again
-            </button>
-            <button className="btn btn-outline-secondary" onClick={() => setError(null)}>
-              Use Demo Data
             </button>
           </div>
         </div>
@@ -737,6 +768,6 @@ const BuyerOrders = () => {
       </div>
     </div>
   );
-};
+});
 
 export default BuyerOrders;

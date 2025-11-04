@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback, useMemo, memo } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useCart } from '../contexts/CartContext';
@@ -21,7 +21,7 @@ import {
   faUserCircle
 } from '@fortawesome/free-solid-svg-icons';
 
-const Navbar = () => {
+const Navbar = memo(() => {
   const { currentUser, logout, isAuthenticated } = useAuth();
   const { getCartItemsCount, clearCart } = useCart();
   const [scrolled, setScrolled] = useState(false);
@@ -29,6 +29,7 @@ const Navbar = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
+  // 🎯 OPTIMIZED: useCallback for scroll handler
   useEffect(() => {
     const handleScroll = () => {
       const isScrolled = window.scrollY > 10;
@@ -39,15 +40,15 @@ const Navbar = () => {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  // SIMPLE AND RELIABLE LOGOUT FUNCTION
-  const handleLogout = () => {
+  // 🎯 OPTIMIZED: useCallback for logout
+  const handleLogout = useCallback(async () => {
     console.log('Logout button clicked');
     
     // Close mobile menu first
     setIsMobileMenuOpen(false);
     
-    // Call logout from context
-    logout().then(() => {
+    try {
+      await logout();
       console.log('AuthContext logout completed, now redirecting...');
       
       // Clear cart if exists
@@ -67,25 +68,27 @@ const Navbar = () => {
         window.location.reload();
       }, 50);
       
-    }).catch(error => {
+    } catch (error) {
       console.error('Logout error:', error);
       // Force cleanup even if there's an error
       localStorage.clear();
       sessionStorage.clear();
       navigate('/');
       window.location.reload();
-    });
-  };
+    }
+  }, [logout, clearCart, navigate]);
 
-  const toggleMobileMenu = () => {
-    setIsMobileMenuOpen(!isMobileMenuOpen);
-  };
+  // 🎯 OPTIMIZED: useCallback for mobile menu
+  const toggleMobileMenu = useCallback(() => {
+    setIsMobileMenuOpen(prev => !prev);
+  }, []);
 
-  const closeMobileMenu = () => {
+  const closeMobileMenu = useCallback(() => {
     setIsMobileMenuOpen(false);
-  };
+  }, []);
 
-  const scrollToSection = (sectionId) => {
+  // 🎯 OPTIMIZED: useCallback for scroll to section
+  const scrollToSection = useCallback((sectionId) => {
     closeMobileMenu();
     
     if (location.pathname === '/') {
@@ -102,7 +105,10 @@ const Navbar = () => {
         }
       }, 100);
     }
-  };
+  }, [location.pathname, navigate, closeMobileMenu]);
+
+  // 🎯 OPTIMIZED: Memoize cart items count
+  const cartItemsCount = useMemo(() => getCartItemsCount(), [getCartItemsCount]);
 
   return (
     <nav className={`navbar navbar-expand-lg navbar-dark bg-dark ${scrolled ? 'scrolled' : ''}`}>
@@ -119,6 +125,7 @@ const Navbar = () => {
           type="button" 
           onClick={toggleMobileMenu}
           aria-label="Toggle navigation"
+          aria-expanded={isMobileMenuOpen}
         >
           <FontAwesomeIcon icon={faBars} />
         </button>
@@ -139,6 +146,7 @@ const Navbar = () => {
                 className="nav-link btn btn-link" 
                 onClick={() => scrollToSection('about')}
                 style={{ border: 'none', background: 'none', color: 'inherit', textDecoration: 'none' }}
+                aria-label="Scroll to about section"
               >
                 <FontAwesomeIcon icon={faInfoCircle} className="me-1" />
                 About
@@ -210,9 +218,9 @@ const Navbar = () => {
                     <Link className="nav-link position-relative" to="/buyer/cart" onClick={closeMobileMenu}>
                       <FontAwesomeIcon icon={faShoppingCart} className="me-1" />
                       Cart
-                      {getCartItemsCount() > 0 && (
+                      {cartItemsCount > 0 && (
                         <span className="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
-                          {getCartItemsCount()}
+                          {cartItemsCount}
                         </span>
                       )}
                     </Link>
@@ -227,6 +235,7 @@ const Navbar = () => {
                     role="button" 
                     data-bs-toggle="dropdown"
                     onClick={(e) => e.preventDefault()}
+                    aria-expanded="false"
                   >
                     <FontAwesomeIcon icon={faUserCircle} className="me-1" />
                     {currentUser?.name || 'User'}
@@ -243,6 +252,7 @@ const Navbar = () => {
                       <button 
                         className="dropdown-item" 
                         onClick={handleLogout}
+                        aria-label="Logout"
                       >
                         <FontAwesomeIcon icon={faSignOutAlt} className="me-2" />
                         Logout
@@ -267,6 +277,7 @@ const Navbar = () => {
                     role="button" 
                     data-bs-toggle="dropdown"
                     onClick={(e) => e.preventDefault()}
+                    aria-expanded="false"
                   >
                     <FontAwesomeIcon icon={faUserPlus} className="me-1" />
                     Sign Up
@@ -293,6 +304,6 @@ const Navbar = () => {
       </div>
     </nav>
   );
-};
+});
 
 export default Navbar;
