@@ -30,16 +30,30 @@ import {
   faUserCircle,
   faCog,
   faShield,
-  faInfoCircle
+  faInfoCircle,
+  faEnvelope,
+  faPlus,
+  faFilter,
+  faTimes,
+   faBuilding,
+  faMessage,
+  faTag
 } from '@fortawesome/free-solid-svg-icons';
-import { orderAPI, productAPI } from '../services/api';
+import { orderAPI, productAPI } from '../services/Api';
 
 const BuyerDashboard = memo(() => {
   const [featuredProducts, setFeaturedProducts] = useState([]);
   const [recentOrders, setRecentOrders] = useState([]);
-  const [activeSection, setActiveSection] = useState('marketplace'); // 'marketplace', 'orders', 'profile'
+  const [categories, setCategories] = useState([]);
+  const [messages, setMessages] = useState([]);
+  const [activeSection, setActiveSection] = useState('marketplace'); // 'marketplace', 'orders', 'profile', 'inbox', 'sell', 'categories', 'search'
+  const [activeTopNav, setActiveTopNav] = useState('marketplace');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
+  const [isSearching, setIsSearching] = useState(false);
+
   const [userProfile, setUserProfile] = useState({
     name: 'John Doe',
     email: 'john.doe@example.com',
@@ -61,7 +75,8 @@ const BuyerDashboard = memo(() => {
       price: 99.99, 
       image: 'https://via.placeholder.com/300x200/667eea/ffffff?text=Headphones',
       seller: 'TechStore',
-      location: 'New York'
+      location: 'New York',
+      category: 'electronics'
     },
     { 
       id: 2, 
@@ -69,7 +84,8 @@ const BuyerDashboard = memo(() => {
       price: 199.99, 
       image: 'https://via.placeholder.com/300x200/764ba2/ffffff?text=Smart+Watch',
       seller: 'GadgetWorld',
-      location: 'San Francisco'
+      location: 'San Francisco',
+      category: 'electronics'
     },
     { 
       id: 3, 
@@ -77,7 +93,8 @@ const BuyerDashboard = memo(() => {
       price: 59.99,
       image: 'https://via.placeholder.com/300x200/f093fb/ffffff?text=Speaker',
       seller: 'AudioPro',
-      location: 'Chicago'
+      location: 'Chicago',
+      category: 'electronics'
     },
     { 
       id: 4, 
@@ -85,7 +102,26 @@ const BuyerDashboard = memo(() => {
       price: 129.99, 
       image: 'https://via.placeholder.com/300x200/4facfe/ffffff?text=Running+Shoes',
       seller: 'SportGear',
-      location: 'Miami'
+      location: 'Miami',
+      category: 'sports'
+    },
+    { 
+      id: 5, 
+      name: 'Coffee Maker', 
+      price: 89.99, 
+      image: 'https://via.placeholder.com/300x200/ff6b6b/ffffff?text=Coffee+Maker',
+      seller: 'HomeEssentials',
+      location: 'Boston',
+      category: 'home'
+    },
+    { 
+      id: 6, 
+      name: 'Bookshelf', 
+      price: 149.99, 
+      image: 'https://via.placeholder.com/300x200/4ecdc4/ffffff?text=Bookshelf',
+      seller: 'FurnitureHub',
+      location: 'Seattle',
+      category: 'home'
     }
   ];
 
@@ -106,6 +142,42 @@ const BuyerDashboard = memo(() => {
     }
   ];
 
+  const mockCategories = [
+    { id: 'electronics', name: 'Electronics', icon: faTruck, count: 45, color: '#667eea' },
+    { id: 'home', name: 'Home & Garden', icon: faHome, count: 32, color: '#764ba2' },
+    { id: 'sports', name: 'Sports & Outdoors', icon: faHeart, count: 28, color: '#f093fb' },
+    { id: 'fashion', name: 'Fashion', icon: faUser, count: 67, color: '#4facfe' },
+    { id: 'vehicles', name: 'Vehicles', icon: faTruck, count: 15, color: '#43e97b' },
+    { id: 'property', name: 'Property', icon: faBuilding, count: 23, color: '#ff6b6b' }
+  ];
+
+  const mockMessages = [
+    {
+      id: 1,
+      sender: 'TechStore',
+      message: 'Hi! Are you still interested in the headphones?',
+      time: '2 hours ago',
+      unread: true,
+      product: 'Wireless Headphones'
+    },
+    {
+      id: 2,
+      sender: 'SportGear',
+      message: 'Your order has been shipped!',
+      time: '1 day ago',
+      unread: false,
+      product: 'Running Shoes'
+    },
+    {
+      id: 3,
+      sender: 'GadgetWorld',
+      message: 'We have a new deal on smart watches',
+      time: '3 days ago',
+      unread: false,
+      product: 'Smart Watch'
+    }
+  ];
+
   const fetchDashboardData = useCallback(async () => {
     try {
       setLoading(true);
@@ -118,6 +190,8 @@ const BuyerDashboard = memo(() => {
 
       setFeaturedProducts(productsData.products || mockFeaturedProducts);
       setRecentOrders(ordersData.orders?.slice(0, 2) || mockRecentOrders);
+      setCategories(mockCategories);
+      setMessages(mockMessages);
 
     } catch (err) {
       console.error('Error fetching data:', err);
@@ -126,6 +200,8 @@ const BuyerDashboard = memo(() => {
       if (import.meta.env.DEV) {
         setFeaturedProducts(mockFeaturedProducts);
         setRecentOrders(mockRecentOrders);
+        setCategories(mockCategories);
+        setMessages(mockMessages);
         setError(null);
       }
     } finally {
@@ -147,12 +223,38 @@ const BuyerDashboard = memo(() => {
         case 'contact_seller':
           alert(`Contacting seller: ${data.seller}`);
           break;
+        case 'mark_message_read':
+          setMessages(prev => prev.map(msg => 
+            msg.id === data.messageId ? { ...msg, unread: false } : msg
+          ));
+          break;
         default:
           break;
       }
     } catch (err) {
       alert('Action failed: ' + err.message);
     }
+  }, []);
+
+  const handleSearch = useCallback(async (query) => {
+    if (!query.trim()) {
+      setSearchResults([]);
+      setIsSearching(false);
+      return;
+    }
+
+    setIsSearching(true);
+    
+    // Simulate API search delay
+    setTimeout(() => {
+      const results = mockFeaturedProducts.filter(product =>
+        product.name.toLowerCase().includes(query.toLowerCase()) ||
+        product.seller.toLowerCase().includes(query.toLowerCase()) ||
+        product.category.toLowerCase().includes(query.toLowerCase())
+      );
+      setSearchResults(results);
+      setIsSearching(false);
+    }, 500);
   }, []);
 
   const handleNotificationToggle = useCallback((type) => {
@@ -165,6 +267,15 @@ const BuyerDashboard = memo(() => {
     }));
     alert(`${type} notifications ${!userProfile.notifications[type] ? 'enabled' : 'disabled'}`);
   }, [userProfile.notifications]);
+
+  const handleTopNavClick = useCallback((navItem) => {
+    setActiveTopNav(navItem);
+    if (navItem === 'search') {
+      setActiveSection('search');
+    } else {
+      setActiveSection(navItem);
+    }
+  }, []);
 
   // Loading state
   if (loading) {
@@ -206,6 +317,31 @@ const BuyerDashboard = memo(() => {
           userProfile={userProfile} 
           onNotificationToggle={handleNotificationToggle}
         />;
+      case 'inbox':
+        return <InboxSection 
+          messages={messages}
+          onMarkAsRead={handleQuickAction}
+        />;
+      case 'sell':
+        return <SellSection />;
+      case 'categories':
+        return <CategoriesSection 
+          categories={categories}
+          featuredProducts={featuredProducts}
+          onCategorySelect={(category) => {
+            setActiveSection('marketplace');
+            // Filter products by category would go here
+          }}
+        />;
+      case 'search':
+        return <SearchSection 
+          searchQuery={searchQuery}
+          searchResults={searchResults}
+          isSearching={isSearching}
+          onSearch={handleSearch}
+          onSearchChange={setSearchQuery}
+          onQuickAction={handleQuickAction}
+        />;
       default:
         return <MarketplaceSection 
           featuredProducts={featuredProducts} 
@@ -219,22 +355,37 @@ const BuyerDashboard = memo(() => {
       {/* Top Navigation */}
       <div className="top-nav">
         <div className="nav-items">
-          <button className={`nav-item ${activeSection === 'inbox' ? 'active' : ''}`}>
+          <button 
+            className={`nav-item ${activeTopNav === 'inbox' ? 'active' : ''}`}
+            onClick={() => handleTopNavClick('inbox')}
+          >
             <FontAwesomeIcon icon={faInbox} />
             <span>Inbox</span>
+            {messages.filter(msg => msg.unread).length > 0 && (
+              <span className="nav-badge">{messages.filter(msg => msg.unread).length}</span>
+            )}
           </button>
           
-          <button className={`nav-item ${activeSection === 'sell' ? 'active' : ''}`}>
+          <button 
+            className={`nav-item ${activeTopNav === 'sell' ? 'active' : ''}`}
+            onClick={() => handleTopNavClick('sell')}
+          >
             <FontAwesomeIcon icon={faStore} />
             <span>Sell</span>
           </button>
           
-          <button className={`nav-item ${activeSection === 'categories' ? 'active' : ''}`}>
+          <button 
+            className={`nav-item ${activeTopNav === 'categories' ? 'active' : ''}`}
+            onClick={() => handleTopNavClick('categories')}
+          >
             <FontAwesomeIcon icon={faList} />
             <span>Categories</span>
           </button>
           
-          <button className={`nav-item ${activeSection === 'search' ? 'active' : ''}`}>
+          <button 
+            className={`nav-item ${activeTopNav === 'search' ? 'active' : ''}`}
+            onClick={() => handleTopNavClick('search')}
+          >
             <FontAwesomeIcon icon={faSearch} />
             <span>Search</span>
           </button>
@@ -243,8 +394,8 @@ const BuyerDashboard = memo(() => {
 
       {/* Main Content */}
       <div className="main-content">
-        {/* Search Bar - Only show in marketplace */}
-        {activeSection === 'marketplace' && (
+        {/* Search Bar - Show in marketplace and search sections */}
+        {(activeSection === 'marketplace' || activeSection === 'search') && (
           <div className="search-section">
             <div className="search-bar">
               <FontAwesomeIcon icon={faSearch} className="search-icon" />
@@ -252,7 +403,31 @@ const BuyerDashboard = memo(() => {
                 type="text" 
                 placeholder="Q. Search Marketplace"
                 className="search-input"
+                value={searchQuery}
+                onChange={(e) => {
+                  setSearchQuery(e.target.value);
+                  if (activeSection === 'search') {
+                    handleSearch(e.target.value);
+                  }
+                }}
+                onKeyPress={(e) => {
+                  if (e.key === 'Enter' && activeSection === 'marketplace') {
+                    setActiveSection('search');
+                    handleSearch(searchQuery);
+                  }
+                }}
               />
+              {activeSection === 'search' && searchQuery && (
+                <button 
+                  className="clear-search"
+                  onClick={() => {
+                    setSearchQuery('');
+                    setSearchResults([]);
+                  }}
+                >
+                  <FontAwesomeIcon icon={faTimes} />
+                </button>
+              )}
             </div>
           </div>
         )}
@@ -265,7 +440,7 @@ const BuyerDashboard = memo(() => {
       <div className="bottom-nav">
         <button 
           className={`bottom-nav-item ${activeSection === 'home' ? 'active' : ''}`}
-          onClick={() => setActiveSection('home')}
+          onClick={() => setActiveSection('marketplace')}
         >
           <FontAwesomeIcon icon={faHome} />
           <span>Home</span>
@@ -309,7 +484,7 @@ const BuyerDashboard = memo(() => {
   );
 });
 
-// Marketplace Section Component
+// Marketplace Section Component (keep existing)
 const MarketplaceSection = ({ featuredProducts, handleQuickAction }) => (
   <>
     {featuredProducts.length > 0 && (
@@ -338,7 +513,7 @@ const MarketplaceSection = ({ featuredProducts, handleQuickAction }) => (
                     className="action-btn message-btn"
                     onClick={() => handleQuickAction('contact_seller', { seller: product.seller })}
                   >
-                    <FontAwesomeIcon icon={faUser} />
+                    <FontAwesomeIcon icon={faMessage} />
                     Message
                   </button>
                   <button 
@@ -358,7 +533,7 @@ const MarketplaceSection = ({ featuredProducts, handleQuickAction }) => (
   </>
 );
 
-// Orders Section Component
+// Orders Section Component (keep existing)
 const OrdersSection = ({ recentOrders }) => (
   <div className="orders-section">
     <div className="section-header">
@@ -404,7 +579,7 @@ const OrdersSection = ({ recentOrders }) => (
   </div>
 );
 
-// Profile Section Component
+// Profile Section Component (keep existing)
 const ProfileSection = ({ userProfile, onNotificationToggle }) => (
   <div className="profile-section">
     {/* Profile Header */}
@@ -554,6 +729,199 @@ const ProfileSection = ({ userProfile, onNotificationToggle }) => (
         </div>
       </div>
     </div>
+  </div>
+);
+
+// NEW: Inbox Section Component
+const InboxSection = ({ messages, onMarkAsRead }) => (
+  <div className="inbox-section">
+    <div className="section-header">
+      <h3 className="section-title">
+        <FontAwesomeIcon icon={faInbox} className="me-2" />
+        Messages
+      </h3>
+    </div>
+
+    {messages.length > 0 ? (
+      <div className="messages-list">
+        {messages.map(message => (
+          <div 
+            key={message.id} 
+            className={`message-item ${message.unread ? 'unread' : ''}`}
+            onClick={() => onMarkAsRead('mark_message_read', { messageId: message.id })}
+          >
+            <div className="message-avatar">
+              <FontAwesomeIcon icon={faUser} />
+            </div>
+            <div className="message-content">
+              <div className="message-header">
+                <h4>{message.sender}</h4>
+                <span className="message-time">{message.time}</span>
+              </div>
+              <p className="message-preview">{message.message}</p>
+              <span className="message-product">{message.product}</span>
+            </div>
+            {message.unread && <div className="unread-dot"></div>}
+          </div>
+        ))}
+      </div>
+    ) : (
+      <div className="empty-inbox">
+        <FontAwesomeIcon icon={faEnvelope} size="2x" className="empty-icon" />
+        <h4>No messages yet</h4>
+        <p>Your messages with sellers will appear here</p>
+      </div>
+    )}
+  </div>
+);
+
+// NEW: Sell Section Component
+const SellSection = () => (
+  <div className="sell-section">
+    <div className="section-header">
+      <h3 className="section-title">
+        <FontAwesomeIcon icon={faStore} className="me-2" />
+        Sell Your Item
+      </h3>
+    </div>
+
+    <div className="sell-guide">
+      <div className="guide-step">
+        <div className="step-number">1</div>
+        <div className="step-content">
+          <h4>Take Photos</h4>
+          <p>Take clear, well-lit photos of your item from different angles</p>
+        </div>
+      </div>
+      
+      <div className="guide-step">
+        <div className="step-number">2</div>
+        <div className="step-content">
+          <h4>Write Description</h4>
+          <p>Describe your item honestly and include important details</p>
+        </div>
+      </div>
+      
+      <div className="guide-step">
+        <div className="step-number">3</div>
+        <div className="step-content">
+          <h4>Set Price</h4>
+          <p>Research similar items to set a fair price</p>
+        </div>
+      </div>
+    </div>
+
+    <button className="list-item-btn">
+      <FontAwesomeIcon icon={faPlus} className="me-2" />
+      List Item for Sale
+    </button>
+
+    <div className="selling-tips">
+      <h4>Selling Tips</h4>
+      <ul>
+        <li>✓ Use natural lighting for photos</li>
+        <li>✓ Be honest about item condition</li>
+        <li>✓ Respond to messages quickly</li>
+        <li>✓ Meet in safe, public places</li>
+      </ul>
+    </div>
+  </div>
+);
+
+// NEW: Categories Section Component
+const CategoriesSection = ({ categories, onCategorySelect }) => (
+  <div className="categories-section">
+    <div className="section-header">
+      <h3 className="section-title">
+        <FontAwesomeIcon icon={faList} className="me-2" />
+        Browse Categories
+      </h3>
+    </div>
+
+    <div className="categories-grid">
+      {categories.map(category => (
+        <div 
+          key={category.id} 
+          className="category-item"
+          onClick={() => onCategorySelect(category.id)}
+        >
+          <div 
+            className="category-icon"
+            style={{ backgroundColor: category.color }}
+          >
+            <FontAwesomeIcon icon={category.icon} />
+          </div>
+          <div className="category-info">
+            <h4>{category.name}</h4>
+            <span className="category-count">{category.count} items</span>
+          </div>
+          <FontAwesomeIcon icon={faChevronRight} className="category-arrow" />
+        </div>
+      ))}
+    </div>
+  </div>
+);
+
+// NEW: Search Section Component
+const SearchSection = ({ searchQuery, searchResults, isSearching, onSearchChange, onQuickAction }) => (
+  <div className="search-results-section">
+    <div className="section-header">
+      <h3 className="section-title">
+        <FontAwesomeIcon icon={faSearch} className="me-2" />
+        Search Results
+        {searchQuery && <span className="search-query"> for "{searchQuery}"</span>}
+      </h3>
+    </div>
+
+    {isSearching ? (
+      <div className="search-loading">
+        <FontAwesomeIcon icon={faSpinner} spin className="me-2" />
+        Searching...
+      </div>
+    ) : searchQuery && searchResults.length === 0 ? (
+      <div className="no-results">
+        <FontAwesomeIcon icon={faSearch} size="2x" className="empty-icon" />
+        <h4>No results found</h4>
+        <p>Try different keywords or browse categories</p>
+      </div>
+    ) : searchResults.length > 0 ? (
+      <div className="search-results-grid">
+        {searchResults.map(product => (
+          <div key={product.id} className="marketplace-item">
+            <div className="item-image">
+              <img src={product.image} alt={product.name} />
+            </div>
+            <div className="item-info">
+              <h4 className="item-price">${product.price}</h4>
+              <h3 className="item-name">{product.name}</h3>
+              <p className="item-location">{product.location}</p>
+              <div className="item-actions">
+                <button 
+                  className="action-btn message-btn"
+                  onClick={() => onQuickAction('contact_seller', { seller: product.seller })}
+                >
+                  <FontAwesomeIcon icon={faMessage} />
+                  Message
+                </button>
+                <button 
+                  className="action-btn cart-btn"
+                  onClick={() => onQuickAction('add_to_cart', { productId: product.id })}
+                >
+                  <FontAwesomeIcon icon={faShoppingCart} />
+                  Cart
+                </button>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    ) : (
+      <div className="search-prompt">
+        <FontAwesomeIcon icon={faSearch} size="2x" className="empty-icon" />
+        <h4>Search Marketplace</h4>
+        <p>Enter keywords to find items near you</p>
+      </div>
+    )}
   </div>
 );
 
