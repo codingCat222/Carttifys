@@ -1,3 +1,4 @@
+// BuyerDashboard.js
 import React, { useState, useEffect, useCallback, memo } from 'react';
 import { Link } from 'react-router-dom';
 import './BuyerDashboard.css';
@@ -38,8 +39,9 @@ import {
   faChevronRight
 } from '@fortawesome/free-solid-svg-icons';
 
-// Import your ProductList component
+// Import your components
 import ProductList from './ProductList';
+import BuyerOrders from './BuyerOrders'; // Import BuyerOrders component
 
 const BuyerDashboard = memo(() => {
   const [featuredProducts, setFeaturedProducts] = useState([]);
@@ -236,9 +238,9 @@ const BuyerDashboard = memo(() => {
   const renderMainContent = () => {
     switch (activeSection) {
       case 'marketplace':
-        return <ProductList />; // 🔥 THIS IS THE KEY CHANGE - Using ProductList component
+        return <ProductList />;
       case 'orders':
-        return <OrdersSection recentOrders={recentOrders} />;
+        return <BuyerOrders />; // 🔥 Use BuyerOrders component here
       case 'profile':
         return <ProfileSection 
           userProfile={userProfile} 
@@ -268,7 +270,7 @@ const BuyerDashboard = memo(() => {
           onQuickAction={handleQuickAction}
         />;
       default:
-        return <ProductList />; // 🔥 Default to ProductList
+        return <ProductList />;
     }
   };
 
@@ -361,7 +363,7 @@ const BuyerDashboard = memo(() => {
       {/* Bottom Navigation */}
       <div className="bottom-nav">
         <button 
-          className={`bottom-nav-item ${activeSection === 'home' ? 'active' : ''}`}
+          className={`bottom-nav-item ${activeSection === 'marketplace' ? 'active' : ''}`}
           onClick={() => setActiveSection('marketplace')}
         >
           <FontAwesomeIcon icon={faHome} />
@@ -388,7 +390,7 @@ const BuyerDashboard = memo(() => {
         
         <button 
           className={`bottom-nav-item ${activeSection === 'orders' ? 'active' : ''}`}
-          onClick={() => setActiveSection('orders')}
+          onClick={() => setActiveSection('orders')} // 🔥 This will now show BuyerOrders
         >
           <FontAwesomeIcon icon={faShoppingCart} />
           <span>Orders</span>
@@ -406,54 +408,7 @@ const BuyerDashboard = memo(() => {
   );
 });
 
-// Keep the other section components (Orders, Profile, Inbox, Sell, Categories, Search)
-// But remove the MarketplaceSection since we're using ProductList instead
-
-const OrdersSection = ({ recentOrders }) => (
-  <div className="orders-section">
-    <div className="section-header">
-      <h3 className="section-title">
-        <FontAwesomeIcon icon={faShoppingBag} className="me-2" />
-        Your Recent Orders
-      </h3>
-      <Link to="/buyer/orders" className="view-all-link">
-        View All <FontAwesomeIcon icon={faEye} />
-      </Link>
-    </div>
-    
-    {recentOrders.length > 0 ? (
-      <div className="orders-list">
-        {recentOrders.map(order => (
-          <div key={order.id} className="order-item">
-            <div className="order-info">
-              <h4>{order.product}</h4>
-              <p>Order #{order.id} • ${order.total}</p>
-              <span className={`status ${order.status}`}>
-                {order.status}
-              </span>
-            </div>
-            <Link to={`/buyer/orders/${order.id}`} className="view-order-btn">
-              <FontAwesomeIcon icon={faEye} />
-            </Link>
-          </div>
-        ))}
-      </div>
-    ) : (
-      <div className="empty-orders">
-        <FontAwesomeIcon icon={faBox} size="2x" className="empty-icon" />
-        <h4>No orders yet</h4>
-        <p>Start shopping to see your orders here</p>
-        <button 
-          className="btn btn-primary"
-          onClick={() => window.location.href = '/buyer/products'}
-        >
-          Start Shopping
-        </button>
-      </div>
-    )}
-  </div>
-);
-
+// Keep your other section components but REMOVE OrdersSection
 const ProfileSection = ({ userProfile, onNotificationToggle }) => (
   <div className="profile-section">
     <div className="profile-header">
@@ -478,8 +433,78 @@ const ProfileSection = ({ userProfile, onNotificationToggle }) => (
         Switch to Seller View
       </button>
 
-      {/* Personal Information, Notifications, Help & Support sections remain the same */}
-      {/* ... (keep your existing ProfileSection code) ... */}
+      <div className="settings-group">
+        <h4>Personal Information</h4>
+        <div className="setting-item">
+          <label>Full Name</label>
+          <p>{userProfile.name}</p>
+        </div>
+        <div className="setting-item">
+          <label>Email</label>
+          <p>{userProfile.email}</p>
+        </div>
+        <div className="setting-item">
+          <label>Phone</label>
+          <p>{userProfile.phone}</p>
+        </div>
+        <div className="setting-item">
+          <label>Location</label>
+          <p>{userProfile.location}</p>
+        </div>
+      </div>
+
+      <div className="settings-group">
+        <h4>Notifications</h4>
+        <div className="setting-item toggle">
+          <label>Email Notifications</label>
+          <div className="toggle-switch">
+            <input 
+              type="checkbox" 
+              checked={userProfile.notifications.email}
+              onChange={() => onNotificationToggle('email')}
+            />
+            <span className="slider"></span>
+          </div>
+        </div>
+        <div className="setting-item toggle">
+          <label>Push Notifications</label>
+          <div className="toggle-switch">
+            <input 
+              type="checkbox" 
+              checked={userProfile.notifications.push}
+              onChange={() => onNotificationToggle('push')}
+            />
+            <span className="slider"></span>
+          </div>
+        </div>
+        <div className="setting-item toggle">
+          <label>SMS Notifications</label>
+          <div className="toggle-switch">
+            <input 
+              type="checkbox" 
+              checked={userProfile.notifications.sms}
+              onChange={() => onNotificationToggle('sms')}
+            />
+            <span className="slider"></span>
+          </div>
+        </div>
+      </div>
+
+      <div className="settings-group">
+        <h4>Help & Support</h4>
+        <button className="help-btn">
+          <FontAwesomeIcon icon={faQuestionCircle} />
+          Help Center
+        </button>
+        <button className="help-btn">
+          <FontAwesomeIcon icon={faShield} />
+          Privacy & Security
+        </button>
+        <button className="help-btn">
+          <FontAwesomeIcon icon={faInfoCircle} />
+          About Marketplace
+        </button>
+      </div>
     </div>
   </div>
 );

@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useCart } from '../contexts/CartContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import './ProductList.css';
 import {
   faSearch,
   faFilter,
@@ -42,127 +41,95 @@ const ProductList = () => {
   const { addToCart } = useCart();
 
   useEffect(() => {
-    // Real product data with EXTRA LARGE high-quality images
+    // Real product data with high-quality images
     const realProducts = [
       {
         id: 1,
         name: 'Sony WH-1000XM4 Wireless Headphones',
         price: 349.99,
         category: 'electronics',
-        image: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1600&q=80',
+        image: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=500&q=80',
         seller: 'TechStore Pro',
         rating: 4.8,
-        description: 'Industry-leading noise cancellation with 30-hour battery life'
+        description: 'Industry-leading noise cancellation with 30-hour battery life',
+        location: 'New York'
       },
       {
         id: 2,
         name: 'Nike Air Max 270 Running Shoes',
         price: 149.99,
         category: 'sports',
-        image: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1600&q=80',
+        image: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=500&q=80',
         seller: 'SportGear Hub',
         rating: 4.5,
-        description: 'Comfortable running shoes with maximum air cushioning'
+        description: 'Comfortable running shoes with maximum air cushioning',
+        location: 'San Francisco'
       },
       {
         id: 3,
         name: 'Apple Watch Series 8',
         price: 399.99,
         category: 'electronics',
-        image: 'https://images.unsplash.com/photo-1579586337278-3f436f4b5d5f?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1600&q=80',
+        image: 'https://images.unsplash.com/photo-1579586337278-3f436f4b5d5f?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=500&q=80',
         seller: 'GadgetWorld',
         rating: 4.7,
-        description: 'Advanced health monitoring and fitness tracking'
+        description: 'Advanced health monitoring and fitness tracking',
+        location: 'Chicago'
       },
       {
         id: 4,
         name: 'Nespresso Vertuo Coffee Maker',
         price: 199.99,
         category: 'home',
-        image: 'https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1600&q=80',
+        image: 'https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=500&q=80',
         seller: 'HomeEssentials',
         rating: 4.4,
-        description: 'Brews coffee and espresso with centrifusion technology'
+        description: 'Brews coffee and espresso with centrifusion technology',
+        location: 'Boston'
       },
       {
         id: 5,
         name: 'Professional Yoga Mat',
         price: 39.99,
         category: 'sports',
-        image: 'https://images.unsplash.com/photo-1544367567-0f2fcb009e0b?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1600&q=80',
+        image: 'https://images.unsplash.com/photo-1544367567-0f2fcb009e0b?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=500&q=80',
         seller: 'FitLife Store',
         rating: 4.3,
-        description: 'Non-slip premium yoga mat for all practice levels'
+        description: 'Non-slip premium yoga mat for all practice levels',
+        location: 'Miami'
       },
       {
         id: 6,
         name: 'JBL Flip 6 Bluetooth Speaker',
         price: 129.99,
         category: 'electronics',
-        image: 'https://images.unsplash.com/photo-1608043152269-423dbba4e7e1?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1600&q=80',
+        image: 'https://images.unsplash.com/photo-1608043152269-423dbba4e7e1?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=500&q=80',
         seller: 'AudioPro',
         rating: 4.6,
-        description: 'Portable Bluetooth speaker with powerful sound'
+        description: 'Portable Bluetooth speaker with powerful sound',
+        location: 'Seattle'
       },
       {
         id: 7,
         name: 'Levi\'s 501 Original Jeans',
         price: 89.99,
         category: 'fashion',
-        image: 'https://images.unsplash.com/photo-1542272604-787c3835535d?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1600&q=80',
+        image: 'https://images.unsplash.com/photo-1542272604-787c3835535d?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=500&q=80',
         seller: 'FashionHub',
         rating: 4.2,
-        description: 'Classic straight fit jeans in original denim'
+        description: 'Classic straight fit jeans in original denim',
+        location: 'Los Angeles'
       },
       {
         id: 8,
         name: 'Dyson Supersonic Hair Dryer',
         price: 429.99,
         category: 'beauty',
-        image: 'https://images.unsplash.com/photo-1522338140262-f46f5913618a?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1600&q=80',
+        image: 'https://images.unsplash.com/photo-1522338140262-f46f5913618a?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=500&q=80',
         seller: 'BeautyTech',
         rating: 4.9,
-        description: 'Professional hair dryer with intelligent heat control'
-      },
-      {
-        id: 9,
-        name: 'KitchenAid Stand Mixer',
-        price: 449.99,
-        category: 'home',
-        image: 'https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1600&q=80',
-        seller: 'KitchenPro',
-        rating: 4.8,
-        description: 'Professional-grade stand mixer for all your baking needs'
-      },
-      {
-        id: 10,
-        name: 'Adidas Ultraboost Running Shoes',
-        price: 179.99,
-        category: 'sports',
-        image: 'https://images.unsplash.com/photo-1606107557195-0e29a4b5b4aa?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1600&q=80',
-        seller: 'RunGear',
-        rating: 4.6,
-        description: 'Energy-returning running shoes with boost technology'
-      },
-      {
-        id: 11,
-        name: 'Samsung 4K Smart TV 55"',
-        price: 599.99,
-        category: 'electronics',
-        image: 'https://images.unsplash.com/photo-1593359677879-a4bb92f829d1?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1600&q=80',
-        seller: 'ElectroWorld',
-        rating: 4.5,
-        description: 'Crystal clear 4K UHD with smart streaming capabilities'
-      },
-      {
-        id: 12,
-        name: 'L\'Oréal Skincare Set',
-        price: 79.99,
-        category: 'beauty',
-        image: 'https://images.unsplash.com/photo-1556228578-8c89e6adf883?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1600&q=80',
-        seller: 'BeautyEssentials',
-        rating: 4.3,
-        description: 'Complete skincare routine for radiant, healthy skin'
+        description: 'Professional hair dryer with intelligent heat control',
+        location: 'New York'
       }
     ];
     
@@ -170,7 +137,6 @@ const ProductList = () => {
     setFilteredProducts(realProducts);
   }, []);
 
-  // ... rest of the component code remains the same
   useEffect(() => {
     let filtered = [...products];
 
@@ -232,6 +198,7 @@ const ProductList = () => {
 
   const handleAddToCart = (product) => {
     addToCart(product);
+    alert(`${product.name} added to cart!`);
   };
 
   const getCategoryIcon = (category) => {
@@ -269,52 +236,40 @@ const ProductList = () => {
         return <FontAwesomeIcon icon={faUserTie} className="product-specific-icon" />;
       case 8:
         return <FontAwesomeIcon icon={faWind} className="product-specific-icon" />;
-      case 9:
-        return <FontAwesomeIcon icon={faKitchenSet} className="product-specific-icon" />;
-      case 10:
-        return <FontAwesomeIcon icon={faPersonRunning} className="product-specific-icon" />;
-      case 11:
-        return <FontAwesomeIcon icon={faTv} className="product-specific-icon" />;
-      case 12:
-        return <FontAwesomeIcon icon={faPumpSoap} className="product-specific-icon" />;
       default:
         return <FontAwesomeIcon icon={faCube} className="product-specific-icon" />;
     }
   };
 
   return (
-    <div className="container mt-4">
-      <div className="row">
-        <div className="col-12">
-          <div className="page-header">
-            <h1>
-              <FontAwesomeIcon icon={faCube} className="me-3 header-icon" />
-              Discover Products
-            </h1>
-            <p className="lead">Find amazing products from our trusted sellers</p>
-          </div>
-        </div>
+    <div className="product-list-container">
+      {/* Header */}
+      <div className="product-list-header">
+        <h1 className="product-list-title">
+          <FontAwesomeIcon icon={faCube} className="title-icon" />
+          Discover Products
+        </h1>
+        <p className="product-list-subtitle">Find amazing products from our trusted sellers</p>
       </div>
 
       {/* Search and Filters */}
-      <div className="row mb-4">
-        <div className="col-md-3">
-          <div className="search-box">
-            <FontAwesomeIcon icon={faSearch} className="search-icon" />
-            <input
-              type="text"
-              className="form-control search-input"
-              placeholder="Search products, sellers..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-          </div>
+      <div className="filters-section">
+        <div className="search-container">
+          <FontAwesomeIcon icon={faSearch} className="search-icon" />
+          <input
+            type="text"
+            className="search-input"
+            placeholder="Search products, sellers..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
         </div>
-        <div className="col-md-2">
-          <div className="filter-box">
+        
+        <div className="filter-group">
+          <div className="filter-item">
             <FontAwesomeIcon icon={faTags} className="filter-icon" />
             <select
-              className="form-select filter-select"
+              className="filter-select"
               value={selectedCategory}
               onChange={(e) => setSelectedCategory(e.target.value)}
             >
@@ -326,12 +281,11 @@ const ProductList = () => {
               <option value="beauty">Beauty</option>
             </select>
           </div>
-        </div>
-        <div className="col-md-2">
-          <div className="filter-box">
+
+          <div className="filter-item">
             <FontAwesomeIcon icon={faDollarSign} className="filter-icon" />
             <select
-              className="form-select filter-select"
+              className="filter-select"
               value={priceRange}
               onChange={(e) => setPriceRange(e.target.value)}
             >
@@ -343,12 +297,11 @@ const ProductList = () => {
               <option value="over400">Over $400</option>
             </select>
           </div>
-        </div>
-        <div className="col-md-2">
-          <div className="filter-box">
+
+          <div className="filter-item">
             <FontAwesomeIcon icon={faFilter} className="filter-icon" />
             <select
-              className="form-select filter-select"
+              className="filter-select"
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value)}
             >
@@ -360,78 +313,70 @@ const ProductList = () => {
             </select>
           </div>
         </div>
-        <div className="col-md-3">
-          <div className="results-count">
-            <span className="badge bg-primary">
-              <FontAwesomeIcon icon={faCube} className="me-1" />
-              {filteredProducts.length} {filteredProducts.length === 1 ? 'product' : 'products'} found
-            </span>
-          </div>
+
+        <div className="results-count">
+          <span className="results-badge">
+            {filteredProducts.length} {filteredProducts.length === 1 ? 'product' : 'products'} found
+          </span>
         </div>
       </div>
 
       {/* Products Grid */}
-      <div className="row">
+      <div className="products-grid">
         {filteredProducts.map(product => (
-          <div key={product.id} className="col-xl-3 col-lg-4 col-md-6 mb-4">
-            <div className="card product-card h-100">
-              <div className="product-image-container">
-                <img 
-                  src={product.image} 
-                  className="card-img-top product-image" 
-                  alt={product.name}
-                  loading="lazy"
-                />
-                <div className="product-badges">
-                  <span className="category-badge">
-                    {getCategoryIcon(product.category)}
-                    <span className="category-text">{product.category}</span>
-                  </span>
-                  <span className="rating-badge">
-                    <FontAwesomeIcon icon={faStar} className="star-icon" />
-                    {product.rating}
-                  </span>
-                </div>
-                <div className="product-icon-overlay">
-                  {getProductIcon(product.id)}
-                </div>
+          <div key={product.id} className="product-card">
+            <div className="product-image-container">
+              <img 
+                src={product.image} 
+                className="product-image" 
+                alt={product.name}
+                loading="lazy"
+              />
+              <div className="product-badges">
+                <span className="category-badge">
+                  {getCategoryIcon(product.category)}
+                  <span className="category-text">{product.category}</span>
+                </span>
+                <span className="rating-badge">
+                  <FontAwesomeIcon icon={faStar} className="star-icon" />
+                  {product.rating}
+                </span>
               </div>
-              <div className="card-body d-flex flex-column">
-                <h5 className="card-title product-title">
-                  {getProductIcon(product.id)}
-                  {product.name}
-                </h5>
-                <p className="card-text product-description">{product.description}</p>
+            </div>
+            
+            <div className="product-info">
+              <h3 className="product-name">
+                {getProductIcon(product.id)}
+                {product.name}
+              </h3>
+              <p className="product-description">{product.description}</p>
+              
+              <div className="product-meta">
+                <div className="price-section">
+                  <span className="product-price">${product.price}</span>
+                </div>
                 
-                <div className="product-meta mt-auto">
-                  <div className="price-section mb-2">
-                    <span className="product-price">
-                      <FontAwesomeIcon icon={faDollarSign} className="price-icon" />
-                      {product.price}
-                    </span>
-                  </div>
-                  
-                  <div className="seller-section mb-3">
-                    <FontAwesomeIcon icon={faStore} className="store-icon" />
-                    <small className="text-muted">Sold by: {product.seller}</small>
-                  </div>
-                  
-                  <div className="product-actions d-flex gap-2">
-                    <Link 
-                      to={`/buyer/products/${product.id}`}
-                      className="btn btn-outline-primary btn-sm flex-fill view-details-btn"
-                    >
-                      <FontAwesomeIcon icon={faEye} className="me-1" />
-                      Details
-                    </Link>
-                    <button 
-                      className="btn btn-primary btn-sm flex-fill add-to-cart-btn"
-                      onClick={() => handleAddToCart(product)}
-                    >
-                      <FontAwesomeIcon icon={faShoppingCart} className="me-1" />
-                      Add to Cart
-                    </button>
-                  </div>
+                <div className="seller-section">
+                  <FontAwesomeIcon icon={faStore} className="store-icon" />
+                  <span className="seller-name">{product.seller}</span>
+                  <span className="product-location">{product.location}</span>
+                </div>
+                
+                <div className="product-actions">
+                  <Link 
+                    to={`/buyer/products/${product.id}`}
+                    className="btn view-details-btn"
+                  >
+                    <FontAwesomeIcon icon={faEye} className="me-1" />
+                    Details
+                  </Link>
+                  <button 
+                    className="btn add-to-cart-btn"
+                    onClick={() => handleAddToCart(product)}
+                  >
+                    <FontAwesomeIcon icon={faShoppingCart} className="me-1" />
+                    Add to Cart
+                  </button>
                 </div>
               </div>
             </div>
@@ -440,12 +385,12 @@ const ProductList = () => {
       </div>
 
       {filteredProducts.length === 0 && (
-        <div className="text-center py-5 no-products">
+        <div className="no-products">
           <FontAwesomeIcon icon={faSearch} className="no-products-icon" />
           <h4>No products found</h4>
-          <p className="text-muted">Try adjusting your search filters or search terms</p>
+          <p className="no-products-text">Try adjusting your search filters or search terms</p>
           <button 
-            className="btn btn-outline-primary mt-2"
+            className="clear-filters-btn"
             onClick={() => {
               setSearchTerm('');
               setSelectedCategory('');

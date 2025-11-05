@@ -5,14 +5,17 @@ import './Signup.css';
 
 const Signup = () => {
   const [searchParams] = useSearchParams();
-  const defaultRole = searchParams.get('role') || 'buyer';
+  const urlRole = searchParams.get('role');
+  
+  // Force the role from URL, don't allow changing
+  const forcedRole = urlRole === 'seller' ? 'seller' : 'buyer';
   
   const [formData, setFormData] = useState({
     name: '',
     email: '',
     password: '',
     confirmPassword: '',
-    role: defaultRole,
+    role: forcedRole, // Use forced role from URL
     address: '',
     phone: '',
     businessName: '',
@@ -71,29 +74,13 @@ const Signup = () => {
       <div className="signup-card">
         <div className="signup-header">
           <i className="fas fa-user-plus signup-icon"></i>
-          <h1>Create Your Account</h1>
-          <p>Join as {formData.role === 'seller' ? 'a Seller' : 'a Buyer'}</p>
+          <h1>
+            {formData.role === 'seller' ? 'Start Selling' : 'Start Shopping'}
+          </h1>
+          <p>Create your {formData.role === 'seller' ? 'Seller' : 'Buyer'} account</p>
         </div>
 
-        {/* Role Selection */}
-        <div className="role-selection">
-          <button
-            type="button"
-            className={`role-btn ${formData.role === 'buyer' ? 'role-btn-active' : 'role-btn-inactive'}`}
-            onClick={() => setFormData({...formData, role: 'buyer'})}
-          >
-            <i className="fas fa-shopping-cart"></i>
-            <span>I'm a Buyer</span>
-          </button>
-          <button
-            type="button"
-            className={`role-btn ${formData.role === 'seller' ? 'role-btn-active' : 'role-btn-inactive'}`}
-            onClick={() => setFormData({...formData, role: 'seller'})}
-          >
-            <i className="fas fa-store"></i>
-            <span>I'm a Seller</span>
-          </button>
-        </div>
+        {/* REMOVED Role Selection Buttons - User cannot switch */}
 
         {error && (
           <div className="alert alert-error">
@@ -268,7 +255,7 @@ const Signup = () => {
             ) : (
               <>
                 <i className="fas fa-user-plus"></i>
-                Sign up as {formData.role === 'seller' ? 'Seller' : 'Buyer'}
+                {formData.role === 'seller' ? 'Start Selling' : 'Start Shopping'}
               </>
             )}
           </button>
@@ -280,6 +267,19 @@ const Signup = () => {
             <Link to="/login" className="login-link-text">
               <i className="fas fa-sign-in-alt"></i>
               Login here
+            </Link>
+          </p>
+        </div>
+
+        {/* Show different signup option link */}
+        <div className="alternative-signup">
+          <p>
+            Want to {formData.role === 'seller' ? 'shop' : 'sell'} instead? 
+            <Link 
+              to={formData.role === 'seller' ? '/signup?role=buyer' : '/signup?role=seller'} 
+              className="alternative-link"
+            >
+              {formData.role === 'seller' ? 'Create buyer account' : 'Create seller account'}
             </Link>
           </p>
         </div>
