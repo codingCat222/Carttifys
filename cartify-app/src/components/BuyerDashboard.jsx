@@ -41,7 +41,7 @@ import {
 
 // Import your components
 import ProductList from './ProductList';
-import BuyerOrders from './BuyerOrders'; // Import BuyerOrders component
+import BuyerOrders from './BuyerOrders';
 
 const BuyerDashboard = memo(() => {
   const [featuredProducts, setFeaturedProducts] = useState([]);
@@ -55,6 +55,9 @@ const BuyerDashboard = memo(() => {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [isSearching, setIsSearching] = useState(false);
+  const [cart, setCart] = useState([]);
+  const [cartCount, setCartCount] = useState(0);
+  const [wishlist, setWishlist] = useState([]);
 
   const [userProfile, setUserProfile] = useState({
     name: 'John Doe',
@@ -77,7 +80,8 @@ const BuyerDashboard = memo(() => {
       price: 99.99, 
       image: 'https://via.placeholder.com/300x200/667eea/ffffff?text=Headphones',
       seller: 'TechStore',
-      location: 'New York'
+      location: 'New York',
+      category: 'electronics'
     },
     { 
       id: 2, 
@@ -85,7 +89,8 @@ const BuyerDashboard = memo(() => {
       price: 199.99, 
       image: 'https://via.placeholder.com/300x200/764ba2/ffffff?text=Smart+Watch',
       seller: 'GadgetWorld',
-      location: 'San Francisco'
+      location: 'San Francisco',
+      category: 'electronics'
     }
   ];
 
@@ -148,10 +153,38 @@ const BuyerDashboard = memo(() => {
     fetchDashboardData();
   }, [fetchDashboardData]);
 
+  // Add to cart functionality
+  const addToCart = useCallback((product) => {
+    setCart(prev => {
+      const existing = prev.find(item => item.id === product.id);
+      if (existing) {
+        return prev.map(item => 
+          item.id === product.id 
+            ? { ...item, quantity: item.quantity + 1 }
+            : item
+        );
+      }
+      return [...prev, { ...product, quantity: 1 }];
+    });
+    setCartCount(prev => prev + 1);
+  }, []);
+
+  // Wishlist functionality
+  const toggleWishlist = useCallback((product) => {
+    setWishlist(prev => {
+      const exists = prev.find(item => item.id === product.id);
+      if (exists) {
+        return prev.filter(item => item.id !== product.id);
+      }
+      return [...prev, product];
+    });
+  }, []);
+
   const handleQuickAction = useCallback(async (action, data = null) => {
     try {
       switch (action) {
         case 'add_to_cart':
+          addToCart(data.product);
           alert('Product added to cart!');
           break;
         case 'contact_seller':
@@ -162,13 +195,17 @@ const BuyerDashboard = memo(() => {
             msg.id === data.messageId ? { ...msg, unread: false } : msg
           ));
           break;
+        case 'toggle_wishlist':
+          toggleWishlist(data.product);
+          alert(data.product.isInWishlist ? 'Removed from wishlist' : 'Added to wishlist');
+          break;
         default:
           break;
       }
     } catch (err) {
       alert('Action failed: ' + err.message);
     }
-  }, []);
+  }, [addToCart, toggleWishlist]);
 
   const handleSearch = useCallback((query) => {
     if (!query.trim()) {
@@ -183,7 +220,8 @@ const BuyerDashboard = memo(() => {
     setTimeout(() => {
       const results = mockFeaturedProducts.filter(product =>
         product.name.toLowerCase().includes(query.toLowerCase()) ||
-        product.seller.toLowerCase().includes(query.toLowerCase())
+        product.seller.toLowerCase().includes(query.toLowerCase()) ||
+        product.category.toLowerCase().includes(query.toLowerCase())
       );
       setSearchResults(results);
       setIsSearching(false);
@@ -238,39 +276,75 @@ const BuyerDashboard = memo(() => {
   const renderMainContent = () => {
     switch (activeSection) {
       case 'marketplace':
-        return <ProductList />;
+        return (
+          <ProductList 
+            products={featuredProducts}
+            onAddToCart={addToCart}
+            onToggleWishlist={toggleWishlist}
+            wishlist={wishlist}
+          />
+        );
       case 'orders':
-        return <BuyerOrders />; // 🔥 Use BuyerOrders component here
+        return <BuyerOrders />;
       case 'profile':
-        return <ProfileSection 
-          userProfile={userProfile} 
-          onNotificationToggle={handleNotificationToggle}
-        />;
+        return (
+          <ProfileSection 
+            userProfile={userProfile} 
+            onNotificationToggle={handleNotificationToggle}
+            wishlist={wishlist}
+            recentOrders={recentOrders}
+          />
+        );
       case 'inbox':
-        return <InboxSection 
-          messages={messages}
-          onMarkAsRead={handleQuickAction}
-        />;
+        return (
+          <InboxSection 
+            messages={messages}
+            onMarkAsRead={handleQuickAction}
+          />
+        );
       case 'sell':
         return <SellSection />;
       case 'categories':
-        return <CategoriesSection 
-          categories={categories}
-          onCategorySelect={(category) => {
-            setActiveSection('marketplace');
-          }}
-        />;
+        return (
+          <CategoriesSection 
+            categories={categories}
+            onCategorySelect={(category) => {
+              setActiveSection('marketplace');
+              // Filter products by category
+              handleSearch(category.id);
+            }}
+          />
+        );
       case 'search':
-        return <SearchSection 
-          searchQuery={searchQuery}
-          searchResults={searchResults}
-          isSearching={isSearching}
-          onSearch={handleSearch}
-          onSearchChange={setSearchQuery}
-          onQuickAction={handleQuickAction}
-        />;
+        return (
+          <SearchSection 
+            searchQuery={searchQuery}
+            searchResults={searchResults}
+            isSearching={isSearching}
+            onSearch={handleSearch}
+            onSearchChange={setSearchQuery}
+            onQuickAction={handleQuickAction}
+            wishlist={wishlist}
+          />
+        );
+      case 'cart':
+        return (
+          <CartSection 
+            cart={cart}
+            cartCount={cartCount}
+            onUpdateCart={setCart}
+            onUpdateCartCount={setCartCount}
+          />
+        );
       default:
-        return <ProductList />;
+        return (
+          <ProductList 
+            products={featuredProducts}
+            onAddToCart={addToCart}
+            onToggleWishlist={toggleWishlist}
+            wishlist={wishlist}
+          />
+        );
     }
   };
 
@@ -356,6 +430,14 @@ const BuyerDashboard = memo(() => {
           </div>
         )}
 
+        {/* Cart Badge */}
+        {cartCount > 0 && (
+          <div className="cart-badge-floating" onClick={() => setActiveSection('cart')}>
+            <FontAwesomeIcon icon={faShoppingCart} />
+            <span className="cart-count">{cartCount}</span>
+          </div>
+        )}
+
         {/* Dynamic Content */}
         {renderMainContent()}
       </div>
@@ -390,7 +472,7 @@ const BuyerDashboard = memo(() => {
         
         <button 
           className={`bottom-nav-item ${activeSection === 'orders' ? 'active' : ''}`}
-          onClick={() => setActiveSection('orders')} // 🔥 This will now show BuyerOrders
+          onClick={() => setActiveSection('orders')}
         >
           <FontAwesomeIcon icon={faShoppingCart} />
           <span>Orders</span>
@@ -408,8 +490,8 @@ const BuyerDashboard = memo(() => {
   );
 });
 
-// Keep your other section components but REMOVE OrdersSection
-const ProfileSection = ({ userProfile, onNotificationToggle }) => (
+// Enhanced Profile Section with Wishlist
+const ProfileSection = ({ userProfile, onNotificationToggle, wishlist, recentOrders }) => (
   <div className="profile-section">
     <div className="profile-header">
       <div className="profile-avatar">
@@ -419,6 +501,22 @@ const ProfileSection = ({ userProfile, onNotificationToggle }) => (
         <h2>{userProfile.name}</h2>
         <p>{userProfile.email}</p>
         <span className="member-since">Member since {userProfile.joinedDate}</span>
+      </div>
+    </div>
+
+    {/* Quick Stats */}
+    <div className="profile-stats">
+      <div className="stat-item">
+        <h4>{wishlist.length}</h4>
+        <p>Wishlist</p>
+      </div>
+      <div className="stat-item">
+        <h4>{recentOrders.length}</h4>
+        <p>Orders</p>
+      </div>
+      <div className="stat-item">
+        <h4>4.8</h4>
+        <p>Rating</p>
       </div>
     </div>
 
@@ -509,6 +607,7 @@ const ProfileSection = ({ userProfile, onNotificationToggle }) => (
   </div>
 );
 
+// Enhanced Inbox Section
 const InboxSection = ({ messages, onMarkAsRead }) => (
   <div className="inbox-section">
     <div className="section-header">
@@ -551,6 +650,7 @@ const InboxSection = ({ messages, onMarkAsRead }) => (
   </div>
 );
 
+// Enhanced Sell Section
 const SellSection = () => (
   <div className="sell-section">
     <div className="section-header">
@@ -603,6 +703,7 @@ const SellSection = () => (
   </div>
 );
 
+// Enhanced Categories Section
 const CategoriesSection = ({ categories, onCategorySelect }) => (
   <div className="categories-section">
     <div className="section-header">
@@ -617,7 +718,7 @@ const CategoriesSection = ({ categories, onCategorySelect }) => (
         <div 
           key={category.id} 
           className="category-item"
-          onClick={() => onCategorySelect(category.id)}
+          onClick={() => onCategorySelect(category)}
         >
           <div 
             className="category-icon"
@@ -636,7 +737,8 @@ const CategoriesSection = ({ categories, onCategorySelect }) => (
   </div>
 );
 
-const SearchSection = ({ searchQuery, searchResults, isSearching, onSearchChange, onQuickAction }) => (
+// Enhanced Search Section with Wishlist
+const SearchSection = ({ searchQuery, searchResults, isSearching, onSearchChange, onQuickAction, wishlist }) => (
   <div className="search-results-section">
     <div className="section-header">
       <h3 className="section-title">
@@ -659,34 +761,43 @@ const SearchSection = ({ searchQuery, searchResults, isSearching, onSearchChange
       </div>
     ) : searchResults.length > 0 ? (
       <div className="search-results-grid">
-        {searchResults.map(product => (
-          <div key={product.id} className="marketplace-item">
-            <div className="item-image">
-              <img src={product.image} alt={product.name} />
-            </div>
-            <div className="item-info">
-              <h4 className="item-price">${product.price}</h4>
-              <h3 className="item-name">{product.name}</h3>
-              <p className="item-location">{product.location}</p>
-              <div className="item-actions">
+        {searchResults.map(product => {
+          const isInWishlist = wishlist.some(item => item.id === product.id);
+          return (
+            <div key={product.id} className="marketplace-item">
+              <div className="item-image">
+                <img src={product.image} alt={product.name} />
                 <button 
-                  className="action-btn message-btn"
-                  onClick={() => onQuickAction('contact_seller', { seller: product.seller })}
+                  className={`wishlist-btn ${isInWishlist ? 'active' : ''}`}
+                  onClick={() => onQuickAction('toggle_wishlist', { product, isInWishlist })}
                 >
-                  <FontAwesomeIcon icon={faMessage} />
-                  Message
-                </button>
-                <button 
-                  className="action-btn cart-btn"
-                  onClick={() => onQuickAction('add_to_cart', { productId: product.id })}
-                >
-                  <FontAwesomeIcon icon={faShoppingCart} />
-                  Cart
+                  <FontAwesomeIcon icon={isInWishlist ? faHeart : faHeart} />
                 </button>
               </div>
+              <div className="item-info">
+                <h4 className="item-price">${product.price}</h4>
+                <h3 className="item-name">{product.name}</h3>
+                <p className="item-location">{product.location}</p>
+                <div className="item-actions">
+                  <button 
+                    className="action-btn message-btn"
+                    onClick={() => onQuickAction('contact_seller', { seller: product.seller })}
+                  >
+                    <FontAwesomeIcon icon={faMessage} />
+                    Message
+                  </button>
+                  <button 
+                    className="action-btn cart-btn"
+                    onClick={() => onQuickAction('add_to_cart', { product })}
+                  >
+                    <FontAwesomeIcon icon={faShoppingCart} />
+                    Cart
+                  </button>
+                </div>
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     ) : (
       <div className="search-prompt">
@@ -697,5 +808,87 @@ const SearchSection = ({ searchQuery, searchResults, isSearching, onSearchChange
     )}
   </div>
 );
+
+// New Cart Section
+const CartSection = ({ cart, cartCount, onUpdateCart, onUpdateCartCount }) => {
+  const updateQuantity = (productId, newQuantity) => {
+    if (newQuantity === 0) {
+      onUpdateCart(prev => prev.filter(item => item.id !== productId));
+    } else {
+      onUpdateCart(prev => prev.map(item => 
+        item.id === productId ? { ...item, quantity: newQuantity } : item
+      ));
+    }
+    
+    // Recalculate total count
+    const newCount = cart.reduce((total, item) => total + item.quantity, 0);
+    onUpdateCartCount(newCount);
+  };
+
+  const getTotalPrice = () => {
+    return cart.reduce((total, item) => total + (item.price * item.quantity), 0).toFixed(2);
+  };
+
+  return (
+    <div className="cart-section">
+      <div className="section-header">
+        <h3 className="section-title">
+          <FontAwesomeIcon icon={faShoppingCart} className="me-2" />
+          Shopping Cart ({cartCount} items)
+        </h3>
+      </div>
+
+      {cart.length === 0 ? (
+        <div className="empty-cart">
+          <FontAwesomeIcon icon={faShoppingCart} size="3x" className="empty-icon" />
+          <h4>Your cart is empty</h4>
+          <p>Add some items to get started</p>
+        </div>
+      ) : (
+        <>
+          <div className="cart-items">
+            {cart.map(item => (
+              <div key={item.id} className="cart-item">
+                <img src={item.image} alt={item.name} className="cart-item-image" />
+                <div className="cart-item-details">
+                  <h4>{item.name}</h4>
+                  <p className="seller">Sold by: {item.seller}</p>
+                  <p className="price">${item.price}</p>
+                </div>
+                <div className="quantity-controls">
+                  <button 
+                    onClick={() => updateQuantity(item.id, item.quantity - 1)}
+                    disabled={item.quantity <= 1}
+                  >
+                    -
+                  </button>
+                  <span>{item.quantity}</span>
+                  <button onClick={() => updateQuantity(item.id, item.quantity + 1)}>
+                    +
+                  </button>
+                </div>
+                <button 
+                  className="remove-btn"
+                  onClick={() => updateQuantity(item.id, 0)}
+                >
+                  <FontAwesomeIcon icon={faTimes} />
+                </button>
+              </div>
+            ))}
+          </div>
+          
+          <div className="cart-summary">
+            <div className="total-section">
+              <h4>Total: ${getTotalPrice()}</h4>
+            </div>
+            <button className="checkout-btn">
+              Proceed to Checkout
+            </button>
+          </div>
+        </>
+      )}
+    </div>
+  );
+};
 
 export default BuyerDashboard;
