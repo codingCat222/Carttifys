@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import './ManageProducts.css';
+
 const ManageProducts = () => {
   const [products, setProducts] = useState([]);
   const [filter, setFilter] = useState('all');
+  const [isMobile, setIsMobile] = useState(false);
 
   useEffect(() => {
     // Mock data - Replace with API call
@@ -47,6 +49,16 @@ const ManageProducts = () => {
     ];
     
     setProducts(mockProducts);
+
+    // Check if mobile
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    
+    return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
   const filteredProducts = products.filter(product => {
@@ -84,204 +96,303 @@ const ManageProducts = () => {
   };
 
   return (
-    <div className="container mt-4">
-      <div className="row">
-        <div className="col-12">
-          <div className="d-flex justify-content-between align-items-center">
-            <div>
-              <h1><i className="fas fa-boxes me-2"></i>Manage Products</h1>
-              <p>View and manage your product listings</p>
+    <div className="manage-products-container">
+      <div className="container-fluid py-4">
+        {/* Header */}
+        <div className="row mb-4">
+          <div className="col-12">
+            <div className="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-3">
+              <div>
+                <h1 className="mb-2">
+                  <i className="fas fa-boxes me-2"></i>Manage Products
+                </h1>
+                <p className="text-muted mb-0">View and manage your product listings</p>
+              </div>
+              <Link to="/seller/products/add" className="btn btn-primary btn-lg">
+                <i className="fas fa-plus me-2"></i>Add New Product
+              </Link>
             </div>
-            <Link to="/seller/products/add" className="btn btn-primary">
-              <i className="fas fa-plus me-2"></i>Add New Product
-            </Link>
           </div>
         </div>
-      </div>
 
-      {/* Filters */}
-      <div className="row mb-4">
-        <div className="col-12">
-          <div className="card">
-            <div className="card-body">
-              <div className="d-flex gap-3 flex-wrap">
-                <button
-                  className={`btn ${filter === 'all' ? 'btn-primary' : 'btn-outline-primary'}`}
-                  onClick={() => setFilter('all')}
-                >
-                  <i className="fas fa-th-list me-2"></i>All Products
-                </button>
-                <button
-                  className={`btn ${filter === 'active' ? 'btn-primary' : 'btn-outline-primary'}`}
-                  onClick={() => setFilter('active')}
-                >
-                  <i className="fas fa-check-circle me-2"></i>Active
-                </button>
-                <button
-                  className={`btn ${filter === 'out_of_stock' ? 'btn-primary' : 'btn-outline-primary'}`}
-                  onClick={() => setFilter('out_of_stock')}
-                >
-                  <i className="fas fa-times-circle me-2"></i>Out of Stock
-                </button>
-                <button
-                  className={`btn ${filter === 'featured' ? 'btn-primary' : 'btn-outline-primary'}`}
-                  onClick={() => setFilter('featured')}
-                >
-                  <i className="fas fa-star me-2"></i>Featured
-                </button>
+        {/* Filters */}
+        <div className="row mb-4">
+          <div className="col-12">
+            <div className="filter-section-card">
+              <div className="card-body p-3">
+                <div className="d-flex flex-wrap gap-2 justify-content-center">
+                  <button
+                    className={`filter-btn btn ${filter === 'all' ? 'btn-primary' : 'btn-outline-primary'}`}
+                    onClick={() => setFilter('all')}
+                  >
+                    <i className="fas fa-th-list me-2"></i>All
+                  </button>
+                  <button
+                    className={`filter-btn btn ${filter === 'active' ? 'btn-primary' : 'btn-outline-primary'}`}
+                    onClick={() => setFilter('active')}
+                  >
+                    <i className="fas fa-check-circle me-2"></i>Active
+                  </button>
+                  <button
+                    className={`filter-btn btn ${filter === 'out_of_stock' ? 'btn-primary' : 'btn-outline-primary'}`}
+                    onClick={() => setFilter('out_of_stock')}
+                  >
+                    <i className="fas fa-times-circle me-2"></i>Out of Stock
+                  </button>
+                  <button
+                    className={`filter-btn btn ${filter === 'featured' ? 'btn-primary' : 'btn-outline-primary'}`}
+                    onClick={() => setFilter('featured')}
+                  >
+                    <i className="fas fa-star me-2"></i>Featured
+                  </button>
+                </div>
               </div>
             </div>
           </div>
         </div>
-      </div>
 
-      {/* Products Table */}
-      <div className="row">
-        <div className="col-12">
-          <div className="card">
-            <div className="card-body">
-              <div className="table-responsive">
-                <table className="table">
-                  <thead>
-                    <tr>
-                      <th>Product</th>
-                      <th>Price</th>
-                      <th>Stock</th>
-                      <th>Sales</th>
-                      <th>Status</th>
-                      <th>Featured</th>
-                      <th>Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
+        {/* Products Table */}
+        <div className="row">
+          <div className="col-12">
+            <div className="products-table-card">
+              <div className="card-body p-0">
+                {isMobile ? (
+                  /* Mobile Cards View */
+                  <div className="mobile-products-list p-3">
                     {filteredProducts.map(product => (
-                      <tr key={product.id}>
-                        <td>
-                          <div className="d-flex align-items-center">
+                      <div key={product.id} className="mobile-product-card">
+                        <div className="product-header">
+                          <div className="product-image-container">
                             <img
                               src={product.image}
                               alt={product.name}
-                              className="rounded me-3"
-                              style={{width: '50px', height: '50px', objectFit: 'cover'}}
+                              className="product-image"
                             />
-                            <div>
-                              <strong>{product.name}</strong>
-                              <br />
-                              <small className="text-muted">{product.category}</small>
+                          </div>
+                          <div className="product-info">
+                            <h5 className="product-name">{product.name}</h5>
+                            <p className="product-category text-muted mb-1">{product.category}</p>
+                            <div className="product-price">
+                              <i className="fas fa-dollar-sign me-1 text-muted"></i>
+                              <strong>{product.price}</strong>
                             </div>
                           </div>
-                        </td>
-                        <td><i className="fas fa-dollar-sign me-1 text-muted"></i>{product.price}</td>
-                        <td>
-                          <span className={product.stock === 0 ? 'text-danger' : ''}>
-                            <i className="fas fa-box me-1 text-muted"></i>{product.stock}
-                          </span>
-                        </td>
-                        <td><i className="fas fa-chart-line me-1 text-muted"></i>{product.sales}</td>
-                        <td>{getStatusBadge(product)}</td>
-                        <td>
-                          <div className="form-check form-switch">
-                            <input
-                              className="form-check-input"
-                              type="checkbox"
-                              checked={product.featured}
-                              onChange={() => toggleFeatured(product.id)}
-                            />
+                        </div>
+                        
+                        <div className="product-stats">
+                          <div className="stat-item">
+                            <i className="fas fa-box me-1 text-muted"></i>
+                            <span className={product.stock === 0 ? 'text-danger' : ''}>
+                              Stock: {product.stock}
+                            </span>
                           </div>
-                        </td>
-                        <td>
-                          <div className="dropdown">
-                            <button
-                              className="btn btn-outline-secondary btn-sm dropdown-toggle"
-                              type="button"
-                              data-bs-toggle="dropdown"
-                            >
-                              <i className="fas fa-cog me-1"></i>Actions
+                          <div className="stat-item">
+                            <i className="fas fa-chart-line me-1 text-muted"></i>
+                            Sales: {product.sales}
+                          </div>
+                        </div>
+
+                        <div className="product-actions">
+                          <div className="status-section">
+                            {getStatusBadge(product)}
+                            <div className="form-check form-switch featured-switch">
+                              <input
+                                className="form-check-input"
+                                type="checkbox"
+                                checked={product.featured}
+                                onChange={() => toggleFeatured(product.id)}
+                              />
+                              <label className="form-check-label">
+                                <i className="fas fa-star me-1"></i>Featured
+                              </label>
+                            </div>
+                          </div>
+                          
+                          <div className="action-buttons">
+                            <button className="btn btn-outline-primary btn-sm">
+                              <i className="fas fa-edit"></i>
                             </button>
-                            <ul className="dropdown-menu">
-                              <li>
-                                <button className="dropdown-item">
-                                  <i className="fas fa-edit me-2"></i>Edit
-                                </button>
-                              </li>
-                              <li>
-                                <button 
-                                  className="dropdown-item"
-                                  onClick={() => handleStatusChange(
-                                    product.id, 
-                                    product.status === 'active' ? 'out_of_stock' : 'active'
-                                  )}
-                                >
-                                  {product.status === 'active' ? (
-                                    <><i className="fas fa-ban me-2"></i>Mark Out of Stock</>
-                                  ) : (
-                                    <><i className="fas fa-check me-2"></i>Mark In Stock</>
-                                  )}
-                                </button>
-                              </li>
-                              <li><hr className="dropdown-divider" /></li>
-                              <li>
-                                <button 
-                                  className="dropdown-item text-danger"
-                                  onClick={() => handleDelete(product.id)}
-                                >
-                                  <i className="fas fa-trash me-2"></i>Delete
-                                </button>
-                              </li>
-                            </ul>
+                            <button 
+                              className="btn btn-outline-warning btn-sm"
+                              onClick={() => handleStatusChange(
+                                product.id, 
+                                product.status === 'active' ? 'out_of_stock' : 'active'
+                              )}
+                            >
+                              {product.status === 'active' ? (
+                                <i className="fas fa-ban"></i>
+                              ) : (
+                                <i className="fas fa-check"></i>
+                              )}
+                            </button>
+                            <button 
+                              className="btn btn-outline-danger btn-sm"
+                              onClick={() => handleDelete(product.id)}
+                            >
+                              <i className="fas fa-trash"></i>
+                            </button>
                           </div>
-                        </td>
-                      </tr>
+                        </div>
+                      </div>
                     ))}
-                  </tbody>
-                </table>
+                  </div>
+                ) : (
+                  /* Desktop Table View */
+                  <div className="table-responsive">
+                    <table className="table products-table">
+                      <thead>
+                        <tr>
+                          <th>Product</th>
+                          <th>Price</th>
+                          <th>Stock</th>
+                          <th>Sales</th>
+                          <th>Status</th>
+                          <th>Featured</th>
+                          <th>Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {filteredProducts.map(product => (
+                          <tr key={product.id}>
+                            <td data-label="Product">
+                              <div className="d-flex align-items-center">
+                                <img
+                                  src={product.image}
+                                  alt={product.name}
+                                  className="product-image me-3"
+                                />
+                                <div>
+                                  <strong>{product.name}</strong>
+                                  <br />
+                                  <small className="text-muted">{product.category}</small>
+                                </div>
+                              </div>
+                            </td>
+                            <td data-label="Price">
+                              <i className="fas fa-dollar-sign me-1 text-muted"></i>{product.price}
+                            </td>
+                            <td data-label="Stock">
+                              <span className={product.stock === 0 ? 'text-danger' : ''}>
+                                <i className="fas fa-box me-1 text-muted"></i>{product.stock}
+                              </span>
+                            </td>
+                            <td data-label="Sales">
+                              <i className="fas fa-chart-line me-1 text-muted"></i>{product.sales}
+                            </td>
+                            <td data-label="Status">{getStatusBadge(product)}</td>
+                            <td data-label="Featured">
+                              <div className="form-check form-switch">
+                                <input
+                                  className="form-check-input"
+                                  type="checkbox"
+                                  checked={product.featured}
+                                  onChange={() => toggleFeatured(product.id)}
+                                />
+                              </div>
+                            </td>
+                            <td data-label="Actions">
+                              <div className="dropdown actions-dropdown">
+                                <button
+                                  className="btn btn-outline-secondary btn-sm dropdown-toggle"
+                                  type="button"
+                                  data-bs-toggle="dropdown"
+                                >
+                                  <i className="fas fa-cog me-1"></i>Actions
+                                </button>
+                                <ul className="dropdown-menu">
+                                  <li>
+                                    <button className="dropdown-item">
+                                      <i className="fas fa-edit me-2"></i>Edit
+                                    </button>
+                                  </li>
+                                  <li>
+                                    <button 
+                                      className="dropdown-item"
+                                      onClick={() => handleStatusChange(
+                                        product.id, 
+                                        product.status === 'active' ? 'out_of_stock' : 'active'
+                                      )}
+                                    >
+                                      {product.status === 'active' ? (
+                                        <><i className="fas fa-ban me-2"></i>Mark Out of Stock</>
+                                      ) : (
+                                        <><i className="fas fa-check me-2"></i>Mark In Stock</>
+                                      )}
+                                    </button>
+                                  </li>
+                                  <li><hr className="dropdown-divider" /></li>
+                                  <li>
+                                    <button 
+                                      className="dropdown-item text-danger"
+                                      onClick={() => handleDelete(product.id)}
+                                    >
+                                      <i className="fas fa-trash me-2"></i>Delete
+                                    </button>
+                                  </li>
+                                </ul>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+
+                {filteredProducts.length === 0 && (
+                  <div className="no-products-state text-center py-5">
+                    <h4><i className="fas fa-search me-2"></i>No products found</h4>
+                    <p>Get started by adding your first product</p>
+                    <Link to="/seller/products/add" className="btn btn-primary">
+                      <i className="fas fa-plus me-2"></i>Add Your First Product
+                    </Link>
+                  </div>
+                )}
               </div>
+            </div>
+          </div>
+        </div>
 
-              {filteredProducts.length === 0 && (
-                <div className="text-center py-5">
-                  <h4><i className="fas fa-search me-2"></i>No products found</h4>
-                  <p>Get started by adding your first product</p>
-                  <Link to="/seller/products/add" className="btn btn-primary">
-                    <i className="fas fa-plus me-2"></i>Add Your First Product
-                  </Link>
-                </div>
-              )}
+        {/* Stats Summary */}
+        <div className="row mt-4">
+          <div className="col-6 col-md-3 mb-3">
+            <div className="stats-card h-100">
+              <div className="card-body text-center">
+                <h3 className="text-primary">
+                  <i className="fas fa-box"></i> {products.length}
+                </h3>
+                <p className="mb-0">Total Products</p>
+              </div>
             </div>
           </div>
-        </div>
-      </div>
-
-      {/* Stats Summary */}
-      <div className="row mt-4">
-        <div className="col-md-3">
-          <div className="card text-center">
-            <div className="card-body">
-              <h3><i className="fas fa-box text-primary"></i> {products.length}</h3>
-              <p>Total Products</p>
+          <div className="col-6 col-md-3 mb-3">
+            <div className="stats-card h-100">
+              <div className="card-body text-center">
+                <h3 className="text-success">
+                  <i className="fas fa-check-circle"></i> {products.filter(p => p.status === 'active').length}
+                </h3>
+                <p className="mb-0">Active Products</p>
+              </div>
             </div>
           </div>
-        </div>
-        <div className="col-md-3">
-          <div className="card text-center">
-            <div className="card-body">
-              <h3><i className="fas fa-check-circle text-success"></i> {products.filter(p => p.status === 'active').length}</h3>
-              <p>Active Products</p>
+          <div className="col-6 col-md-3 mb-3">
+            <div className="stats-card h-100">
+              <div className="card-body text-center">
+                <h3 className="text-warning">
+                  <i className="fas fa-star"></i> {products.filter(p => p.featured).length}
+                </h3>
+                <p className="mb-0">Featured Products</p>
+              </div>
             </div>
           </div>
-        </div>
-        <div className="col-md-3">
-          <div className="card text-center">
-            <div className="card-body">
-              <h3><i className="fas fa-star text-warning"></i> {products.filter(p => p.featured).length}</h3>
-              <p>Featured Products</p>
-            </div>
-          </div>
-        </div>
-        <div className="col-md-3">
-          <div className="card text-center">
-            <div className="card-body">
-              <h3><i className="fas fa-chart-line text-info"></i> {products.reduce((sum, product) => sum + product.sales, 0)}</h3>
-              <p>Total Sales</p>
+          <div className="col-6 col-md-3 mb-3">
+            <div className="stats-card h-100">
+              <div className="card-body text-center">
+                <h3 className="text-info">
+                  <i className="fas fa-chart-line"></i> {products.reduce((sum, product) => sum + product.sales, 0)}
+                </h3>
+                <p className="mb-0">Total Sales</p>
+              </div>
             </div>
           </div>
         </div>
