@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'; // Add Router import
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
 import { CartProvider } from './contexts/CartContext';
 import Navbar from './components/Navbar';
@@ -24,7 +24,7 @@ import AdminEarnings from './components/AdminEarnings';
 
 function App() {
   return (
-    <Router> {/* Wrap everything with Router */}
+    <Router>
       <AuthProvider>
         <CartProvider>
           <div className="App">
@@ -75,6 +75,12 @@ function App() {
                   </ProtectedRoute>
                 } />
                 <Route path="/seller/products/add" element={
+                  <ProtectedRoute role="seller">
+                    <AddProduct />
+                  </ProtectedRoute>
+                } />
+                {/* TEMPORARY FIX: Add this route to stop the error */}
+                <Route path="/seller/add-product" element={
                   <ProtectedRoute role="seller">
                     <AddProduct />
                   </ProtectedRoute>

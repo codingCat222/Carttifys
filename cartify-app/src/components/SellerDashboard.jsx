@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import './SellerDashboard.css';
 
 const SellerDashboard = () => {
@@ -22,6 +22,8 @@ const SellerDashboard = () => {
   const [timeRange, setTimeRange] = useState('monthly');
   const [activeTab, setActiveTab] = useState('overview');
   const [notifications, setNotifications] = useState([]);
+  
+  const navigate = useNavigate();
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -194,10 +196,10 @@ const SellerDashboard = () => {
   };
 
   const handleQuickAction = (action) => {
-    // Simulate quick actions
     switch(action) {
       case 'add_product':
-        alert('Redirecting to add product page...');
+        // Navigate to AddProduct page - CORRECT PATH
+        navigate('/seller/products/add');
         break;
       case 'process_orders':
         alert('Processing pending orders...');
@@ -221,7 +223,6 @@ const SellerDashboard = () => {
 
   const handleTimeRangeChange = (range) => {
     setTimeRange(range);
-    // In a real app, this would fetch new data based on the time range
     console.log(`Time range changed to: ${range}`);
   };
 

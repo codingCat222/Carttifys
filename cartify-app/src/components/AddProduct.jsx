@@ -139,7 +139,10 @@ const AddProduct = () => {
       
       console.log('Product data to submit:', productData);
       alert('Product added successfully!');
-      navigate('/seller/products');
+      
+      // FIXED: Navigate back to seller dashboard (existing route)
+      navigate('/seller/dashboard');
+      
     } catch (error) {
       console.error('Error adding product:', error);
       alert('Error adding product. Please try again.');
