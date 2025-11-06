@@ -153,7 +153,7 @@ const Navbar = memo(() => {
               </button>
             </li>
             
-            {/* Buyer Navigation */}
+            {/* Buyer Navigation
             {isAuthenticated && currentUser?.role === 'buyer' && (
               <>
                 <li className="nav-item">
@@ -169,7 +169,7 @@ const Navbar = memo(() => {
                   </Link>
                 </li>
               </>
-            )}
+            )} */}
             
             {/* Seller Navigation */}
             {isAuthenticated && currentUser?.role === 'seller' && (
