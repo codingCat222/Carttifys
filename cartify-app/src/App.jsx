@@ -21,6 +21,7 @@ import SellerEarnings from './components/SellerEarnings';
 import AdminDashboard from './components/AdminDashboard';
 import UserManagement from './components/UserManagement';
 import AdminEarnings from './components/AdminEarnings';
+import SellerLayout from './components/SellerLayout'; // Import the layout
 
 function App() {
   return (
@@ -68,31 +69,25 @@ function App() {
                   </ProtectedRoute>
                 } />
 
-                {/* Seller Routes */}
-                <Route path="/seller/dashboard" element={
+                {/* Seller Routes - Wrapped with SellerLayout */}
+                <Route path="/seller" element={
                   <ProtectedRoute role="seller">
-                    <SellerDashboard />
+                    <SellerLayout />
                   </ProtectedRoute>
-                } />
-                <Route path="/seller/products/add" element={
-                  <ProtectedRoute role="seller">
-                    <AddProduct />
-                  </ProtectedRoute>
-                } />
-                {/* TEMPORARY FIX: Add this route to stop the error */}
+                }>
+                  <Route path="dashboard" element={<SellerDashboard />} />
+                  <Route path="products/add" element={<AddProduct />} />
+                  <Route path="products" element={<ManageProducts />} />
+                  <Route path="earnings" element={<SellerEarnings />} />
+                  {/* Add these routes if they don't exist yet */}
+                  <Route path="analytics" element={<div className="container"><h1>Analytics</h1><p>Coming soon...</p></div>} />
+                  <Route path="orders" element={<div className="container"><h1>Orders</h1><p>Coming soon...</p></div>} />
+                </Route>
+
+                {/* Temporary route for the wrong path */}
                 <Route path="/seller/add-product" element={
                   <ProtectedRoute role="seller">
                     <AddProduct />
-                  </ProtectedRoute>
-                } />
-                <Route path="/seller/products" element={
-                  <ProtectedRoute role="seller">
-                    <ManageProducts />
-                  </ProtectedRoute>
-                } />
-                <Route path="/seller/earnings" element={
-                  <ProtectedRoute role="seller">
-                    <SellerEarnings />
                   </ProtectedRoute>
                 } />
 

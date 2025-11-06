@@ -172,7 +172,7 @@ const Navbar = memo(() => {
             )} */}
             
             {/* Seller Navigation */}
-            {isAuthenticated && currentUser?.role === 'seller' && (
+            {/* {isAuthenticated && currentUser?.role === 'seller' && (
               <>
                 <li className="nav-item">
                   <Link className="nav-link" to="/seller/dashboard" onClick={closeMobileMenu}>
@@ -188,7 +188,7 @@ const Navbar = memo(() => {
                 </li>
               </>
             )}
-            
+             */}
             {/* Admin Navigation */}
             {isAuthenticated && currentUser?.role === 'admin' && (
               <>

@@ -20,7 +20,6 @@ const SellerDashboard = () => {
   const [performanceData, setPerformanceData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [timeRange, setTimeRange] = useState('monthly');
-  const [activeTab, setActiveTab] = useState('overview');
   const [notifications, setNotifications] = useState([]);
   
   const navigate = useNavigate();
@@ -198,7 +197,6 @@ const SellerDashboard = () => {
   const handleQuickAction = (action) => {
     switch(action) {
       case 'add_product':
-        // Navigate to AddProduct page - CORRECT PATH
         navigate('/seller/products/add');
         break;
       case 'process_orders':
@@ -314,31 +312,6 @@ const SellerDashboard = () => {
             <i className="fas fa-info-circle"></i>
             Showing demo data - Connect to backend for real-time analytics
           </div>
-        </div>
-
-        {/* Dashboard Tabs */}
-        <div className="dashboard-tabs">
-          <button 
-            className={`tab-btn ${activeTab === 'overview' ? 'active' : ''}`}
-            onClick={() => setActiveTab('overview')}
-          >
-            <i className="fas fa-chart-pie"></i>
-            Overview
-          </button>
-          <button 
-            className={`tab-btn ${activeTab === 'analytics' ? 'active' : ''}`}
-            onClick={() => setActiveTab('analytics')}
-          >
-            <i className="fas fa-chart-line"></i>
-            Analytics
-          </button>
-          <button 
-            className={`tab-btn ${activeTab === 'inventory' ? 'active' : ''}`}
-            onClick={() => setActiveTab('inventory')}
-          >
-            <i className="fas fa-boxes"></i>
-            Inventory
-          </button>
         </div>
 
         {/* Quick Stats with Growth Indicators */}

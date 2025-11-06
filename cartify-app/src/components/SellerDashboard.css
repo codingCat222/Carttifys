@@ -1606,3 +1606,147 @@ img, table, canvas, iframe, video, svg, select, textarea {
   opacity: 0.6;
   cursor: not-allowed;
 }
+/* ===== BOTTOM NAVIGATION STYLES ===== */
+.seller-dashboard.with-bottom-nav {
+  padding-bottom: 80px; /* Space for bottom nav */
+}
+
+.dashboard-content-wrapper {
+  min-height: calc(100vh - 80px);
+  padding-bottom: 20px;
+}
+
+.bottom-nav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: white;
+  border-top: 1px solid var(--border-color);
+  box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
+  z-index: 1000;
+  backdrop-filter: blur(10px);
+}
+
+.bottom-nav-container {
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  padding: 8px 0;
+  max-width: 100%;
+  margin: 0 auto;
+}
+
+.bottom-nav-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  padding: 8px 12px;
+  border-radius: 12px;
+  transition: var(--transition);
+  cursor: pointer;
+  min-width: 60px;
+  flex: 1;
+  color: var(--gray-color);
+  text-decoration: none;
+}
+
+.bottom-nav-item:hover {
+  background: #f8fafc;
+  color: var(--primary-color);
+}
+
+.bottom-nav-item.active {
+  color: var(--primary-color);
+  background: linear-gradient(135deg, rgba(102, 126, 234, 0.1), rgba(118, 75, 162, 0.1));
+}
+
+.nav-icon {
+  font-size: 1.2rem;
+  margin-bottom: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+}
+
+.nav-label {
+  font-size: 0.7rem;
+  font-weight: 500;
+  text-align: center;
+  line-height: 1.2;
+}
+
+/* Mobile responsiveness for bottom nav */
+@media (max-width: 768px) {
+  .seller-dashboard.with-bottom-nav {
+    padding-bottom: 70px;
+  }
+  
+  .dashboard-content-wrapper {
+    min-height: calc(100vh - 70px);
+  }
+  
+  .bottom-nav-container {
+    padding: 6px 0;
+  }
+  
+  .bottom-nav-item {
+    padding: 6px 8px;
+    min-width: 50px;
+  }
+  
+  .nav-icon {
+    font-size: 1.1rem;
+  }
+  
+  .nav-label {
+    font-size: 0.65rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .seller-dashboard.with-bottom-nav {
+    padding-bottom: 60px;
+  }
+  
+  .dashboard-content-wrapper {
+    min-height: calc(100vh - 60px);
+  }
+  
+  .nav-label {
+    font-size: 0.6rem;
+  }
+}
+
+/* Ensure content doesn't get hidden behind bottom nav */
+.main-card, .stats-grid, .quick-actions-card {
+  margin-bottom: 20px;
+}
+
+/* Hide the old dashboard tabs */
+.dashboard-tabs {
+  display: none;
+}
+
+/* Adjust header for mobile with bottom nav */
+@media (max-width: 768px) {
+  .dashboard-header {
+    padding: 15px;
+    margin-bottom: 15px;
+  }
+  
+  .header-content {
+    flex-direction: column;
+    gap: 12px;
+  }
+  
+  .header-actions {
+    width: 100%;
+    justify-content: space-between;
+  }
+}
