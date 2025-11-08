@@ -10,11 +10,13 @@ const AddProduct = () => {
     category: '',
     stock: '',
     images: [],
+    videos: [], // New state for videos
     features: ['']
   });
 
   const [loading, setLoading] = useState(false);
   const [imageUploadProgress, setImageUploadProgress] = useState({});
+  const [videoUploadProgress, setVideoUploadProgress] = useState({}); // New state for video progress
   const navigate = useNavigate();
 
   const handleChange = (e) => {
@@ -67,11 +69,59 @@ const AddProduct = () => {
     }));
   };
 
+  const handleVideoUpload = async (e) => {
+    const files = Array.from(e.target.files);
+    
+    if (formData.videos.length + files.length > 3) {
+      alert('Maximum 3 videos allowed');
+      return;
+    }
+
+    // Validate video files
+    const validFiles = files.filter(file => {
+      const validTypes = ['video/mp4', 'video/webm', 'video/ogg', 'video/quicktime'];
+      const maxSize = 100 * 1024 * 1024; // 100MB
+      
+      if (!validTypes.includes(file.type)) {
+        alert(`Invalid video format: ${file.name}. Supported formats: MP4, WebM, OGG, MOV`);
+        return false;
+      }
+      
+      if (file.size > maxSize) {
+        alert(`Video file too large: ${file.name}. Maximum size: 100MB`);
+        return false;
+      }
+      
+      return true;
+    });
+
+    // For now, use object URLs - replace with actual upload in production
+    const videoUrls = validFiles.map(file => ({
+      url: URL.createObjectURL(file),
+      name: file.name,
+      size: file.size,
+      type: file.type
+    }));
+    
+    setFormData(prev => ({
+      ...prev,
+      videos: [...prev.videos, ...videoUrls]
+    }));
+  };
+
   const removeImage = (index) => {
     const newImages = formData.images.filter((_, i) => i !== index);
     setFormData(prev => ({
       ...prev,
       images: newImages
+    }));
+  };
+
+  const removeVideo = (index) => {
+    const newVideos = formData.videos.filter((_, i) => i !== index);
+    setFormData(prev => ({
+      ...prev,
+      videos: newVideos
     }));
   };
 
@@ -98,8 +148,8 @@ const AddProduct = () => {
       errors.push('Category is required');
     }
 
-    if (formData.images.length === 0) {
-      errors.push('At least one product image is required');
+    if (formData.images.length === 0 && formData.videos.length === 0) {
+      errors.push('At least one product image or video is required');
     }
 
     const validFeatures = formData.features.filter(feature => feature.trim() !== '');
@@ -113,6 +163,14 @@ const AddProduct = () => {
     }
 
     return true;
+  };
+
+  const formatFileSize = (bytes) => {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
 
   const handleSubmit = async (e) => {
@@ -140,7 +198,7 @@ const AddProduct = () => {
       console.log('Product data to submit:', productData);
       alert('Product added successfully!');
       
-      // FIXED: Navigate back to seller dashboard (existing route)
+      // Navigate back to seller dashboard
       navigate('/seller/dashboard');
       
     } catch (error) {
@@ -374,6 +432,57 @@ const AddProduct = () => {
                 </div>
               </div>
 
+              {/* Video Upload - New Section */}
+              <div className="form-section">
+                <h3 className="section-title">
+                  <i className="fas fa-video"></i>
+                  Product Videos
+                </h3>
+                
+                <div className="video-upload-section">
+                  <div className="file-upload-wrapper">
+                    <input
+                      type="file"
+                      multiple
+                      accept="video/*"
+                      onChange={handleVideoUpload}
+                      disabled={formData.videos.length >= 3}
+                      className="file-input"
+                    />
+                    <div className="upload-hint">
+                      <i className="fas fa-info-circle"></i>
+                      Upload product videos (Max 3 videos, Max 100MB each, Supported: MP4, WebM, OGG, MOV)
+                    </div>
+                  </div>
+
+                  <div className="videos-preview">
+                    {formData.videos.map((video, index) => (
+                      <div key={index} className="video-preview-item">
+                        <div className="video-preview-wrapper">
+                          <video
+                            src={video.url}
+                            className="preview-video"
+                            controls
+                          />
+                          <div className="video-info">
+                            <div className="video-name">{video.name}</div>
+                            <div className="video-size">{formatFileSize(video.size)}</div>
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          className="remove-video-btn"
+                          onClick={() => removeVideo(index)}
+                          title="Remove video"
+                        >
+                          <i className="fas fa-times"></i>
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
               {/* Submit Button */}
               <div className="form-submit-section">
                 <button
@@ -411,6 +520,10 @@ const AddProduct = () => {
                 Use high-quality, clear images
               </li>
               <li>
+                <i className="fas fa-video"></i>
+                Add videos to showcase product features
+              </li>
+              <li>
                 <i className="fas fa-align-left"></i>
                 Write detailed and honest descriptions
               </li>
@@ -432,10 +545,37 @@ const AddProduct = () => {
           <div className="sidebar-card">
             <h4>
               <i className="fas fa-exclamation-triangle"></i>
+              Media Guidelines
+            </h4>
+            <div className="media-guidelines">
+              <div className="guideline-item">
+                <i className="fas fa-images"></i>
+                <div>
+                  <strong>Images:</strong> Max 5 images, 800x800px recommended
+                </div>
+              </div>
+              <div className="guideline-item">
+                <i className="fas fa-video"></i>
+                <div>
+                  <strong>Videos:</strong> Max 3 videos, 100MB each
+                </div>
+              </div>
+              <div className="guideline-item">
+                <i className="fas fa-film"></i>
+                <div>
+                  <strong>Formats:</strong> MP4, WebM, OGG, MOV
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="sidebar-card">
+            <h4>
+              <i className="fas fa-percentage"></i>
               Commission Notice
             </h4>
             <div className="commission-notice">
-              <i className="fas fa-percentage"></i>
+              <i className="fas fa-info-circle"></i>
               <strong>5% commission</strong> will be deducted from each sale for platform maintenance and services.
             </div>
           </div>

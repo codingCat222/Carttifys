@@ -190,7 +190,7 @@ const Navbar = memo(() => {
             )}
              */}
             {/* Admin Navigation */}
-            {isAuthenticated && currentUser?.role === 'admin' && (
+            {/* {isAuthenticated && currentUser?.role === 'admin' && (
               <>
                 <li className="nav-item">
                   <Link className="nav-link" to="/admin/dashboard" onClick={closeMobileMenu}>
@@ -205,7 +205,7 @@ const Navbar = memo(() => {
                   </Link>
                 </li>
               </>
-            )}
+            )} */}
           </ul>
 
           {/* Right Navigation */}
