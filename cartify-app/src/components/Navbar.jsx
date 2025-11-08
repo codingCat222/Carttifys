@@ -116,7 +116,7 @@ const Navbar = memo(() => {
         {/* Brand Logo */}
         <Link className="navbar-brand" to="/" onClick={closeMobileMenu}>
           <FontAwesomeIcon icon={faStore} className="me-2" />
-          Cartlify
+          Cartify
         </Link>
         
         {/* Mobile Menu Toggle */}

@@ -864,14 +864,13 @@ input:checked + .slider:before {
     border-color: #667eea;
   }
 }
-/* Verified Companies Section */
 .verified-companies-section {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
   border-radius: 16px;
   padding: 2rem;
   margin-bottom: 2rem;
   color: white;
-  box-shadow: 0 8px 32px rgba(102, 126, 234, 0.3);
+  box-shadow: 0 8px 32px rgba(30, 60, 114, 0.4);
   position: relative;
   overflow: hidden;
 }
@@ -883,7 +882,7 @@ input:checked + .slider:before {
   right: -50%;
   width: 100%;
   height: 200%;
-  background: radial-gradient(circle, rgba(255,255,255,0.1) 1px, transparent 1px);
+  background: radial-gradient(circle, rgba(255,255,255,0.15) 1px, transparent 1px);
   background-size: 20px 20px;
   transform: rotate(30deg);
 }
@@ -901,6 +900,7 @@ input:checked + .slider:before {
   font-size: 1.8rem;
   font-weight: 700;
   margin-bottom: 0.5rem;
+  color: #e6f0ff;
 }
 
 .verified-companies-header .header-content .lead {
@@ -908,13 +908,16 @@ input:checked + .slider:before {
   opacity: 0.9;
   margin-bottom: 0;
   max-width: 600px;
+  color: #cce0ff;
 }
 
 .header-badge .badge {
   font-size: 0.8rem;
   padding: 0.5rem 1rem;
-  background: rgba(255, 255, 255, 0.2) !important;
+  background: rgba(255, 255, 255, 0.25) !important;
   backdrop-filter: blur(10px);
+  color: #e6f0ff;
+  border: 1px solid rgba(255, 255, 255, 0.3);
 }
 
 /* Benefits Grid */
@@ -928,9 +931,9 @@ input:checked + .slider:before {
 }
 
 .benefit-item {
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.15);
   backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.25);
   border-radius: 12px;
   padding: 1.5rem;
   transition: all 0.3s ease;
@@ -938,8 +941,9 @@ input:checked + .slider:before {
 }
 
 .benefit-item:hover {
-  background: rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.2);
   transform: translateY(-4px);
+  border-color: rgba(255, 255, 255, 0.4);
 }
 
 .benefit-icon {
@@ -951,42 +955,48 @@ input:checked + .slider:before {
   justify-content: center;
   margin: 0 auto 1rem;
   font-size: 1.5rem;
+  color: white;
 }
 
 .benefit-icon.verified {
-  background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+  background: linear-gradient(135deg, #2563eb 0%, #3b82f6 100%);
+  box-shadow: 0 4px 15px rgba(37, 99, 235, 0.4);
 }
 
 .benefit-icon.quality {
-  background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+  background: linear-gradient(135deg, #1e40af 0%, #2563eb 100%);
+  box-shadow: 0 4px 15px rgba(30, 64, 175, 0.4);
 }
 
 .benefit-icon.pricing {
-  background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+  background: linear-gradient(135deg, #1e3a8a 0%, #1d4ed8 100%);
+  box-shadow: 0 4px 15px rgba(29, 78, 216, 0.4);
 }
 
 .benefit-icon.global {
-  background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%);
-  color: #333;
+  background: linear-gradient(135deg, #60a5fa 0%, #3b82f6 100%);
+  box-shadow: 0 4px 15px rgba(59, 130, 246, 0.4);
 }
 
 .benefit-content h5 {
   font-size: 1.1rem;
   font-weight: 600;
   margin-bottom: 0.5rem;
+  color: #e6f0ff;
 }
 
 .benefit-content p {
   opacity: 0.9;
   font-size: 0.9rem;
   line-height: 1.4;
+  color: #cce0ff;
 }
 
 /* Featured Suppliers */
 .featured-suppliers {
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.15);
   backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.25);
   border-radius: 12px;
   padding: 1.5rem;
   margin-bottom: 2rem;
@@ -1002,15 +1012,15 @@ input:checked + .slider:before {
 }
 
 .featured-suppliers .section-header h4 {
-  color: white;
+  color: #e6f0ff;
   margin: 0;
   font-size: 1.3rem;
 }
 
 .view-all-suppliers-btn {
-  background: rgba(255, 255, 255, 0.2);
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  color: white;
+  background: rgba(255, 255, 255, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  color: #e6f0ff;
   padding: 0.5rem 1rem;
   border-radius: 8px;
   font-size: 0.9rem;
@@ -1018,8 +1028,9 @@ input:checked + .slider:before {
 }
 
 .view-all-suppliers-btn:hover {
-  background: rgba(255, 255, 255, 0.3);
+  background: rgba(255, 255, 255, 0.35);
   transform: translateY(-2px);
+  color: white;
 }
 
 /* Suppliers Grid */
@@ -1033,14 +1044,15 @@ input:checked + .slider:before {
   background: rgba(255, 255, 255, 0.95);
   border-radius: 12px;
   padding: 1.5rem;
-  color: #333;
+  color: #1e3a8a;
   transition: all 0.3s ease;
   border: 1px solid rgba(255, 255, 255, 0.3);
+  box-shadow: 0 4px 15px rgba(30, 58, 138, 0.1);
 }
 
 .supplier-card:hover {
   transform: translateY(-4px);
-  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 8px 25px rgba(30, 58, 138, 0.2);
 }
 
 .supplier-header {
@@ -1059,13 +1071,14 @@ input:checked + .slider:before {
   height: 60px;
   border-radius: 12px;
   object-fit: cover;
+  border: 2px solid #e6f0ff;
 }
 
 .verified-badge {
   position: absolute;
   bottom: -5px;
   right: -5px;
-  background: #43e97b;
+  background: #2563eb;
   color: white;
   border-radius: 50%;
   width: 20px;
@@ -1075,12 +1088,14 @@ input:checked + .slider:before {
   justify-content: center;
   font-size: 0.7rem;
   border: 2px solid white;
+  box-shadow: 0 2px 5px rgba(37, 99, 235, 0.3);
 }
 
 .supplier-info h5 {
   margin: 0 0 0.5rem 0;
   font-size: 1.1rem;
   font-weight: 600;
+  color: #1e3a8a;
 }
 
 .supplier-rating {
@@ -1090,7 +1105,7 @@ input:checked + .slider:before {
 }
 
 .star-icon {
-  color: #ffc107;
+  color: #f59e0b;
   margin-right: 0.25rem;
   font-size: 0.9rem;
 }
@@ -1098,15 +1113,17 @@ input:checked + .slider:before {
 .supplier-rating span {
   font-size: 0.9rem;
   margin-right: 0.5rem;
+  color: #1e40af;
+  font-weight: 600;
 }
 
 .reviews {
-  color: #666;
+  color: #64748b;
   font-size: 0.8rem;
 }
 
 .supplier-location {
-  color: #666;
+  color: #64748b;
   font-size: 0.9rem;
   margin: 0;
 }
@@ -1117,8 +1134,8 @@ input:checked + .slider:before {
   justify-content: space-between;
   margin: 1rem 0;
   padding: 1rem 0;
-  border-top: 1px solid #eee;
-  border-bottom: 1px solid #eee;
+  border-top: 1px solid #e2e8f0;
+  border-bottom: 1px solid #e2e8f0;
 }
 
 .supplier-stats .stat {
@@ -1130,12 +1147,12 @@ input:checked + .slider:before {
   display: block;
   font-size: 1.1rem;
   font-weight: 700;
-  color: #667eea;
+  color: #2563eb;
 }
 
 .supplier-stats .stat span {
   font-size: 0.8rem;
-  color: #666;
+  color: #64748b;
 }
 
 /* Supplier Categories */
@@ -1147,11 +1164,12 @@ input:checked + .slider:before {
 }
 
 .category-tag {
-  background: #667eea;
+  background: linear-gradient(135deg, #2563eb 0%, #3b82f6 100%);
   color: white;
   padding: 0.25rem 0.75rem;
   border-radius: 20px;
   font-size: 0.8rem;
+  box-shadow: 0 2px 5px rgba(37, 99, 235, 0.3);
 }
 
 /* Supplier Actions */
@@ -1164,13 +1182,39 @@ input:checked + .slider:before {
   flex: 1;
   padding: 0.5rem 0.75rem;
   font-size: 0.8rem;
+  border: none;
+  border-radius: 6px;
+  transition: all 0.3s ease;
+}
+
+.supplier-actions .btn-primary {
+  background: linear-gradient(135deg, #2563eb 0%, #3b82f6 100%);
+  color: white;
+}
+
+.supplier-actions .btn-primary:hover {
+  background: linear-gradient(135deg, #1d4ed8 0%, #2563eb 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.4);
+}
+
+.supplier-actions .btn-outline {
+  background: transparent;
+  border: 1px solid #2563eb;
+  color: #2563eb;
+}
+
+.supplier-actions .btn-outline:hover {
+  background: #2563eb;
+  color: white;
+  transform: translateY(-2px);
 }
 
 /* CTA Section */
 .supplier-cta {
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.15);
   backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.25);
   border-radius: 12px;
   padding: 2rem;
   display: flex;
@@ -1185,11 +1229,13 @@ input:checked + .slider:before {
   font-size: 1.5rem;
   font-weight: 600;
   margin-bottom: 0.5rem;
+  color: #e6f0ff;
 }
 
 .cta-content p {
   opacity: 0.9;
   margin-bottom: 1rem;
+  color: #cce0ff;
 }
 
 .cta-stats {
@@ -1206,11 +1252,13 @@ input:checked + .slider:before {
   font-size: 1.5rem;
   font-weight: 700;
   margin-bottom: 0.25rem;
+  color: #e6f0ff;
 }
 
 .cta-stats .stat-item span {
   font-size: 0.9rem;
   opacity: 0.9;
+  color: #cce0ff;
 }
 
 .cta-actions {
@@ -1224,11 +1272,31 @@ input:checked + .slider:before {
   border-radius: 8px;
   font-weight: 600;
   transition: all 0.3s ease;
+  border: none;
 }
 
-.cta-actions .btn:hover {
+.cta-actions .btn-primary {
+  background: linear-gradient(135deg, #2563eb 0%, #3b82f6 100%);
+  color: white;
+  box-shadow: 0 4px 15px rgba(37, 99, 235, 0.4);
+}
+
+.cta-actions .btn-primary:hover {
+  background: linear-gradient(135deg, #1d4ed8 0%, #2563eb 100%);
   transform: translateY(-2px);
-  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 8px 25px rgba(37, 99, 235, 0.5);
+}
+
+.cta-actions .btn-outline {
+  background: transparent;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  color: #e6f0ff;
+}
+
+.cta-actions .btn-outline:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.5);
+  transform: translateY(-2px);
 }
 
 /* Marketplace Main Layout */
@@ -1242,7 +1310,8 @@ input:checked + .slider:before {
   background: white;
   border-radius: 12px;
   padding: 1.5rem;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 10px rgba(30, 58, 138, 0.1);
+  border: 1px solid #e2e8f0;
 }
 
 .featured-products-section .section-header {
@@ -1253,14 +1322,15 @@ input:checked + .slider:before {
 }
 
 .view-all-link {
-  color: #667eea;
+  color: #2563eb;
   text-decoration: none;
   font-weight: 600;
   font-size: 0.9rem;
+  transition: color 0.3s ease;
 }
 
 .view-all-link:hover {
-  color: #764ba2;
+  color: #1e40af;
 }
 
 /* Responsive Design */
@@ -1306,4 +1376,5 @@ input:checked + .slider:before {
 /* Additional Icons */
 .fa-map-marker-alt:before {
   content: "\f3c5";
+  color: #2563eb;
 }
