@@ -191,8 +191,8 @@
 
   .back-to-top {
     bottom: 1rem;
-    right: 1rem;
-    width: 45px;
-    height: 45px;
+    right: -1rem;
+    width: 40px;
+    height: 35px;
   }
 }

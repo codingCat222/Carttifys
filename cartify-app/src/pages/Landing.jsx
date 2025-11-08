@@ -347,7 +347,7 @@ const Landing = () => {
         </div>
       </section>
 
-      {/* FAQ Section */}
+      {/* FAQ Section u*/}
       <section id="faq" className="faq-section">
         <div className="container">
           <h2 className="section-title">Frequently Asked Questions</h2>
