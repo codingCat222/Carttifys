@@ -36,7 +36,20 @@ import {
   faPlus,
   faTimes,
   faMessage,
-  faChevronRight
+  faChevronRight,
+  faGlobeAmericas,
+  faRocket,
+  faShieldAlt,
+  faAward,
+  faUsers,
+  faChartLine,
+  faHeadset,
+  faCertificate,
+  faBuilding,
+  faIndustry,
+  faWarehouse,
+  faTag,
+  faMapMarkerAlt
 } from '@fortawesome/free-solid-svg-icons';
 
 // Import your components
@@ -58,6 +71,7 @@ const BuyerDashboard = memo(() => {
   const [cart, setCart] = useState([]);
   const [cartCount, setCartCount] = useState(0);
   const [wishlist, setWishlist] = useState([]);
+  const [verifiedSuppliers, setVerifiedSuppliers] = useState([]);
 
   const [userProfile, setUserProfile] = useState({
     name: 'John Doe',
@@ -81,7 +95,9 @@ const BuyerDashboard = memo(() => {
       image: 'https://via.placeholder.com/300x200/667eea/ffffff?text=Headphones',
       seller: 'TechStore',
       location: 'New York',
-      category: 'electronics'
+      category: 'electronics',
+      supplierVerified: true,
+      wholesalePrice: 79.99
     },
     { 
       id: 2, 
@@ -90,7 +106,9 @@ const BuyerDashboard = memo(() => {
       image: 'https://via.placeholder.com/300x200/764ba2/ffffff?text=Smart+Watch',
       seller: 'GadgetWorld',
       location: 'San Francisco',
-      category: 'electronics'
+      category: 'electronics',
+      supplierVerified: true,
+      wholesalePrice: 159.99
     }
   ];
 
@@ -128,6 +146,51 @@ const BuyerDashboard = memo(() => {
     }
   ];
 
+  const mockVerifiedSuppliers = [
+    {
+      id: 1,
+      name: 'TechGlobal Suppliers',
+      logo: 'https://via.placeholder.com/80x80/667eea/ffffff?text=TG',
+      rating: 4.8,
+      reviews: 1247,
+      products: 2450,
+      location: 'Shenzhen, China',
+      verified: true,
+      memberSince: 2018,
+      categories: ['Electronics', 'Gadgets'],
+      responseRate: '98%',
+      minOrder: '$500'
+    },
+    {
+      id: 2,
+      name: 'FashionSource Co.',
+      logo: 'https://via.placeholder.com/80x80/764ba2/ffffff?text=FS',
+      rating: 4.6,
+      reviews: 892,
+      products: 1800,
+      location: 'Guangzhou, China',
+      verified: true,
+      memberSince: 2019,
+      categories: ['Apparel', 'Accessories'],
+      responseRate: '95%',
+      minOrder: '$300'
+    },
+    {
+      id: 3,
+      name: 'HomeEssentials Ltd.',
+      logo: 'https://via.placeholder.com/80x80/f093fb/ffffff?text=HE',
+      rating: 4.9,
+      reviews: 2103,
+      products: 3200,
+      location: 'Yiwu, China',
+      verified: true,
+      memberSince: 2017,
+      categories: ['Home', 'Kitchen'],
+      responseRate: '99%',
+      minOrder: '$200'
+    }
+  ];
+
   const fetchDashboardData = useCallback(async () => {
     try {
       setLoading(true);
@@ -139,6 +202,7 @@ const BuyerDashboard = memo(() => {
         setRecentOrders(mockRecentOrders);
         setCategories(mockCategories);
         setMessages(mockMessages);
+        setVerifiedSuppliers(mockVerifiedSuppliers);
         setLoading(false);
       }, 1000);
 
@@ -198,6 +262,12 @@ const BuyerDashboard = memo(() => {
         case 'toggle_wishlist':
           toggleWishlist(data.product);
           alert(data.product.isInWishlist ? 'Removed from wishlist' : 'Added to wishlist');
+          break;
+        case 'contact_supplier':
+          alert(`Contacting supplier: ${data.supplier.name}`);
+          break;
+        case 'view_supplier_profile':
+          alert(`Opening supplier profile: ${data.supplier.name}`);
           break;
         default:
           break;
@@ -277,12 +347,32 @@ const BuyerDashboard = memo(() => {
     switch (activeSection) {
       case 'marketplace':
         return (
-          <ProductList 
-            products={featuredProducts}
-            onAddToCart={addToCart}
-            onToggleWishlist={toggleWishlist}
-            wishlist={wishlist}
-          />
+          <div className="marketplace-main">
+            {/* Explore Verified Companies Section */}
+            <VerifiedCompaniesSection 
+              suppliers={verifiedSuppliers}
+              onQuickAction={handleQuickAction}
+            />
+            
+            {/* Featured Products */}
+            <div className="featured-products-section">
+              <div className="section-header">
+                <h3 className="section-title">
+                  <FontAwesomeIcon icon={faStar} className="me-2" />
+                  Featured Products
+                </h3>
+                <Link to="/marketplace" className="view-all-link">
+                  View All <FontAwesomeIcon icon={faChevronRight} />
+                </Link>
+              </div>
+              <ProductList 
+                products={featuredProducts}
+                onAddToCart={addToCart}
+                onToggleWishlist={toggleWishlist}
+                wishlist={wishlist}
+              />
+            </div>
+          </div>
         );
       case 'orders':
         return <BuyerOrders />;
@@ -338,12 +428,18 @@ const BuyerDashboard = memo(() => {
         );
       default:
         return (
-          <ProductList 
-            products={featuredProducts}
-            onAddToCart={addToCart}
-            onToggleWishlist={toggleWishlist}
-            wishlist={wishlist}
-          />
+          <div className="marketplace-main">
+            <VerifiedCompaniesSection 
+              suppliers={verifiedSuppliers}
+              onQuickAction={handleQuickAction}
+            />
+            <ProductList 
+              products={featuredProducts}
+              onAddToCart={addToCart}
+              onToggleWishlist={toggleWishlist}
+              wishlist={wishlist}
+            />
+          </div>
         );
     }
   };
@@ -489,6 +585,179 @@ const BuyerDashboard = memo(() => {
     </div>
   );
 });
+
+// New Verified Companies Section
+const VerifiedCompaniesSection = ({ suppliers, onQuickAction }) => (
+  <div className="verified-companies-section">
+    <div className="verified-companies-header">
+      <div className="header-content">
+        <h2>
+          <FontAwesomeIcon icon={faShieldAlt} className="me-2" />
+          Explore Thousands of Verified Companies
+        </h2>
+        <p className="lead">Connect with reliable wholesale suppliers offering quality products at the best prices</p>
+      </div>
+      <div className="header-badge">
+        <span className="badge bg-success">Trusted Partners</span>
+      </div>
+    </div>
+
+    {/* Key Benefits */}
+    <div className="benefits-grid">
+      <div className="benefit-item">
+        <div className="benefit-icon verified">
+          <FontAwesomeIcon icon={faCertificate} />
+        </div>
+        <div className="benefit-content">
+          <h5>Verified Suppliers</h5>
+          <p>All companies are thoroughly vetted and verified for reliability</p>
+        </div>
+      </div>
+
+      <div className="benefit-item">
+        <div className="benefit-icon quality">
+          <FontAwesomeIcon icon={faAward} />
+        </div>
+        <div className="benefit-content">
+          <h5>Quality Products</h5>
+          <p>Access premium products with quality guarantees and warranties</p>
+        </div>
+      </div>
+
+      <div className="benefit-item">
+        <div className="benefit-icon pricing">
+          <FontAwesomeIcon icon={faTag} />
+        </div>
+        <div className="benefit-content">
+          <h5>Best Prices</h5>
+          <p>Competitive wholesale pricing with volume discounts available</p>
+        </div>
+      </div>
+
+      <div className="benefit-item">
+        <div className="benefit-icon global">
+          <FontAwesomeIcon icon={faGlobeAmericas} />
+        </div>
+        <div className="benefit-content">
+          <h5>Global Reach</h5>
+          <p>Source from suppliers worldwide with secure logistics</p>
+        </div>
+      </div>
+    </div>
+
+    {/* Featured Suppliers */}
+    <div className="featured-suppliers">
+      <div className="section-header">
+        <h4>
+          <FontAwesomeIcon icon={faBuilding} className="me-2" />
+          Featured Verified Suppliers
+        </h4>
+        <button className="view-all-suppliers-btn">
+          View All Suppliers <FontAwesomeIcon icon={faChevronRight} />
+        </button>
+      </div>
+
+      <div className="suppliers-grid">
+        {suppliers.map(supplier => (
+          <div key={supplier.id} className="supplier-card">
+            <div className="supplier-header">
+              <div className="supplier-logo">
+                <img src={supplier.logo} alt={supplier.name} />
+                {supplier.verified && (
+                  <div className="verified-badge">
+                    <FontAwesomeIcon icon={faCheckCircle} />
+                  </div>
+                )}
+              </div>
+              <div className="supplier-info">
+                <h5>{supplier.name}</h5>
+                <div className="supplier-rating">
+                  <FontAwesomeIcon icon={faStar} className="star-icon" />
+                  <span>{supplier.rating}</span>
+                  <span className="reviews">({supplier.reviews} reviews)</span>
+                </div>
+                <p className="supplier-location">
+                  <FontAwesomeIcon icon={faMapMarkerAlt} className="me-1" />
+                  {supplier.location}
+                </p>
+              </div>
+            </div>
+
+            <div className="supplier-stats">
+              <div className="stat">
+                <strong>{supplier.products}+</strong>
+                <span>Products</span>
+              </div>
+              <div className="stat">
+                <strong>{supplier.responseRate}</strong>
+                <span>Response Rate</span>
+              </div>
+              <div className="stat">
+                <strong>{supplier.minOrder}</strong>
+                <span>Min Order</span>
+              </div>
+            </div>
+
+            <div className="supplier-categories">
+              {supplier.categories.map((category, index) => (
+                <span key={index} className="category-tag">{category}</span>
+              ))}
+            </div>
+
+            <div className="supplier-actions">
+              <button 
+                className="btn btn-outline-primary btn-sm"
+                onClick={() => onQuickAction('contact_supplier', { supplier })}
+              >
+                <FontAwesomeIcon icon={faMessage} className="me-1" />
+                Contact
+              </button>
+              <button 
+                className="btn btn-primary btn-sm"
+                onClick={() => onQuickAction('view_supplier_profile', { supplier })}
+              >
+                <FontAwesomeIcon icon={faEye} className="me-1" />
+                View Profile
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+
+    {/* CTA Section */}
+    <div className="supplier-cta">
+      <div className="cta-content">
+        <h4>Ready to Grow Your Business?</h4>
+        <p>Join thousands of successful buyers who source from our verified supplier network</p>
+        <div className="cta-stats">
+          <div className="stat-item">
+            <strong>10,000+</strong>
+            <span>Verified Suppliers</span>
+          </div>
+          <div className="stat-item">
+            <strong>50M+</strong>
+            <span>Products Available</span>
+          </div>
+          <div className="stat-item">
+            <strong>150+</strong>
+            <span>Countries</span>
+          </div>
+        </div>
+      </div>
+      <div className="cta-actions">
+        <button className="btn btn-primary btn-lg">
+          <FontAwesomeIcon icon={faRocket} className="me-2" />
+          Explore All Suppliers
+        </button>
+        <button className="btn btn-outline-primary btn-lg">
+          <FontAwesomeIcon icon={faHeadset} className="me-2" />
+          Get Buying Support
+        </button>
+      </div>
+    </div>
+  </div>
+);
 
 // Enhanced Profile Section with Wishlist
 const ProfileSection = ({ userProfile, onNotificationToggle, wishlist, recentOrders }) => (

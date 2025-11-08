@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+ import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import './SellerDashboard.css';
 
@@ -207,6 +207,9 @@ const SellerDashboard = () => {
         break;
       case 'view_analytics':
         alert('Opening detailed analytics...');
+        break;
+      case 'grow_business':
+        alert('Opening business growth tools...');
         break;
       default:
         break;
@@ -430,6 +433,132 @@ const SellerDashboard = () => {
               <span>View Analytics</span>
               <small>Detailed reports</small>
             </button>
+          </div>
+        </div>
+
+        {/* Grow Your Business Section */}
+        <div className="grow-business-card">
+          <div className="grow-business-header">
+            <div className="header-content">
+              <h2>
+                <i className="fas fa-rocket"></i>
+                Grow Your Business
+              </h2>
+              <p className="lead">Reach thousands of active retailers and customers worldwide</p>
+            </div>
+            <div className="header-badge">
+              <span className="badge bg-success">Recommended</span>
+            </div>
+          </div>
+
+          <div className="growth-features">
+            <div className="growth-feature">
+              <div className="feature-icon global">
+                <i className="fas fa-globe-americas"></i>
+              </div>
+              <div className="feature-content">
+                <h5>Global Reach</h5>
+                <p>Access to 50,000+ active buyers across 150+ countries</p>
+                <div className="feature-stats">
+                  <span className="stat-item">
+                    <strong>150+</strong>
+                    <small>Countries</small>
+                  </span>
+                  <span className="stat-item">
+                    <strong>50K+</strong>
+                    <small>Buyers</small>
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div className="growth-feature">
+              <div className="feature-icon analytics">
+                <i className="fas fa-chart-bar"></i>
+              </div>
+              <div className="feature-content">
+                <h5>Advanced Analytics</h5>
+                <p>Track performance and optimize your sales strategy with real-time data</p>
+                <ul className="feature-list">
+                  <li><i className="fas fa-check"></i> Market trend analysis</li>
+                  <li><i className="fas fa-check"></i> Competitor insights</li>
+                  <li><i className="fas fa-check"></i> Customer behavior tracking</li>
+                </ul>
+              </div>
+            </div>
+
+            <div className="growth-feature">
+              <div className="feature-icon marketing">
+                <i className="fas fa-bullhorn"></i>
+              </div>
+              <div className="feature-content">
+                <h5>Marketing Tools</h5>
+                <p>Promote your products to targeted audiences with our marketing suite</p>
+                <div className="marketing-tools">
+                  <span className="tool-badge">Featured Listings</span>
+                  <span className="tool-badge">Email Campaigns</span>
+                  <span className="tool-badge">Social Media Integration</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="growth-feature">
+              <div className="feature-icon support">
+                <i className="fas fa-headset"></i>
+              </div>
+              <div className="feature-content">
+                <h5>Premium Support</h5>
+                <p>Get dedicated account management and priority support</p>
+                <div className="support-features">
+                  <div className="support-item">
+                    <i className="fas fa-clock"></i>
+                    <span>24/7 Priority Support</span>
+                  </div>
+                  <div className="support-item">
+                    <i className="fas fa-user-tie"></i>
+                    <span>Dedicated Account Manager</span>
+                  </div>
+                  <div className="support-item">
+                    <i className="fas fa-lightbulb"></i>
+                    <span>Strategic Business Advice</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="growth-cta">
+            <div className="cta-content">
+              <h4>Ready to Scale Your Business?</h4>
+              <p>Join our premium seller program and unlock exclusive growth opportunities</p>
+              <div className="cta-benefits">
+                <div className="benefit-item">
+                  <i className="fas fa-check-circle"></i>
+                  <span>Increase visibility by 300%</span>
+                </div>
+                <div className="benefit-item">
+                  <i className="fas fa-check-circle"></i>
+                  <span>Access to premium buyers</span>
+                </div>
+                <div className="benefit-item">
+                  <i className="fas fa-check-circle"></i>
+                  <span>Reduced commission rates</span>
+                </div>
+              </div>
+            </div>
+            <div className="cta-actions">
+              <button 
+                className="btn btn-primary btn-lg"
+                onClick={() => handleQuickAction('grow_business')}
+              >
+                <i className="fas fa-rocket"></i>
+                Explore Growth Options
+              </button>
+              <button className="btn btn-outline-primary btn-lg">
+                <i className="fas fa-play-circle"></i>
+                Watch Demo
+              </button>
+            </div>
           </div>
         </div>
 
