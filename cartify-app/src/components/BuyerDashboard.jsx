@@ -12,15 +12,12 @@ import {
   faFilm,
   faUserFriends,
   faShoppingCart,
-  faBars,
   faUser,
-  faBell,
   faQuestionCircle,
   faExchangeAlt,
   faShoppingBag,
   faClock,
   faHeart,
-  faEye,
   faBox,
   faTruck,
   faCheckCircle,
@@ -37,19 +34,8 @@ import {
   faTimes,
   faMessage,
   faChevronRight,
-  faGlobeAmericas,
-  faRocket,
-  faShieldAlt,
-  faAward,
-  faUsers,
-  faChartLine,
-  faHeadset,
-  faCertificate,
-  faBuilding,
-  faIndustry,
-  faWarehouse,
-  faTag,
-  faMapMarkerAlt
+  faDollarSign,
+  faBook
 } from '@fortawesome/free-solid-svg-icons';
 
 // Import your components
@@ -57,8 +43,16 @@ import ProductList from './ProductList';
 import BuyerOrders from './BuyerOrders';
 
 const BuyerDashboard = memo(() => {
-  const [featuredProducts, setFeaturedProducts] = useState([]);
-  const [recentOrders, setRecentOrders] = useState([]);
+  const [dashboardData, setDashboardData] = useState({
+    stats: {
+      totalOrders: 0,
+      pendingOrders: 0,
+      completedOrders: 0,
+      totalSpent: 0
+    },
+    recentOrders: [],
+    recommendedProducts: []
+  });
   const [categories, setCategories] = useState([]);
   const [messages, setMessages] = useState([]);
   const [activeSection, setActiveSection] = useState('marketplace');
@@ -68,10 +62,6 @@ const BuyerDashboard = memo(() => {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [isSearching, setIsSearching] = useState(false);
-  const [cart, setCart] = useState([]);
-  const [cartCount, setCartCount] = useState(0);
-  const [wishlist, setWishlist] = useState([]);
-  const [verifiedSuppliers, setVerifiedSuppliers] = useState([]);
 
   const [userProfile, setUserProfile] = useState({
     name: 'John Doe',
@@ -86,169 +76,106 @@ const BuyerDashboard = memo(() => {
     }
   });
 
-  // Mock data for dashboard sections
-  const mockFeaturedProducts = [
-    { 
-      id: 1, 
-      name: 'Wireless Headphones', 
-      price: 99.99, 
-      image: 'https://via.placeholder.com/300x200/667eea/ffffff?text=Headphones',
-      seller: 'TechStore',
-      location: 'New York',
-      category: 'electronics',
-      supplierVerified: true,
-      wholesalePrice: 79.99
-    },
-    { 
-      id: 2, 
-      name: 'Smart Watch', 
-      price: 199.99, 
-      image: 'https://via.placeholder.com/300x200/764ba2/ffffff?text=Smart+Watch',
-      seller: 'GadgetWorld',
-      location: 'San Francisco',
-      category: 'electronics',
-      supplierVerified: true,
-      wholesalePrice: 159.99
-    }
-  ];
-
-  const mockRecentOrders = [
-    {
-      id: 'ORD-001',
-      product: 'Wireless Headphones',
-      date: '2024-01-15',
-      status: 'delivered',
-      total: 99.99
-    },
-    {
-      id: 'ORD-002', 
-      product: 'Smart Watch',
-      date: '2024-01-14',
-      status: 'shipped',
-      total: 199.99
-    }
-  ];
-
-  const mockCategories = [
-    { id: 'electronics', name: 'Electronics', icon: faTruck, count: 45, color: '#667eea' },
-    { id: 'home', name: 'Home & Garden', icon: faHome, count: 32, color: '#764ba2' },
-    { id: 'sports', name: 'Sports & Outdoors', icon: faHeart, count: 28, color: '#f093fb' }
-  ];
-
-  const mockMessages = [
-    {
-      id: 1,
-      sender: 'TechStore',
-      message: 'Hi! Are you still interested in the headphones?',
-      time: '2 hours ago',
-      unread: true,
-      product: 'Wireless Headphones'
-    }
-  ];
-
-  const mockVerifiedSuppliers = [
-    {
-      id: 1,
-      name: 'TechGlobal Suppliers',
-      logo: 'https://via.placeholder.com/80x80/667eea/ffffff?text=TG',
-      rating: 4.8,
-      reviews: 1247,
-      products: 2450,
-      location: 'Shenzhen, China',
-      verified: true,
-      memberSince: 2018,
-      categories: ['Electronics', 'Gadgets'],
-      responseRate: '98%',
-      minOrder: '$500'
-    },
-    {
-      id: 2,
-      name: 'FashionSource Co.',
-      logo: 'https://via.placeholder.com/80x80/764ba2/ffffff?text=FS',
-      rating: 4.6,
-      reviews: 892,
-      products: 1800,
-      location: 'Guangzhou, China',
-      verified: true,
-      memberSince: 2019,
-      categories: ['Apparel', 'Accessories'],
-      responseRate: '95%',
-      minOrder: '$300'
-    },
-    {
-      id: 3,
-      name: 'HomeEssentials Ltd.',
-      logo: 'https://via.placeholder.com/80x80/f093fb/ffffff?text=HE',
-      rating: 4.9,
-      reviews: 2103,
-      products: 3200,
-      location: 'Yiwu, China',
-      verified: true,
-      memberSince: 2017,
-      categories: ['Home', 'Kitchen'],
-      responseRate: '99%',
-      minOrder: '$200'
-    }
-  ];
-
+  // ✅ REAL API CALLS TO BACKEND - NO MOCK DATA
   const fetchDashboardData = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
 
-      // Simulate API call with timeout
-      setTimeout(() => {
-        setFeaturedProducts(mockFeaturedProducts);
-        setRecentOrders(mockRecentOrders);
-        setCategories(mockCategories);
-        setMessages(mockMessages);
-        setVerifiedSuppliers(mockVerifiedSuppliers);
-        setLoading(false);
-      }, 1000);
+      console.log('🔄 Fetching buyer dashboard data from backend...');
+
+      // Fetch buyer dashboard data from backend
+      const dashboardResponse = await fetch('http://localhost:5000/api/buyer/dashboard');
+      
+      if (!dashboardResponse.ok) {
+        throw new Error(`HTTP error! status: ${dashboardResponse.status}`);
+      }
+      
+      const dashboardResult = await dashboardResponse.json();
+      console.log('📊 Dashboard API Response:', dashboardResult);
+
+      if (!dashboardResult.success) {
+        throw new Error(dashboardResult.message || 'Failed to load dashboard data');
+      }
+
+      // Fetch categories from backend
+      const categoriesResponse = await fetch('http://localhost:5000/api/buyer/categories');
+      
+      if (!categoriesResponse.ok) {
+        throw new Error(`HTTP error! status: ${categoriesResponse.status}`);
+      }
+      
+      const categoriesResult = await categoriesResponse.json();
+      console.log('📂 Categories API Response:', categoriesResult);
+
+      // ✅ SET REAL DATA FROM BACKEND
+      if (dashboardResult.success) {
+        setDashboardData(dashboardResult.data);
+        console.log('✅ Set real dashboard data:', dashboardResult.data);
+      }
+
+      if (categoriesResult.success) {
+        // Map backend categories to frontend format
+        const mappedCategories = categoriesResult.data.map(cat => ({
+          id: cat.name.toLowerCase().replace(/\s+/g, '_'),
+          name: cat.name,
+          icon: getCategoryIcon(cat.name),
+          count: cat.count,
+          color: getCategoryColor(cat.name)
+        }));
+        setCategories(mappedCategories);
+        console.log('✅ Set real categories:', mappedCategories);
+      }
+
+      setLoading(false);
 
     } catch (err) {
-      console.error('Error fetching data:', err);
-      setError(err.message || 'Failed to load data.');
+      console.error('❌ Error fetching data:', err);
+      setError(err.message || 'Failed to load data from server.');
       setLoading(false);
     }
   }, []);
+
+  // Helper function to get category icons
+  const getCategoryIcon = (categoryName) => {
+    const iconMap = {
+      'electronics': faTruck,
+      'home': faHome,
+      'sports': faHeart,
+      'fashion': faUser,
+      'books': faBook,
+      'beauty': faStar,
+      'toys': faHeart,
+      'automotive': faTruck,
+      'other': faBox
+    };
+    return iconMap[categoryName.toLowerCase()] || faBox;
+  };
+
+  // Helper function to get category colors
+  const getCategoryColor = (categoryName) => {
+    const colorMap = {
+      'electronics': '#667eea',
+      'home': '#764ba2',
+      'sports': '#f093fb',
+      'fashion': '#4fd1c5',
+      'books': '#f6ad55',
+      'beauty': '#fc8181',
+      'toys': '#68d391',
+      'automotive': '#63b3ed',
+      'other': '#a0aec0'
+    };
+    return colorMap[categoryName.toLowerCase()] || '#a0aec0';
+  };
 
   useEffect(() => {
     fetchDashboardData();
   }, [fetchDashboardData]);
 
-  // Add to cart functionality
-  const addToCart = useCallback((product) => {
-    setCart(prev => {
-      const existing = prev.find(item => item.id === product.id);
-      if (existing) {
-        return prev.map(item => 
-          item.id === product.id 
-            ? { ...item, quantity: item.quantity + 1 }
-            : item
-        );
-      }
-      return [...prev, { ...product, quantity: 1 }];
-    });
-    setCartCount(prev => prev + 1);
-  }, []);
-
-  // Wishlist functionality
-  const toggleWishlist = useCallback((product) => {
-    setWishlist(prev => {
-      const exists = prev.find(item => item.id === product.id);
-      if (exists) {
-        return prev.filter(item => item.id !== product.id);
-      }
-      return [...prev, product];
-    });
-  }, []);
-
   const handleQuickAction = useCallback(async (action, data = null) => {
     try {
       switch (action) {
         case 'add_to_cart':
-          addToCart(data.product);
           alert('Product added to cart!');
           break;
         case 'contact_seller':
@@ -259,25 +186,16 @@ const BuyerDashboard = memo(() => {
             msg.id === data.messageId ? { ...msg, unread: false } : msg
           ));
           break;
-        case 'toggle_wishlist':
-          toggleWishlist(data.product);
-          alert(data.product.isInWishlist ? 'Removed from wishlist' : 'Added to wishlist');
-          break;
-        case 'contact_supplier':
-          alert(`Contacting supplier: ${data.supplier.name}`);
-          break;
-        case 'view_supplier_profile':
-          alert(`Opening supplier profile: ${data.supplier.name}`);
-          break;
         default:
           break;
       }
     } catch (err) {
       alert('Action failed: ' + err.message);
     }
-  }, [addToCart, toggleWishlist]);
+  }, []);
 
-  const handleSearch = useCallback((query) => {
+  // ✅ REAL SEARCH WITH BACKEND
+  const handleSearch = useCallback(async (query) => {
     if (!query.trim()) {
       setSearchResults([]);
       setIsSearching(false);
@@ -286,16 +204,28 @@ const BuyerDashboard = memo(() => {
 
     setIsSearching(true);
     
-    // Simulate search
-    setTimeout(() => {
-      const results = mockFeaturedProducts.filter(product =>
-        product.name.toLowerCase().includes(query.toLowerCase()) ||
-        product.seller.toLowerCase().includes(query.toLowerCase()) ||
-        product.category.toLowerCase().includes(query.toLowerCase())
-      );
-      setSearchResults(results);
+    try {
+      console.log('🔍 Searching for:', query);
+      const response = await fetch(`http://localhost:5000/api/buyer/products/search?q=${encodeURIComponent(query)}`);
+      
+      if (!response.ok) {
+        throw new Error(`Search failed: ${response.status}`);
+      }
+      
+      const result = await response.json();
+      console.log('🔍 Search results:', result);
+
+      if (result.success) {
+        setSearchResults(result.data);
+      } else {
+        setSearchResults([]);
+      }
+    } catch (error) {
+      console.error('Search error:', error);
+      setSearchResults([]);
+    } finally {
       setIsSearching(false);
-    }, 500);
+    }
   }, []);
 
   const handleNotificationToggle = useCallback((type) => {
@@ -346,101 +276,39 @@ const BuyerDashboard = memo(() => {
   const renderMainContent = () => {
     switch (activeSection) {
       case 'marketplace':
-        return (
-          <div className="marketplace-main">
-            {/* Explore Verified Companies Section */}
-            <VerifiedCompaniesSection 
-              suppliers={verifiedSuppliers}
-              onQuickAction={handleQuickAction}
-            />
-            
-            {/* Featured Products */}
-            <div className="featured-products-section">
-              <div className="section-header">
-                <h3 className="section-title">
-                  <FontAwesomeIcon icon={faStar} className="me-2" />
-                  Featured Products
-                </h3>
-                <Link to="/marketplace" className="view-all-link">
-                  View All <FontAwesomeIcon icon={faChevronRight} />
-                </Link>
-              </div>
-              <ProductList 
-                products={featuredProducts}
-                onAddToCart={addToCart}
-                onToggleWishlist={toggleWishlist}
-                wishlist={wishlist}
-              />
-            </div>
-          </div>
-        );
+        return <ProductList />;
       case 'orders':
         return <BuyerOrders />;
       case 'profile':
-        return (
-          <ProfileSection 
-            userProfile={userProfile} 
-            onNotificationToggle={handleNotificationToggle}
-            wishlist={wishlist}
-            recentOrders={recentOrders}
-          />
-        );
+        return <ProfileSection 
+          userProfile={userProfile} 
+          onNotificationToggle={handleNotificationToggle}
+        />;
       case 'inbox':
-        return (
-          <InboxSection 
-            messages={messages}
-            onMarkAsRead={handleQuickAction}
-          />
-        );
+        return <InboxSection 
+          messages={messages}
+          onMarkAsRead={handleQuickAction}
+        />;
       case 'sell':
         return <SellSection />;
       case 'categories':
-        return (
-          <CategoriesSection 
-            categories={categories}
-            onCategorySelect={(category) => {
-              setActiveSection('marketplace');
-              // Filter products by category
-              handleSearch(category.id);
-            }}
-          />
-        );
+        return <CategoriesSection 
+          categories={categories}
+          onCategorySelect={(category) => {
+            setActiveSection('marketplace');
+          }}
+        />;
       case 'search':
-        return (
-          <SearchSection 
-            searchQuery={searchQuery}
-            searchResults={searchResults}
-            isSearching={isSearching}
-            onSearch={handleSearch}
-            onSearchChange={setSearchQuery}
-            onQuickAction={handleQuickAction}
-            wishlist={wishlist}
-          />
-        );
-      case 'cart':
-        return (
-          <CartSection 
-            cart={cart}
-            cartCount={cartCount}
-            onUpdateCart={setCart}
-            onUpdateCartCount={setCartCount}
-          />
-        );
+        return <SearchSection 
+          searchQuery={searchQuery}
+          searchResults={searchResults}
+          isSearching={isSearching}
+          onSearch={handleSearch}
+          onSearchChange={setSearchQuery}
+          onQuickAction={handleQuickAction}
+        />;
       default:
-        return (
-          <div className="marketplace-main">
-            <VerifiedCompaniesSection 
-              suppliers={verifiedSuppliers}
-              onQuickAction={handleQuickAction}
-            />
-            <ProductList 
-              products={featuredProducts}
-              onAddToCart={addToCart}
-              onToggleWishlist={toggleWishlist}
-              wishlist={wishlist}
-            />
-          </div>
-        );
+        return <ProductList />;
     }
   };
 
@@ -526,11 +394,81 @@ const BuyerDashboard = memo(() => {
           </div>
         )}
 
-        {/* Cart Badge */}
-        {cartCount > 0 && (
-          <div className="cart-badge-floating" onClick={() => setActiveSection('cart')}>
-            <FontAwesomeIcon icon={faShoppingCart} />
-            <span className="cart-count">{cartCount}</span>
+        {/* Dashboard Stats - Show only in marketplace section */}
+        {activeSection === 'marketplace' && (
+          <div className="dashboard-stats">
+            <div className="stats-grid">
+              <div className="stat-card">
+                <div className="stat-icon total-orders">
+                  <FontAwesomeIcon icon={faShoppingBag} />
+                </div>
+                <div className="stat-info">
+                  <h3>{dashboardData.stats.totalOrders}</h3>
+                  <p>Total Orders</p>
+                </div>
+              </div>
+              
+              <div className="stat-card">
+                <div className="stat-icon pending-orders">
+                  <FontAwesomeIcon icon={faClock} />
+                </div>
+                <div className="stat-info">
+                  <h3>{dashboardData.stats.pendingOrders}</h3>
+                  <p>Pending Orders</p>
+                </div>
+              </div>
+              
+              <div className="stat-card">
+                <div className="stat-icon completed-orders">
+                  <FontAwesomeIcon icon={faCheckCircle} />
+                </div>
+                <div className="stat-info">
+                  <h3>{dashboardData.stats.completedOrders}</h3>
+                  <p>Completed Orders</p>
+                </div>
+              </div>
+              
+              <div className="stat-card">
+                <div className="stat-icon total-spent">
+                  <FontAwesomeIcon icon={faDollarSign} />
+                </div>
+                <div className="stat-info">
+                  <h3>${dashboardData.stats.totalSpent.toFixed(2)}</h3>
+                  <p>Total Spent</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Show real recommended products from backend */}
+            {dashboardData.recommendedProducts && dashboardData.recommendedProducts.length > 0 && (
+              <div className="recommended-section">
+                <h3 className="section-title">
+                  <FontAwesomeIcon icon={faStar} className="me-2" />
+                  Recommended For You
+                </h3>
+                <div className="recommended-grid">
+                  {dashboardData.recommendedProducts.map(product => (
+                    <div key={product.id} className="recommended-item">
+                      <img 
+                        src={product.images && product.images[0] && product.images[0].data 
+                          ? `data:${product.images[0].contentType};base64,${product.images[0].data}`
+                          : 'https://via.placeholder.com/150?text=No+Image'
+                        } 
+                        alt={product.name}
+                        onError={(e) => {
+                          e.target.src = 'https://via.placeholder.com/150?text=No+Image';
+                        }}
+                      />
+                      <div className="product-info">
+                        <h4>${product.price}</h4>
+                        <h3>{product.name}</h3>
+                        <p>{product.seller}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -538,7 +476,7 @@ const BuyerDashboard = memo(() => {
         {renderMainContent()}
       </div>
 
-      {/* Bottom Navigation */}
+      {/* BOTTOM NAVIGATION */}
       <div className="bottom-nav">
         <button 
           className={`bottom-nav-item ${activeSection === 'marketplace' ? 'active' : ''}`}
@@ -586,181 +524,8 @@ const BuyerDashboard = memo(() => {
   );
 });
 
-// New Verified Companies Section
-const VerifiedCompaniesSection = ({ suppliers, onQuickAction }) => (
-  <div className="verified-companies-section">
-    <div className="verified-companies-header">
-      <div className="header-content">
-        <h2>
-          <FontAwesomeIcon icon={faShieldAlt} className="me-2" />
-          Explore Thousands of Verified Companies
-        </h2>
-        <p className="lead">Connect with reliable wholesale suppliers offering quality products at the best prices</p>
-      </div>
-      <div className="header-badge">
-        <span className="badge bg-success">Trusted Partners</span>
-      </div>
-    </div>
-
-    {/* Key Benefits */}
-    <div className="benefits-grid">
-      <div className="benefit-item">
-        <div className="benefit-icon verified">
-          <FontAwesomeIcon icon={faCertificate} />
-        </div>
-        <div className="benefit-content">
-          <h5>Verified Suppliers</h5>
-          <p>All companies are thoroughly vetted and verified for reliability</p>
-        </div>
-      </div>
-
-      <div className="benefit-item">
-        <div className="benefit-icon quality">
-          <FontAwesomeIcon icon={faAward} />
-        </div>
-        <div className="benefit-content">
-          <h5>Quality Products</h5>
-          <p>Access premium products with quality guarantees and warranties</p>
-        </div>
-      </div>
-
-      <div className="benefit-item">
-        <div className="benefit-icon pricing">
-          <FontAwesomeIcon icon={faTag} />
-        </div>
-        <div className="benefit-content">
-          <h5>Best Prices</h5>
-          <p>Competitive wholesale pricing with volume discounts available</p>
-        </div>
-      </div>
-
-      <div className="benefit-item">
-        <div className="benefit-icon global">
-          <FontAwesomeIcon icon={faGlobeAmericas} />
-        </div>
-        <div className="benefit-content">
-          <h5>Global Reach</h5>
-          <p>Source from suppliers worldwide with secure logistics</p>
-        </div>
-      </div>
-    </div>
-
-    {/* Featured Suppliers */}
-    <div className="featured-suppliers">
-      <div className="section-header">
-        <h4>
-          <FontAwesomeIcon icon={faBuilding} className="me-2" />
-          Featured Verified Suppliers
-        </h4>
-        <button className="view-all-suppliers-btn">
-          View All Suppliers <FontAwesomeIcon icon={faChevronRight} />
-        </button>
-      </div>
-
-      <div className="suppliers-grid">
-        {suppliers.map(supplier => (
-          <div key={supplier.id} className="supplier-card">
-            <div className="supplier-header">
-              <div className="supplier-logo">
-                <img src={supplier.logo} alt={supplier.name} />
-                {supplier.verified && (
-                  <div className="verified-badge">
-                    <FontAwesomeIcon icon={faCheckCircle} />
-                  </div>
-                )}
-              </div>
-              <div className="supplier-info">
-                <h5>{supplier.name}</h5>
-                <div className="supplier-rating">
-                  <FontAwesomeIcon icon={faStar} className="star-icon" />
-                  <span>{supplier.rating}</span>
-                  <span className="reviews">({supplier.reviews} reviews)</span>
-                </div>
-                <p className="supplier-location">
-                  <FontAwesomeIcon icon={faMapMarkerAlt} className="me-1" />
-                  {supplier.location}
-                </p>
-              </div>
-            </div>
-
-            <div className="supplier-stats">
-              <div className="stat">
-                <strong>{supplier.products}+</strong>
-                <span>Products</span>
-              </div>
-              <div className="stat">
-                <strong>{supplier.responseRate}</strong>
-                <span>Response Rate</span>
-              </div>
-              <div className="stat">
-                <strong>{supplier.minOrder}</strong>
-                <span>Min Order</span>
-              </div>
-            </div>
-
-            <div className="supplier-categories">
-              {supplier.categories.map((category, index) => (
-                <span key={index} className="category-tag">{category}</span>
-              ))}
-            </div>
-
-            <div className="supplier-actions">
-              <button 
-                className="btn btn-outline-primary btn-sm"
-                onClick={() => onQuickAction('contact_supplier', { supplier })}
-              >
-                <FontAwesomeIcon icon={faMessage} className="me-1" />
-                Contact
-              </button>
-              <button 
-                className="btn btn-primary btn-sm"
-                onClick={() => onQuickAction('view_supplier_profile', { supplier })}
-              >
-                <FontAwesomeIcon icon={faEye} className="me-1" />
-                View Profile
-              </button>
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-
-    {/* CTA Section */}
-    <div className="supplier-cta">
-      <div className="cta-content">
-        <h4>Ready to Grow Your Business?</h4>
-        <p>Join thousands of successful buyers who source from our verified supplier network</p>
-        <div className="cta-stats">
-          <div className="stat-item">
-            <strong>10,000+</strong>
-            <span>Verified Suppliers</span>
-          </div>
-          <div className="stat-item">
-            <strong>50M+</strong>
-            <span>Products Available</span>
-          </div>
-          <div className="stat-item">
-            <strong>150+</strong>
-            <span>Countries</span>
-          </div>
-        </div>
-      </div>
-      <div className="cta-actions">
-        <button className="btn btn-primary btn-lg">
-          <FontAwesomeIcon icon={faRocket} className="me-2" />
-          Explore All Suppliers
-        </button>
-        <button className="btn btn-outline-primary btn-lg">
-          <FontAwesomeIcon icon={faHeadset} className="me-2" />
-          Get Buying Support
-        </button>
-      </div>
-    </div>
-  </div>
-);
-
-// Enhanced Profile Section with Wishlist
-const ProfileSection = ({ userProfile, onNotificationToggle, wishlist, recentOrders }) => (
+// Profile Section Component
+const ProfileSection = ({ userProfile, onNotificationToggle }) => (
   <div className="profile-section">
     <div className="profile-header">
       <div className="profile-avatar">
@@ -770,22 +535,6 @@ const ProfileSection = ({ userProfile, onNotificationToggle, wishlist, recentOrd
         <h2>{userProfile.name}</h2>
         <p>{userProfile.email}</p>
         <span className="member-since">Member since {userProfile.joinedDate}</span>
-      </div>
-    </div>
-
-    {/* Quick Stats */}
-    <div className="profile-stats">
-      <div className="stat-item">
-        <h4>{wishlist.length}</h4>
-        <p>Wishlist</p>
-      </div>
-      <div className="stat-item">
-        <h4>{recentOrders.length}</h4>
-        <p>Orders</p>
-      </div>
-      <div className="stat-item">
-        <h4>4.8</h4>
-        <p>Rating</p>
       </div>
     </div>
 
@@ -876,7 +625,7 @@ const ProfileSection = ({ userProfile, onNotificationToggle, wishlist, recentOrd
   </div>
 );
 
-// Enhanced Inbox Section
+// Inbox Section Component
 const InboxSection = ({ messages, onMarkAsRead }) => (
   <div className="inbox-section">
     <div className="section-header">
@@ -919,7 +668,7 @@ const InboxSection = ({ messages, onMarkAsRead }) => (
   </div>
 );
 
-// Enhanced Sell Section
+// Sell Section Component
 const SellSection = () => (
   <div className="sell-section">
     <div className="section-header">
@@ -972,7 +721,7 @@ const SellSection = () => (
   </div>
 );
 
-// Enhanced Categories Section
+// Categories Section Component
 const CategoriesSection = ({ categories, onCategorySelect }) => (
   <div className="categories-section">
     <div className="section-header">
@@ -987,7 +736,7 @@ const CategoriesSection = ({ categories, onCategorySelect }) => (
         <div 
           key={category.id} 
           className="category-item"
-          onClick={() => onCategorySelect(category)}
+          onClick={() => onCategorySelect(category.id)}
         >
           <div 
             className="category-icon"
@@ -1006,8 +755,8 @@ const CategoriesSection = ({ categories, onCategorySelect }) => (
   </div>
 );
 
-// Enhanced Search Section with Wishlist
-const SearchSection = ({ searchQuery, searchResults, isSearching, onSearchChange, onQuickAction, wishlist }) => (
+// Search Section Component - UPDATED with real backend data
+const SearchSection = ({ searchQuery, searchResults, isSearching, onSearchChange, onQuickAction }) => (
   <div className="search-results-section">
     <div className="section-header">
       <h3 className="section-title">
@@ -1030,43 +779,44 @@ const SearchSection = ({ searchQuery, searchResults, isSearching, onSearchChange
       </div>
     ) : searchResults.length > 0 ? (
       <div className="search-results-grid">
-        {searchResults.map(product => {
-          const isInWishlist = wishlist.some(item => item.id === product.id);
-          return (
-            <div key={product.id} className="marketplace-item">
-              <div className="item-image">
-                <img src={product.image} alt={product.name} />
+        {searchResults.map(product => (
+          <div key={product.id} className="marketplace-item">
+            <div className="item-image">
+              <img 
+                src={product.images && product.images[0] && product.images[0].data 
+                  ? `data:${product.images[0].contentType};base64,${product.images[0].data}`
+                  : 'https://via.placeholder.com/150?text=No+Image'
+                } 
+                alt={product.name}
+                onError={(e) => {
+                  e.target.src = 'https://via.placeholder.com/150?text=No+Image';
+                }}
+              />
+            </div>
+            <div className="item-info">
+              <h4 className="item-price">${product.price}</h4>
+              <h3 className="item-name">{product.name}</h3>
+              <p className="item-seller">Sold by: {product.seller}</p>
+              <p className="item-stock">{product.stock > 0 ? `${product.stock} in stock` : 'Out of stock'}</p>
+              <div className="item-actions">
                 <button 
-                  className={`wishlist-btn ${isInWishlist ? 'active' : ''}`}
-                  onClick={() => onQuickAction('toggle_wishlist', { product, isInWishlist })}
+                  className="action-btn message-btn"
+                  onClick={() => onQuickAction('contact_seller', { seller: product.seller })}
                 >
-                  <FontAwesomeIcon icon={isInWishlist ? faHeart : faHeart} />
+                  <FontAwesomeIcon icon={faMessage} />
+                  Message
+                </button>
+                <button 
+                  className="action-btn cart-btn"
+                  onClick={() => onQuickAction('add_to_cart', { productId: product.id })}
+                >
+                  <FontAwesomeIcon icon={faShoppingCart} />
+                  Cart
                 </button>
               </div>
-              <div className="item-info">
-                <h4 className="item-price">${product.price}</h4>
-                <h3 className="item-name">{product.name}</h3>
-                <p className="item-location">{product.location}</p>
-                <div className="item-actions">
-                  <button 
-                    className="action-btn message-btn"
-                    onClick={() => onQuickAction('contact_seller', { seller: product.seller })}
-                  >
-                    <FontAwesomeIcon icon={faMessage} />
-                    Message
-                  </button>
-                  <button 
-                    className="action-btn cart-btn"
-                    onClick={() => onQuickAction('add_to_cart', { product })}
-                  >
-                    <FontAwesomeIcon icon={faShoppingCart} />
-                    Cart
-                  </button>
-                </div>
-              </div>
             </div>
-          );
-        })}
+          </div>
+        ))}
       </div>
     ) : (
       <div className="search-prompt">
@@ -1077,87 +827,5 @@ const SearchSection = ({ searchQuery, searchResults, isSearching, onSearchChange
     )}
   </div>
 );
-
-// New Cart Section
-const CartSection = ({ cart, cartCount, onUpdateCart, onUpdateCartCount }) => {
-  const updateQuantity = (productId, newQuantity) => {
-    if (newQuantity === 0) {
-      onUpdateCart(prev => prev.filter(item => item.id !== productId));
-    } else {
-      onUpdateCart(prev => prev.map(item => 
-        item.id === productId ? { ...item, quantity: newQuantity } : item
-      ));
-    }
-    
-    // Recalculate total count
-    const newCount = cart.reduce((total, item) => total + item.quantity, 0);
-    onUpdateCartCount(newCount);
-  };
-
-  const getTotalPrice = () => {
-    return cart.reduce((total, item) => total + (item.price * item.quantity), 0).toFixed(2);
-  };
-
-  return (
-    <div className="cart-section">
-      <div className="section-header">
-        <h3 className="section-title">
-          <FontAwesomeIcon icon={faShoppingCart} className="me-2" />
-          Shopping Cart ({cartCount} items)
-        </h3>
-      </div>
-
-      {cart.length === 0 ? (
-        <div className="empty-cart">
-          <FontAwesomeIcon icon={faShoppingCart} size="3x" className="empty-icon" />
-          <h4>Your cart is empty</h4>
-          <p>Add some items to get started</p>
-        </div>
-      ) : (
-        <>
-          <div className="cart-items">
-            {cart.map(item => (
-              <div key={item.id} className="cart-item">
-                <img src={item.image} alt={item.name} className="cart-item-image" />
-                <div className="cart-item-details">
-                  <h4>{item.name}</h4>
-                  <p className="seller">Sold by: {item.seller}</p>
-                  <p className="price">${item.price}</p>
-                </div>
-                <div className="quantity-controls">
-                  <button 
-                    onClick={() => updateQuantity(item.id, item.quantity - 1)}
-                    disabled={item.quantity <= 1}
-                  >
-                    -
-                  </button>
-                  <span>{item.quantity}</span>
-                  <button onClick={() => updateQuantity(item.id, item.quantity + 1)}>
-                    +
-                  </button>
-                </div>
-                <button 
-                  className="remove-btn"
-                  onClick={() => updateQuantity(item.id, 0)}
-                >
-                  <FontAwesomeIcon icon={faTimes} />
-                </button>
-              </div>
-            ))}
-          </div>
-          
-          <div className="cart-summary">
-            <div className="total-section">
-              <h4>Total: ${getTotalPrice()}</h4>
-            </div>
-            <button className="checkout-btn">
-              Proceed to Checkout
-            </button>
-          </div>
-        </>
-      )}
-    </div>
-  );
-};
 
 export default BuyerDashboard;

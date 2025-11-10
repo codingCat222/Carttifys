@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { useCart } from '../contexts/CartContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
@@ -24,10 +24,9 @@ import {
   faMusic,
   faUserTie,
   faWind,
-  faKitchenSet,
-  faShoePrints,
-  faTv,
-  faPumpSoap
+  faSpinner,
+  faExclamationTriangle,
+  faRedo
 } from '@fortawesome/free-solid-svg-icons';
 import './ProductList.css';
 
@@ -35,166 +34,97 @@ const ProductList = () => {
   const [products, setProducts] = useState([]);
   const [filteredProducts, setFilteredProducts] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState('all');
   const [priceRange, setPriceRange] = useState('');
   const [sortBy, setSortBy] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const { addToCart } = useCart();
 
-  useEffect(() => {
-    // Real product data with high-quality images
-    const realProducts = [
-      {
-        id: 1,
-        name: 'Sony WH-1000XM4 Wireless Headphones',
-        price: 349.99,
-        category: 'electronics',
-        image: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=500&q=80',
-        seller: 'TechStore Pro',
-        rating: 4.8,
-        description: 'Industry-leading noise cancellation with 30-hour battery life',
-        location: 'New York'
-      },
-      {
-        id: 2,
-        name: 'Nike Air Max 270 Running Shoes',
-        price: 149.99,
-        category: 'sports',
-        image: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=500&q=80',
-        seller: 'SportGear Hub',
-        rating: 4.5,
-        description: 'Comfortable running shoes with maximum air cushioning',
-        location: 'San Francisco'
-      },
-      {
-        id: 3,
-        name: 'Apple Watch Series 8',
-        price: 399.99,
-        category: 'electronics',
-        image: 'https://images.unsplash.com/photo-1579586337278-3f436f4b5d5f?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=500&q=80',
-        seller: 'GadgetWorld',
-        rating: 4.7,
-        description: 'Advanced health monitoring and fitness tracking',
-        location: 'Chicago'
-      },
-      {
-        id: 4,
-        name: 'Nespresso Vertuo Coffee Maker',
-        price: 199.99,
-        category: 'home',
-        image: 'https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=500&q=80',
-        seller: 'HomeEssentials',
-        rating: 4.4,
-        description: 'Brews coffee and espresso with centrifusion technology',
-        location: 'Boston'
-      },
-      {
-        id: 5,
-        name: 'Professional Yoga Mat',
-        price: 39.99,
-        category: 'sports',
-        image: 'https://images.unsplash.com/photo-1544367567-0f2fcb009e0b?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=500&q=80',
-        seller: 'FitLife Store',
-        rating: 4.3,
-        description: 'Non-slip premium yoga mat for all practice levels',
-        location: 'Miami'
-      },
-      {
-        id: 6,
-        name: 'JBL Flip 6 Bluetooth Speaker',
-        price: 129.99,
-        category: 'electronics',
-        image: 'https://images.unsplash.com/photo-1608043152269-423dbba4e7e1?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=500&q=80',
-        seller: 'AudioPro',
-        rating: 4.6,
-        description: 'Portable Bluetooth speaker with powerful sound',
-        location: 'Seattle'
-      },
-      {
-        id: 7,
-        name: 'Levi\'s 501 Original Jeans',
-        price: 89.99,
-        category: 'fashion',
-        image: 'https://images.unsplash.com/photo-1542272604-787c3835535d?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=500&q=80',
-        seller: 'FashionHub',
-        rating: 4.2,
-        description: 'Classic straight fit jeans in original denim',
-        location: 'Los Angeles'
-      },
-      {
-        id: 8,
-        name: 'Dyson Supersonic Hair Dryer',
-        price: 429.99,
-        category: 'beauty',
-        image: 'https://images.unsplash.com/photo-1522338140262-f46f5913618a?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=500&q=80',
-        seller: 'BeautyTech',
-        rating: 4.9,
-        description: 'Professional hair dryer with intelligent heat control',
-        location: 'New York'
+  // ✅ REAL API CALL TO GET PRODUCTS FROM BACKEND
+  const fetchProducts = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      console.log('🔄 Fetching real products from backend...');
+
+      // Build query string from filters
+      const queryParams = new URLSearchParams();
+      if (selectedCategory && selectedCategory !== 'all') {
+        queryParams.append('category', selectedCategory);
       }
-    ];
-    
-    setProducts(realProducts);
-    setFilteredProducts(realProducts);
-  }, []);
+      if (priceRange) {
+        const priceRanges = {
+          'under50': { min: 0, max: 50 },
+          '50-100': { min: 50, max: 100 },
+          '100-200': { min: 100, max: 200 },
+          '200-400': { min: 200, max: 400 },
+          'over400': { min: 400, max: 10000 }
+        };
+        if (priceRanges[priceRange]) {
+          queryParams.append('minPrice', priceRanges[priceRange].min);
+          queryParams.append('maxPrice', priceRanges[priceRange].max);
+        }
+      }
+      if (sortBy) {
+        const sortMap = {
+          'price-low': { sortBy: 'price', sortOrder: 'asc' },
+          'price-high': { sortBy: 'price', sortOrder: 'desc' },
+          'rating': { sortBy: 'averageRating', sortOrder: 'desc' },
+          'name': { sortBy: 'name', sortOrder: 'asc' }
+        };
+        if (sortMap[sortBy]) {
+          queryParams.append('sortBy', sortMap[sortBy].sortBy);
+          queryParams.append('sortOrder', sortMap[sortBy].sortOrder);
+        }
+      }
+
+      const response = await fetch(`http://localhost:5000/api/buyer/products?${queryParams}`);
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const result = await response.json();
+      console.log('📦 Products API Response:', result);
+
+      if (result.success) {
+        setProducts(result.data);
+        setFilteredProducts(result.data);
+        console.log('✅ Set real products:', result.data);
+      } else {
+        throw new Error(result.message || 'Failed to load products');
+      }
+
+      setLoading(false);
+    } catch (err) {
+      console.error('❌ Error fetching products:', err);
+      setError(err.message || 'Failed to load products from server.');
+      setLoading(false);
+    }
+  }, [selectedCategory, priceRange, sortBy]);
 
   useEffect(() => {
-    let filtered = [...products];
+    fetchProducts();
+  }, [fetchProducts]);
 
-    if (searchTerm) {
-      filtered = filtered.filter(product =>
-        product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        product.seller.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        product.description.toLowerCase().includes(searchTerm.toLowerCase())
-      );
+  // ✅ REAL-TIME SEARCH FILTERING
+  useEffect(() => {
+    if (!searchTerm) {
+      setFilteredProducts(products);
+      return;
     }
 
-    if (selectedCategory) {
-      filtered = filtered.filter(product => product.category === selectedCategory);
-    }
-
-    if (priceRange) {
-      switch (priceRange) {
-        case 'under50':
-          filtered = filtered.filter(product => product.price < 50);
-          break;
-        case '50-100':
-          filtered = filtered.filter(product => product.price >= 50 && product.price <= 100);
-          break;
-        case '100-200':
-          filtered = filtered.filter(product => product.price > 100 && product.price <= 200);
-          break;
-        case '200-400':
-          filtered = filtered.filter(product => product.price > 200 && product.price <= 400);
-          break;
-        case 'over400':
-          filtered = filtered.filter(product => product.price > 400);
-          break;
-        default:
-          break;
-      }
-    }
-
-    if (sortBy) {
-      switch (sortBy) {
-        case 'price-low':
-          filtered.sort((a, b) => a.price - b.price);
-          break;
-        case 'price-high':
-          filtered.sort((a, b) => b.price - a.price);
-          break;
-        case 'rating':
-          filtered.sort((a, b) => b.rating - a.rating);
-          break;
-        case 'name':
-          filtered.sort((a, b) => a.name.localeCompare(b.name));
-          break;
-        default:
-          break;
-      }
-    }
+    const filtered = products.filter(product =>
+      product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (product.seller && product.seller.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (product.description && product.description.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (product.category && product.category.toLowerCase().includes(searchTerm.toLowerCase()))
+    );
 
     setFilteredProducts(filtered);
-  }, [searchTerm, selectedCategory, priceRange, sortBy, products]);
+  }, [searchTerm, products]);
 
   const handleAddToCart = (product) => {
     addToCart(product);
@@ -218,28 +148,51 @@ const ProductList = () => {
     }
   };
 
-  const getProductIcon = (productId) => {
-    switch (productId) {
-      case 1:
-        return <FontAwesomeIcon icon={faHeadphones} className="product-specific-icon" />;
-      case 2:
-        return <FontAwesomeIcon icon={faShoePrints} className="product-specific-icon" />;
-      case 3:
-        return <FontAwesomeIcon icon={faMobile} className="product-specific-icon" />;
-      case 4:
-        return <FontAwesomeIcon icon={faMugHot} className="product-specific-icon" />;
-      case 5:
-        return <FontAwesomeIcon icon={faPersonRunning} className="product-specific-icon" />;
-      case 6:
-        return <FontAwesomeIcon icon={faMusic} className="product-specific-icon" />;
-      case 7:
-        return <FontAwesomeIcon icon={faUserTie} className="product-specific-icon" />;
-      case 8:
-        return <FontAwesomeIcon icon={faWind} className="product-specific-icon" />;
-      default:
-        return <FontAwesomeIcon icon={faCube} className="product-specific-icon" />;
+  const getProductIcon = (product) => {
+    const name = product.name.toLowerCase();
+    if (name.includes('headphone') || name.includes('audio')) {
+      return <FontAwesomeIcon icon={faHeadphones} className="product-specific-icon" />;
+    } else if (name.includes('shoe') || name.includes('sneaker')) {
+      return <FontAwesomeIcon icon={faPersonRunning} className="product-specific-icon" />;
+    } else if (name.includes('watch') || name.includes('smartwatch')) {
+      return <FontAwesomeIcon icon={faMobile} className="product-specific-icon" />;
+    } else if (name.includes('coffee') || name.includes('maker')) {
+      return <FontAwesomeIcon icon={faMugHot} className="product-specific-icon" />;
+    } else if (name.includes('speaker') || name.includes('music')) {
+      return <FontAwesomeIcon icon={faMusic} className="product-specific-icon" />;
+    } else if (name.includes('jeans') || name.includes('clothing')) {
+      return <FontAwesomeIcon icon={faUserTie} className="product-specific-icon" />;
+    } else if (name.includes('hair') || name.includes('dryer')) {
+      return <FontAwesomeIcon icon={faWind} className="product-specific-icon" />;
+    } else {
+      return <FontAwesomeIcon icon={faCube} className="product-specific-icon" />;
     }
   };
+
+  // Loading state
+  if (loading) {
+    return (
+      <div className="products-loading">
+        <FontAwesomeIcon icon={faSpinner} spin size="3x" className="loading-icon" />
+        <h3>Loading Products...</h3>
+        <p>Discovering amazing deals for you</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="products-error">
+        <FontAwesomeIcon icon={faExclamationTriangle} size="3x" className="error-icon" />
+        <h3>Error Loading Products</h3>
+        <p className="error-message">{error}</p>
+        <button className="retry-btn" onClick={fetchProducts}>
+          <FontAwesomeIcon icon={faRedo} className="me-2" />
+          Try Again
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="product-list-container">
@@ -273,12 +226,16 @@ const ProductList = () => {
               value={selectedCategory}
               onChange={(e) => setSelectedCategory(e.target.value)}
             >
-              <option value="">All Categories</option>
+              <option value="all">All Categories</option>
               <option value="electronics">Electronics</option>
-              <option value="sports">Sports</option>
-              <option value="home">Home & Garden</option>
               <option value="fashion">Fashion</option>
+              <option value="home">Home & Garden</option>
+              <option value="sports">Sports</option>
               <option value="beauty">Beauty</option>
+              <option value="books">Books</option>
+              <option value="toys">Toys & Games</option>
+              <option value="automotive">Automotive</option>
+              <option value="other">Other</option>
             </select>
           </div>
 
@@ -326,40 +283,56 @@ const ProductList = () => {
         {filteredProducts.map(product => (
           <div key={product.id} className="product-card">
             <div className="product-image-container">
+              {/* ✅ FIXED: Proper base64 image display */}
               <img 
-                src={product.image} 
+                src={product.images && product.images[0] && product.images[0].data 
+                  ? `data:${product.images[0].contentType};base64,${product.images[0].data}`
+                  : 'https://via.placeholder.com/300x200?text=No+Image'
+                } 
                 className="product-image" 
                 alt={product.name}
                 loading="lazy"
+                onError={(e) => {
+                  e.target.src = 'https://via.placeholder.com/300x200?text=No+Image';
+                }}
               />
               <div className="product-badges">
                 <span className="category-badge">
                   {getCategoryIcon(product.category)}
                   <span className="category-text">{product.category}</span>
                 </span>
-                <span className="rating-badge">
-                  <FontAwesomeIcon icon={faStar} className="star-icon" />
-                  {product.rating}
-                </span>
+                {product.averageRating > 0 && (
+                  <span className="rating-badge">
+                    <FontAwesomeIcon icon={faStar} className="star-icon" />
+                    {product.averageRating.toFixed(1)}
+                  </span>
+                )}
+                {product.stock === 0 && (
+                  <span className="stock-badge out-of-stock">Out of Stock</span>
+                )}
               </div>
             </div>
             
             <div className="product-info">
               <h3 className="product-name">
-                {getProductIcon(product.id)}
+                {getProductIcon(product)}
                 {product.name}
               </h3>
-              <p className="product-description">{product.description}</p>
+              <p className="product-description">
+                {product.description || 'No description available'}
+              </p>
               
               <div className="product-meta">
                 <div className="price-section">
                   <span className="product-price">${product.price}</span>
+                  {product.stock > 0 && (
+                    <span className="stock-info">{product.stock} in stock</span>
+                  )}
                 </div>
                 
                 <div className="seller-section">
                   <FontAwesomeIcon icon={faStore} className="store-icon" />
-                  <span className="seller-name">{product.seller}</span>
-                  <span className="product-location">{product.location}</span>
+                  <span className="seller-name">{product.seller || 'Unknown Seller'}</span>
                 </div>
                 
                 <div className="product-actions">
@@ -373,9 +346,10 @@ const ProductList = () => {
                   <button 
                     className="btn add-to-cart-btn"
                     onClick={() => handleAddToCart(product)}
+                    disabled={product.stock === 0}
                   >
                     <FontAwesomeIcon icon={faShoppingCart} className="me-1" />
-                    Add to Cart
+                    {product.stock === 0 ? 'Out of Stock' : 'Add to Cart'}
                   </button>
                 </div>
               </div>
@@ -384,16 +358,20 @@ const ProductList = () => {
         ))}
       </div>
 
-      {filteredProducts.length === 0 && (
+      {filteredProducts.length === 0 && !loading && (
         <div className="no-products">
           <FontAwesomeIcon icon={faSearch} className="no-products-icon" />
           <h4>No products found</h4>
-          <p className="no-products-text">Try adjusting your search filters or search terms</p>
+          <p className="no-products-text">
+            {searchTerm || selectedCategory !== 'all' || priceRange || sortBy 
+              ? 'Try adjusting your search filters or search terms' 
+              : 'No products available in the marketplace yet. Check back soon!'}
+          </p>
           <button 
             className="clear-filters-btn"
             onClick={() => {
               setSearchTerm('');
-              setSelectedCategory('');
+              setSelectedCategory('all');
               setPriceRange('');
               setSortBy('');
             }}

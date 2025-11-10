@@ -15,7 +15,7 @@ const Signup = () => {
     email: '',
     password: '',
     confirmPassword: '',
-    role: forcedRole, // Use forced role from URL
+    role: forcedRole,
     address: '',
     phone: '',
     businessName: '',
@@ -40,35 +40,74 @@ const Signup = () => {
     e.preventDefault();
     setError('');
 
+    // Frontend validation
     if (formData.password !== formData.confirmPassword) {
       setError('Passwords do not match');
+      return;
+    }
+
+    if (formData.password.length < 6) {
+      setError('Password must be at least 6 characters');
       return;
     }
 
     setLoading(true);
 
     try {
-      const newUser = {
-        id: Math.random().toString(36).substr(2, 9),
-        name: formData.role === 'seller' ? formData.businessName : formData.name,
+      // Prepare data for backend based on role
+      const userData = {
         email: formData.email,
+        password: formData.password,
         role: formData.role,
-        ...(formData.role === 'buyer' && { address: formData.address, phone: formData.phone }),
-        ...(formData.role === 'seller' && { 
-          businessType: formData.businessType,
-          businessAddress: formData.businessAddress
-        })
       };
 
-      login(newUser);
-      navigate(formData.role === 'buyer' ? '/buyer/dashboard' : '/seller/dashboard');
+      // Add role-specific fields
+      if (formData.role === 'buyer') {
+        userData.name = formData.name;
+        userData.phone = formData.phone;
+        userData.address = formData.address;
+      } else if (formData.role === 'seller') {
+        userData.businessName = formData.businessName;
+        userData.businessType = formData.businessType;
+        userData.businessAddress = formData.businessAddress;
+      }
+
+      // Call backend API
+      const response = await fetch('http://localhost:5000/api/auth/register', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(userData),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || 'Registration failed');
+      }
+
+      // Registration successful
+// In your handleSubmit function, update the success part:
+if (data.success) {
+  // Store token in localStorage
+  localStorage.setItem('token', data.token);
+  
+  // Update auth context with both user data AND token
+  login(data.user, data.token);
+  
+  // Navigate to appropriate dashboard
+  navigate(data.redirectTo);
+}
+
     } catch (err) {
-      setError('Failed to create account');
+      setError(err.message || 'Failed to create account');
     }
     
     setLoading(false);
   };
 
+  // Rest of your JSX remains exactly the same...
   return (
     <div className="signup-container">
       <div className="signup-card">
@@ -79,8 +118,6 @@ const Signup = () => {
           </h1>
           <p>Create your {formData.role === 'seller' ? 'Seller' : 'Buyer'} account</p>
         </div>
-
-        {/* REMOVED Role Selection Buttons - User cannot switch */}
 
         {error && (
           <div className="alert alert-error">
@@ -222,6 +259,7 @@ const Signup = () => {
                 onChange={handleChange}
                 required
                 placeholder="Create a password"
+                minLength="6"
               />
             </div>
             <div className="form-group">
@@ -271,7 +309,6 @@ const Signup = () => {
           </p>
         </div>
 
-        {/* Show different signup option link */}
         <div className="alternative-signup">
           <p>
             Want to {formData.role === 'seller' ? 'shop' : 'sell'} instead? 

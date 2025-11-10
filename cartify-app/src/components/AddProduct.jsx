@@ -10,13 +10,12 @@ const AddProduct = () => {
     category: '',
     stock: '',
     images: [],
-    videos: [], // New state for videos
+    videos: [],
     features: ['']
   });
 
   const [loading, setLoading] = useState(false);
-  const [imageUploadProgress, setImageUploadProgress] = useState({});
-  const [videoUploadProgress, setVideoUploadProgress] = useState({}); // New state for video progress
+  const [uploading, setUploading] = useState(false);
   const navigate = useNavigate();
 
   const handleChange = (e) => {
@@ -53,6 +52,7 @@ const AddProduct = () => {
     }));
   };
 
+  // ✅ REAL IMAGE UPLOAD - Convert to Base64
   const handleImageUpload = async (e) => {
     const files = Array.from(e.target.files);
     
@@ -61,14 +61,38 @@ const AddProduct = () => {
       return;
     }
 
-    // For now, use object URLs - replace with actual upload in production
-    const imageUrls = files.map(file => URL.createObjectURL(file));
-    setFormData(prev => ({
-      ...prev,
-      images: [...prev.images, ...imageUrls]
-    }));
+    setUploading(true);
+
+    try {
+      const imagePromises = files.map(file => {
+        return new Promise((resolve) => {
+          const reader = new FileReader();
+          reader.onloadend = () => {
+            resolve({
+              data: reader.result, // Base64 string
+              contentType: file.type || 'image/jpeg'
+            });
+          };
+          reader.readAsDataURL(file);
+        });
+      });
+
+      const processedImages = await Promise.all(imagePromises);
+      
+      setFormData(prev => ({
+        ...prev,
+        images: [...prev.images, ...processedImages]
+      }));
+
+    } catch (error) {
+      console.error('Error uploading images:', error);
+      alert('Error uploading images');
+    } finally {
+      setUploading(false);
+    }
   };
 
+  // ✅ REAL VIDEO UPLOAD - Convert to Base64
   const handleVideoUpload = async (e) => {
     const files = Array.from(e.target.files);
     
@@ -95,18 +119,37 @@ const AddProduct = () => {
       return true;
     });
 
-    // For now, use object URLs - replace with actual upload in production
-    const videoUrls = validFiles.map(file => ({
-      url: URL.createObjectURL(file),
-      name: file.name,
-      size: file.size,
-      type: file.type
-    }));
-    
-    setFormData(prev => ({
-      ...prev,
-      videos: [...prev.videos, ...videoUrls]
-    }));
+    setUploading(true);
+
+    try {
+      const videoPromises = validFiles.map(file => {
+        return new Promise((resolve) => {
+          const reader = new FileReader();
+          reader.onloadend = () => {
+            resolve({
+              data: reader.result, // Base64 string
+              contentType: file.type,
+              name: file.name,
+              size: file.size
+            });
+          };
+          reader.readAsDataURL(file);
+        });
+      });
+
+      const processedVideos = await Promise.all(videoPromises);
+      
+      setFormData(prev => ({
+        ...prev,
+        videos: [...prev.videos, ...processedVideos]
+      }));
+
+    } catch (error) {
+      console.error('Error uploading videos:', error);
+      alert('Error uploading videos');
+    } finally {
+      setUploading(false);
+    }
   };
 
   const removeImage = (index) => {
@@ -148,8 +191,8 @@ const AddProduct = () => {
       errors.push('Category is required');
     }
 
-    if (formData.images.length === 0 && formData.videos.length === 0) {
-      errors.push('At least one product image or video is required');
+    if (formData.images.length === 0) {
+      errors.push('At least one product image is required');
     }
 
     const validFeatures = formData.features.filter(feature => feature.trim() !== '');
@@ -173,6 +216,7 @@ const AddProduct = () => {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
 
+  // ✅ UPDATED SUBMIT - Properly formatted for backend schema
   const handleSubmit = async (e) => {
     e.preventDefault();
     
@@ -183,27 +227,65 @@ const AddProduct = () => {
     setLoading(true);
 
     try {
-      // Replace with your actual API endpoint
+      // Prepare product data with properly formatted images/videos
       const productData = {
-        ...formData,
+        name: formData.name.trim(),
+        description: formData.description.trim(),
         price: parseFloat(formData.price),
+        category: formData.category,
         stock: parseInt(formData.stock),
         features: formData.features.filter(feature => feature.trim() !== ''),
-        createdAt: new Date().toISOString(),
+        images: formData.images, // Already formatted as { data: base64, contentType: type }
+        videos: formData.videos // Already formatted as { data: base64, contentType: type, name, size }
       };
 
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      console.log('Product data to submit:', productData);
-      alert('Product added successfully!');
-      
-      // Navigate back to seller dashboard
-      navigate('/seller/dashboard');
+      console.log('Sending product data to backend:', {
+        ...productData,
+        images: productData.images.map(img => ({ ...img, data: img.data.substring(0, 100) + '...' })),
+        videos: productData.videos.map(vid => ({ ...vid, data: vid.data.substring(0, 100) + '...' }))
+      });
+
+      // ✅ REAL API CALL
+      const response = await fetch('http://localhost:5000/api/seller/products', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token') || 'mock_token'}`
+        },
+        body: JSON.stringify(productData)
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || `Failed to create product: ${response.status}`);
+      }
+
+      if (data.success) {
+        alert('Product added successfully with real images and videos!');
+        console.log('Product created:', data.data);
+        
+        // Reset form
+        setFormData({
+          name: '',
+          description: '',
+          price: '',
+          category: '',
+          stock: '',
+          images: [],
+          videos: [],
+          features: ['']
+        });
+        
+        // Navigate back to seller dashboard
+        navigate('/seller/dashboard');
+      } else {
+        throw new Error(data.message || 'Product creation failed');
+      }
       
     } catch (error) {
       console.error('Error adding product:', error);
-      alert('Error adding product. Please try again.');
+      alert(`Error adding product: ${error.message}`);
     }
     
     setLoading(false);
@@ -268,6 +350,8 @@ const AddProduct = () => {
                       <option value="sports">Sports</option>
                       <option value="beauty">Beauty</option>
                       <option value="books">Books</option>
+                      <option value="toys">Toys & Games</option>
+                      <option value="automotive">Automotive</option>
                       <option value="other">Other</option>
                     </select>
                   </div>
@@ -287,6 +371,7 @@ const AddProduct = () => {
                     placeholder="Describe your product in detail..."
                     required
                     className="form-textarea"
+                    maxLength="500"
                   ></textarea>
                   <div className="form-hint">
                     {formData.description.length}/500 characters
@@ -359,6 +444,7 @@ const AddProduct = () => {
                           value={feature}
                           onChange={(e) => handleFeatureChange(index, e.target.value)}
                           className="feature-input"
+                          maxLength="100"
                         />
                         {formData.features.length > 1 && (
                           <button
@@ -385,13 +471,16 @@ const AddProduct = () => {
                     Add Feature
                   </button>
                 )}
+                <div className="form-hint">
+                  {formData.features.filter(f => f.trim() !== '').length}/10 features added
+                </div>
               </div>
 
               {/* Image Upload */}
               <div className="form-section">
                 <h3 className="section-title">
                   <i className="fas fa-images"></i>
-                  Product Images
+                  Product Images *
                 </h3>
                 
                 <div className="image-upload-section">
@@ -401,12 +490,12 @@ const AddProduct = () => {
                       multiple
                       accept="image/*"
                       onChange={handleImageUpload}
-                      disabled={formData.images.length >= 5}
+                      disabled={formData.images.length >= 5 || uploading}
                       className="file-input"
                     />
                     <div className="upload-hint">
                       <i className="fas fa-info-circle"></i>
-                      Upload product images (Max 5 images, recommended size: 800x800px)
+                      {uploading ? 'Uploading images...' : `Upload real product images (${formData.images.length}/5)`}
                     </div>
                   </div>
 
@@ -414,7 +503,7 @@ const AddProduct = () => {
                     {formData.images.map((image, index) => (
                       <div key={index} className="image-preview-item">
                         <img
-                          src={image}
+                          src={image.data}
                           alt={`Product preview ${index + 1}`}
                           className="preview-image"
                         />
@@ -432,7 +521,7 @@ const AddProduct = () => {
                 </div>
               </div>
 
-              {/* Video Upload - New Section */}
+              {/* Video Upload */}
               <div className="form-section">
                 <h3 className="section-title">
                   <i className="fas fa-video"></i>
@@ -446,12 +535,12 @@ const AddProduct = () => {
                       multiple
                       accept="video/*"
                       onChange={handleVideoUpload}
-                      disabled={formData.videos.length >= 3}
+                      disabled={formData.videos.length >= 3 || uploading}
                       className="file-input"
                     />
                     <div className="upload-hint">
                       <i className="fas fa-info-circle"></i>
-                      Upload product videos (Max 3 videos, Max 100MB each, Supported: MP4, WebM, OGG, MOV)
+                      {uploading ? 'Uploading videos...' : `Upload product videos (${formData.videos.length}/3, Max 100MB each)`}
                     </div>
                   </div>
 
@@ -460,13 +549,14 @@ const AddProduct = () => {
                       <div key={index} className="video-preview-item">
                         <div className="video-preview-wrapper">
                           <video
-                            src={video.url}
+                            src={video.data}
                             className="preview-video"
                             controls
                           />
                           <div className="video-info">
                             <div className="video-name">{video.name}</div>
                             <div className="video-size">{formatFileSize(video.size)}</div>
+                            <div className="video-type">{video.contentType}</div>
                           </div>
                         </div>
                         <button
@@ -488,20 +578,33 @@ const AddProduct = () => {
                 <button
                   type="submit"
                   className="submit-btn"
-                  disabled={loading}
+                  disabled={loading || uploading}
                 >
                   {loading ? (
                     <>
                       <i className="fas fa-spinner fa-spin"></i>
                       Adding Product...
                     </>
+                  ) : uploading ? (
+                    <>
+                      <i className="fas fa-spinner fa-spin"></i>
+                      Uploading Media...
+                    </>
                   ) : (
                     <>
                       <i className="fas fa-plus"></i>
-                      Add Product
+                      Add Product with Real Media
                     </>
                   )}
                 </button>
+                
+                {(loading || uploading) && (
+                  <div className="upload-progress">
+                    <div className="progress-text">
+                      Processing {formData.images.length} images and {formData.videos.length} videos...
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </form>
@@ -512,32 +615,28 @@ const AddProduct = () => {
           <div className="sidebar-card">
             <h4>
               <i className="fas fa-lightbulb"></i>
-              Tips for Better Listings
+              Real File Upload
             </h4>
             <ul className="tips-list">
               <li>
-                <i className="fas fa-camera"></i>
-                Use high-quality, clear images
+                <i className="fas fa-check-circle text-success"></i>
+                <strong>Base64 encoding</strong>
+              </li>
+              <li>
+                <i className="fas fa-database"></i>
+                Stored in MongoDB
+              </li>
+              <li>
+                <i className="fas fa-images"></i>
+                {formData.images.length}/5 images
               </li>
               <li>
                 <i className="fas fa-video"></i>
-                Add videos to showcase product features
-              </li>
-              <li>
-                <i className="fas fa-align-left"></i>
-                Write detailed and honest descriptions
-              </li>
-              <li>
-                <i className="fas fa-tag"></i>
-                Set competitive prices
+                {formData.videos.length}/3 videos
               </li>
               <li>
                 <i className="fas fa-star"></i>
-                Highlight key features
-              </li>
-              <li>
-                <i className="fas fa-sync-alt"></i>
-                Keep stock updated regularly
+                {formData.features.filter(f => f.trim() !== '').length}/10 features
               </li>
             </ul>
           </div>
@@ -545,25 +644,31 @@ const AddProduct = () => {
           <div className="sidebar-card">
             <h4>
               <i className="fas fa-exclamation-triangle"></i>
-              Media Guidelines
+              Upload Guidelines
             </h4>
             <div className="media-guidelines">
               <div className="guideline-item">
                 <i className="fas fa-images"></i>
                 <div>
-                  <strong>Images:</strong> Max 5 images, 800x800px recommended
+                  <strong>Images:</strong> JPG, PNG, GIF, WEBPn
                 </div>
               </div>
               <div className="guideline-item">
                 <i className="fas fa-video"></i>
                 <div>
-                  <strong>Videos:</strong> Max 3 videos, 100MB each
+                  <strong>Videos:</strong> MP4, WebM, OGG, MOV
                 </div>
               </div>
               <div className="guideline-item">
-                <i className="fas fa-film"></i>
+                <i className="fas fa-weight"></i>
                 <div>
-                  <strong>Formats:</strong> MP4, WebM, OGG, MOV
+                  <strong>Max Size:</strong> 100MB per video
+                </div>
+              </div>
+              <div className="guideline-item">
+                <i className="fas fa-info"></i>
+                <div>
+                  <strong>Note:</strong> Large files may take longer to process
                 </div>
               </div>
             </div>
@@ -571,12 +676,22 @@ const AddProduct = () => {
 
           <div className="sidebar-card">
             <h4>
-              <i className="fas fa-percentage"></i>
-              Commission Notice
+              <i className="fas fa-shield-alt"></i>
+              Data Security
             </h4>
-            <div className="commission-notice">
-              <i className="fas fa-info-circle"></i>
-              <strong>5% commission</strong> will be deducted from each sale for platform maintenance and services.
+            <div className="security-info">
+              <div className="security-item">
+                <i className="fas fa-lock"></i>
+                <div>All media is securely encoded</div>
+              </div>
+              <div className="security-item">
+                <i className="fas fa-server"></i>
+                <div>Stored in your database</div>
+              </div>
+              <div className="security-item">
+                <i className="fas fa-bolt"></i>
+                <div>Fast retrieval and display</div>
+              </div>
             </div>
           </div>
         </div>

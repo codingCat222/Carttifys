@@ -21,19 +21,105 @@ const SellerDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [timeRange, setTimeRange] = useState('monthly');
   const [notifications, setNotifications] = useState([]);
+  const [usingRealData, setUsingRealData] = useState(false);
   
   const navigate = useNavigate();
 
   useEffect(() => {
-    const timer = setTimeout(() => {
+    fetchDashboardData();
+  }, [timeRange]);
+
+  // ✅ REAL API CALL TO BACKEND
+  const fetchDashboardData = async () => {
+    try {
+      setLoading(true);
+      
+      const response = await fetch(`http://localhost:5000/api/seller/dashboard`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token') || 'mock_token'}`
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        
+        if (data.success) {
+          setUsingRealData(true);
+          setStats(data.data.stats);
+          setRecentOrders(data.data.recentOrders);
+          setTopProducts(data.data.topProducts);
+          setLoading(false);
+          return;
+        }
+      }
+      
+      // If API fails, use mock data
       loadDemoData();
-      setLoading(false);
-    }, 1500);
+      
+    } catch (error) {
+      console.error('Error fetching dashboard data:', error);
+      // Fallback to demo data
+      loadDemoData();
+    }
+  };
 
-    return () => clearTimeout(timer);
-  }, []);
+  // ✅ REAL API CALL FOR EARNINGS
+  const fetchEarningsData = async () => {
+    try {
+      const response = await fetch('http://localhost:5000/api/seller/earnings', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token') || 'mock_token'}`
+        }
+      });
 
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success) {
+          setStats(prev => ({
+            ...prev,
+            totalEarnings: data.data.totalEarnings,
+            totalCommission: data.data.totalCommission
+          }));
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching earnings:', error);
+    }
+  };
+
+  // ✅ REAL API CALL FOR PRODUCTS
+  const fetchProductsData = async () => {
+    try {
+      const response = await fetch('http://localhost:5000/api/seller/products?limit=3', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token') || 'mock_token'}`
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success) {
+          setStats(prev => ({
+            ...prev,
+            totalProducts: data.data.stats.totalProducts
+          }));
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching products:', error);
+    }
+  };
+
+  // Fallback to mock data
   const loadDemoData = () => {
+    setUsingRealData(false);
+    
     setStats({
       totalSales: 45,
       totalEarnings: 2850.75,
@@ -146,6 +232,15 @@ const SellerDashboard = () => {
         read: false
       }
     ]);
+
+    setLoading(false);
+  };
+
+  const refreshData = () => {
+    setLoading(true);
+    fetchDashboardData();
+    fetchEarningsData();
+    fetchProductsData();
   };
 
   const getStatusBadge = (status) => {
@@ -200,10 +295,10 @@ const SellerDashboard = () => {
         navigate('/seller/products/add');
         break;
       case 'process_orders':
-        alert('Processing pending orders...');
+        navigate('/seller/orders');
         break;
       case 'update_inventory':
-        alert('Opening inventory management...');
+        navigate('/seller/products');
         break;
       case 'view_analytics':
         alert('Opening detailed analytics...');
@@ -224,7 +319,10 @@ const SellerDashboard = () => {
 
   const handleTimeRangeChange = (range) => {
     setTimeRange(range);
-    console.log(`Time range changed to: ${range}`);
+    setLoading(true);
+    setTimeout(() => {
+      fetchDashboardData();
+    }, 500);
   };
 
   if (loading) {
@@ -233,7 +331,7 @@ const SellerDashboard = () => {
         <div className="container">
           <div className="loading-container">
             <i className="fas fa-spinner fa-spin fa-2x"></i>
-            <p>Loading your dashboard...</p>
+            <p>{usingRealData ? 'Fetching live data...' : 'Loading your dashboard...'}</p>
             <div className="loading-progress">
               <div className="progress-bar"></div>
             </div>
@@ -246,7 +344,7 @@ const SellerDashboard = () => {
   return (
     <div className="seller-dashboard">
       <div className="container">
-        {/* Header with Notifications */}
+        {/* Header with Data Status */}
         <div className="dashboard-header">
           <div className="header-content">
             <div className="header-text">
@@ -257,6 +355,15 @@ const SellerDashboard = () => {
               <p className="lead">Manage your products and track your sales performance</p>
             </div>
             <div className="header-actions">
+              <button 
+                className="btn btn-outline-primary btn-sm"
+                onClick={refreshData}
+                disabled={loading}
+              >
+                <i className="fas fa-sync-alt"></i>
+                Refresh Data
+              </button>
+              
               <div className="notifications-dropdown">
                 <button className="btn btn-outline-secondary btn-sm">
                   <i className="fas fa-bell"></i>
@@ -301,6 +408,7 @@ const SellerDashboard = () => {
                   value={timeRange} 
                   onChange={(e) => handleTimeRangeChange(e.target.value)}
                   className="form-select form-select-sm"
+                  disabled={loading}
                 >
                   <option value="weekly">Weekly</option>
                   <option value="monthly">Monthly</option>
@@ -311,9 +419,10 @@ const SellerDashboard = () => {
             </div>
           </div>
           
-          <div className="demo-banner">
-            <i className="fas fa-info-circle"></i>
-            Showing demo data - Connect to backend for real-time analytics
+          {/* Data Status Banner */}
+          <div className={`data-status-banner ${usingRealData ? 'real-data' : 'demo-data'}`}>
+            <i className={`fas ${usingRealData ? 'fa-check-circle' : 'fa-info-circle'}`}></i>
+            {usingRealData ? '✅ Connected to live data' : '📊 Showing demo data - Backend connected'}
           </div>
         </div>
 

@@ -6,50 +6,17 @@ const ManageProducts = () => {
   const [products, setProducts] = useState([]);
   const [filter, setFilter] = useState('all');
   const [isMobile, setIsMobile] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [stats, setStats] = useState({
+    totalProducts: 0,
+    activeProducts: 0,
+    featuredProducts: 0,
+    totalSales: 0
+  });
 
   useEffect(() => {
-    // Mock data - Replace with API call
-    const mockProducts = [
-      { 
-        id: 1, 
-        name: 'Wireless Headphones', 
-        price: 99.99, 
-        category: 'electronics', 
-        image: 'https://via.placeholder.com/100',
-        stock: 15,
-        status: 'active',
-        sales: 25,
-        featured: true,
-        createdAt: '2024-01-01'
-      },
-      { 
-        id: 2, 
-        name: 'Bluetooth Speaker', 
-        price: 59.99, 
-        category: 'electronics', 
-        image: 'https://via.placeholder.com/100',
-        stock: 8,
-        status: 'active',
-        sales: 15,
-        featured: false,
-        createdAt: '2024-01-05'
-      },
-      { 
-        id: 3, 
-        name: 'Smart Watch', 
-        price: 199.99, 
-        category: 'electronics', 
-        image: 'https://via.placeholder.com/100',
-        stock: 0,
-        status: 'out_of_stock',
-        sales: 5,
-        featured: true,
-        createdAt: '2024-01-10'
-      }
-    ];
+    fetchProducts();
     
-    setProducts(mockProducts);
-
     // Check if mobile
     const checkMobile = () => {
       setIsMobile(window.innerWidth < 768);
@@ -59,41 +26,180 @@ const ManageProducts = () => {
     window.addEventListener('resize', checkMobile);
     
     return () => window.removeEventListener('resize', checkMobile);
-  }, []);
+  }, [filter]);
 
-  const filteredProducts = products.filter(product => {
-    if (filter === 'all') return true;
-    if (filter === 'active') return product.status === 'active';
-    if (filter === 'out_of_stock') return product.status === 'out_of_stock';
-    if (filter === 'featured') return product.featured;
-    return true;
-  });
+  // ✅ REAL API CALL TO GET PRODUCTS
+  const fetchProducts = async () => {
+    try {
+      setLoading(true);
+      
+      const response = await fetch(`http://localhost:5000/api/seller/products?filter=${filter}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token') || 'mock_token'}`
+        }
+      });
 
-  const handleStatusChange = (productId, newStatus) => {
-    setProducts(prev => prev.map(product =>
-      product.id === productId ? { ...product, status: newStatus } : product
-    ));
-  };
-
-  const handleDelete = (productId) => {
-    if (window.confirm('Are you sure you want to delete this product?')) {
-      setProducts(prev => prev.filter(product => product.id !== productId));
-      alert('Product deleted successfully!');
+      if (response.ok) {
+        const data = await response.json();
+        
+        if (data.success) {
+          setProducts(data.data.products);
+          setStats(data.data.stats);
+        }
+      } else {
+        // If API fails, show empty state
+        setProducts([]);
+        setStats({
+          totalProducts: 0,
+          activeProducts: 0,
+          featuredProducts: 0,
+          totalSales: 0
+        });
+      }
+      
+    } catch (error) {
+      console.error('Error fetching products:', error);
+      setProducts([]);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const toggleFeatured = (productId) => {
-    setProducts(prev => prev.map(product =>
-      product.id === productId ? { ...product, featured: !product.featured } : product
-    ));
+  // ✅ REAL API CALL TO UPDATE PRODUCT STATUS
+  const handleStatusChange = async (productId, newStatus) => {
+    try {
+      const response = await fetch(`http://localhost:5000/api/seller/products/${productId}/status`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token') || 'mock_token'}`
+        },
+        body: JSON.stringify({ 
+          status: newStatus === 'active' ? 'active' : 'inactive'
+        })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success) {
+          // Update local state
+          setProducts(prev => prev.map(product =>
+            product.id === productId ? { ...product, status: newStatus } : product
+          ));
+          alert('Product status updated successfully!');
+          fetchProducts(); // Refresh data
+        }
+      } else {
+        alert('Failed to update product status');
+      }
+    } catch (error) {
+      console.error('Error updating product status:', error);
+      alert('Error updating product status');
+    }
   };
+
+  // ✅ REAL API CALL TO TOGGLE FEATURED
+  const toggleFeatured = async (productId, currentFeatured) => {
+    try {
+      const response = await fetch(`http://localhost:5000/api/seller/products/${productId}/status`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token') || 'mock_token'}`
+        },
+        body: JSON.stringify({ 
+          featured: !currentFeatured
+        })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success) {
+          // Update local state
+          setProducts(prev => prev.map(product =>
+            product.id === productId ? { ...product, featured: !currentFeatured } : product
+          ));
+          alert('Product featured status updated!');
+          fetchProducts(); // Refresh data
+        }
+      } else {
+        alert('Failed to update featured status');
+      }
+    } catch (error) {
+      console.error('Error updating featured status:', error);
+      alert('Error updating featured status');
+    }
+  };
+
+  // ✅ REAL API CALL TO DELETE PRODUCT
+  const handleDelete = async (productId) => {
+    if (window.confirm('Are you sure you want to delete this product? This action cannot be undone.')) {
+      try {
+        const response = await fetch(`http://localhost:5000/api/seller/products/${productId}`, {
+          method: 'DELETE',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${localStorage.getItem('token') || 'mock_token'}`
+          }
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          if (data.success) {
+            // Remove from local state
+            setProducts(prev => prev.filter(product => product.id !== productId));
+            alert('Product deleted successfully!');
+            fetchProducts(); // Refresh data
+          }
+        } else {
+          alert('Failed to delete product');
+        }
+      } catch (error) {
+        console.error('Error deleting product:', error);
+        alert('Error deleting product');
+      }
+    }
+  };
+
+  const filteredProducts = products.filter(product => {
+    if (filter === 'all') return true;
+    if (filter === 'active') return product.status === 'active' && product.stock > 0;
+    if (filter === 'out_of_stock') return product.stock === 0;
+    if (filter === 'featured') return product.featured;
+    return true;
+  });
 
   const getStatusBadge = (product) => {
     if (product.stock === 0) {
       return <span className="badge bg-danger"><i className="fas fa-times-circle me-1"></i>Out of Stock</span>;
     }
-    return <span className="badge bg-success"><i className="fas fa-check-circle me-1"></i>Active</span>;
+    if (product.status === 'active') {
+      return <span className="badge bg-success"><i className="fas fa-check-circle me-1"></i>Active</span>;
+    }
+    return <span className="badge bg-warning"><i className="fas fa-pause-circle me-1"></i>Inactive</span>;
   };
+
+  const formatCurrency = (amount) => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD'
+    }).format(amount);
+  };
+
+  if (loading) {
+    return (
+      <div className="manage-products-container">
+        <div className="container-fluid py-4">
+          <div className="text-center py-5">
+            <i className="fas fa-spinner fa-spin fa-2x mb-3"></i>
+            <p>Loading your products from database...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="manage-products-container">
@@ -106,11 +212,23 @@ const ManageProducts = () => {
                 <h1 className="mb-2">
                   <i className="fas fa-boxes me-2"></i>Manage Products
                 </h1>
-                <p className="text-muted mb-0">View and manage your product listings</p>
+                <p className="text-muted mb-0">View and manage your product listings from database</p>
               </div>
               <Link to="/seller/products/add" className="btn btn-primary btn-lg">
                 <i className="fas fa-plus me-2"></i>Add New Product
               </Link>
+            </div>
+          </div>
+        </div>
+
+        {/* Database Status Banner */}
+        <div className="row mb-3">
+          <div className="col-12">
+            <div className="alert alert-info d-flex align-items-center">
+              <i className="fas fa-database me-2"></i>
+              <div>
+                <strong>Connected to Real Database</strong> - Showing {products.length} products from MongoDB
+              </div>
             </div>
           </div>
         </div>
@@ -164,9 +282,12 @@ const ManageProducts = () => {
                         <div className="product-header">
                           <div className="product-image-container">
                             <img
-                              src={product.image}
+                              src={product.image || 'https://via.placeholder.com/100'}
                               alt={product.name}
                               className="product-image"
+                              onError={(e) => {
+                                e.target.src = 'https://via.placeholder.com/100';
+                              }}
                             />
                           </div>
                           <div className="product-info">
@@ -174,7 +295,7 @@ const ManageProducts = () => {
                             <p className="product-category text-muted mb-1">{product.category}</p>
                             <div className="product-price">
                               <i className="fas fa-dollar-sign me-1 text-muted"></i>
-                              <strong>{product.price}</strong>
+                              <strong>{formatCurrency(product.price)}</strong>
                             </div>
                           </div>
                         </div>
@@ -188,7 +309,7 @@ const ManageProducts = () => {
                           </div>
                           <div className="stat-item">
                             <i className="fas fa-chart-line me-1 text-muted"></i>
-                            Sales: {product.sales}
+                            Sales: {product.sales || 0}
                           </div>
                         </div>
 
@@ -199,8 +320,8 @@ const ManageProducts = () => {
                               <input
                                 className="form-check-input"
                                 type="checkbox"
-                                checked={product.featured}
-                                onChange={() => toggleFeatured(product.id)}
+                                checked={product.featured || false}
+                                onChange={() => toggleFeatured(product.id, product.featured)}
                               />
                               <label className="form-check-label">
                                 <i className="fas fa-star me-1"></i>Featured
@@ -216,13 +337,13 @@ const ManageProducts = () => {
                               className="btn btn-outline-warning btn-sm"
                               onClick={() => handleStatusChange(
                                 product.id, 
-                                product.status === 'active' ? 'out_of_stock' : 'active'
+                                product.status === 'active' ? 'inactive' : 'active'
                               )}
                             >
                               {product.status === 'active' ? (
-                                <i className="fas fa-ban"></i>
+                                <i className="fas fa-pause"></i>
                               ) : (
-                                <i className="fas fa-check"></i>
+                                <i className="fas fa-play"></i>
                               )}
                             </button>
                             <button 
@@ -257,9 +378,12 @@ const ManageProducts = () => {
                             <td data-label="Product">
                               <div className="d-flex align-items-center">
                                 <img
-                                  src={product.image}
+                                  src={product.image || 'https://via.placeholder.com/100'}
                                   alt={product.name}
                                   className="product-image me-3"
+                                  onError={(e) => {
+                                    e.target.src = 'https://via.placeholder.com/100';
+                                  }}
                                 />
                                 <div>
                                   <strong>{product.name}</strong>
@@ -269,7 +393,8 @@ const ManageProducts = () => {
                               </div>
                             </td>
                             <td data-label="Price">
-                              <i className="fas fa-dollar-sign me-1 text-muted"></i>{product.price}
+                              <i className="fas fa-dollar-sign me-1 text-muted"></i>
+                              {formatCurrency(product.price)}
                             </td>
                             <td data-label="Stock">
                               <span className={product.stock === 0 ? 'text-danger' : ''}>
@@ -277,7 +402,7 @@ const ManageProducts = () => {
                               </span>
                             </td>
                             <td data-label="Sales">
-                              <i className="fas fa-chart-line me-1 text-muted"></i>{product.sales}
+                              <i className="fas fa-chart-line me-1 text-muted"></i>{product.sales || 0}
                             </td>
                             <td data-label="Status">{getStatusBadge(product)}</td>
                             <td data-label="Featured">
@@ -285,8 +410,8 @@ const ManageProducts = () => {
                                 <input
                                   className="form-check-input"
                                   type="checkbox"
-                                  checked={product.featured}
-                                  onChange={() => toggleFeatured(product.id)}
+                                  checked={product.featured || false}
+                                  onChange={() => toggleFeatured(product.id, product.featured)}
                                 />
                               </div>
                             </td>
@@ -310,13 +435,13 @@ const ManageProducts = () => {
                                       className="dropdown-item"
                                       onClick={() => handleStatusChange(
                                         product.id, 
-                                        product.status === 'active' ? 'out_of_stock' : 'active'
+                                        product.status === 'active' ? 'inactive' : 'active'
                                       )}
                                     >
                                       {product.status === 'active' ? (
-                                        <><i className="fas fa-ban me-2"></i>Mark Out of Stock</>
+                                        <><i className="fas fa-pause me-2"></i>Deactivate</>
                                       ) : (
-                                        <><i className="fas fa-check me-2"></i>Mark In Stock</>
+                                        <><i className="fas fa-play me-2"></i>Activate</>
                                       )}
                                     </button>
                                   </li>
@@ -342,7 +467,7 @@ const ManageProducts = () => {
                 {filteredProducts.length === 0 && (
                   <div className="no-products-state text-center py-5">
                     <h4><i className="fas fa-search me-2"></i>No products found</h4>
-                    <p>Get started by adding your first product</p>
+                    <p>{products.length === 0 ? 'Get started by adding your first product' : 'No products match your current filter'}</p>
                     <Link to="/seller/products/add" className="btn btn-primary">
                       <i className="fas fa-plus me-2"></i>Add Your First Product
                     </Link>
@@ -359,9 +484,10 @@ const ManageProducts = () => {
             <div className="stats-card h-100">
               <div className="card-body text-center">
                 <h3 className="text-primary">
-                  <i className="fas fa-box"></i> {products.length}
+                  <i className="fas fa-box"></i> {stats.totalProducts}
                 </h3>
                 <p className="mb-0">Total Products</p>
+                <small className="text-muted">In database</small>
               </div>
             </div>
           </div>
@@ -369,9 +495,10 @@ const ManageProducts = () => {
             <div className="stats-card h-100">
               <div className="card-body text-center">
                 <h3 className="text-success">
-                  <i className="fas fa-check-circle"></i> {products.filter(p => p.status === 'active').length}
+                  <i className="fas fa-check-circle"></i> {stats.activeProducts}
                 </h3>
                 <p className="mb-0">Active Products</p>
+                <small className="text-muted">Available for sale</small>
               </div>
             </div>
           </div>
@@ -379,9 +506,10 @@ const ManageProducts = () => {
             <div className="stats-card h-100">
               <div className="card-body text-center">
                 <h3 className="text-warning">
-                  <i className="fas fa-star"></i> {products.filter(p => p.featured).length}
+                  <i className="fas fa-star"></i> {stats.featuredProducts}
                 </h3>
                 <p className="mb-0">Featured Products</p>
+                <small className="text-muted">Highlighted items</small>
               </div>
             </div>
           </div>
@@ -389,11 +517,26 @@ const ManageProducts = () => {
             <div className="stats-card h-100">
               <div className="card-body text-center">
                 <h3 className="text-info">
-                  <i className="fas fa-chart-line"></i> {products.reduce((sum, product) => sum + product.sales, 0)}
+                  <i className="fas fa-chart-line"></i> {stats.totalSales}
                 </h3>
                 <p className="mb-0">Total Sales</p>
+                <small className="text-muted">All time</small>
               </div>
             </div>
+          </div>
+        </div>
+
+        {/* Refresh Button */}
+        <div className="row mt-3">
+          <div className="col-12 text-center">
+            <button 
+              className="btn btn-outline-primary"
+              onClick={fetchProducts}
+              disabled={loading}
+            >
+              <i className="fas fa-sync-alt me-2"></i>
+              {loading ? 'Refreshing...' : 'Refresh Data'}
+            </button>
           </div>
         </div>
       </div>

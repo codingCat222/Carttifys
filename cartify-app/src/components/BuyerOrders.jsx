@@ -617,15 +617,19 @@ const BuyerOrders = memo(() => {
                     {order.items?.map(item => (
                       <div key={item.id} className="row align-items-center order-item">
                         <div className="col-md-1">
-                          <img 
-                            src={item.image} 
-                            alt={item.name}
-                            className="img-fluid rounded item-image"
-                            style={{width: '60px', height: '60px', objectFit: 'cover'}}
-                            onError={(e) => {
-                              e.target.src = 'https://via.placeholder.com/60x60/667eea/ffffff?text=Product';
-                            }}
-                          />
+                         // In the order items mapping, update the image src:
+<img 
+  src={item.product?.images?.[0]?.data 
+    ? `data:${item.product.images[0].contentType};base64,${item.product.images[0].data}`
+    : item.product?.image || 'https://via.placeholder.com/60x60/667eea/ffffff?text=Product'
+  } 
+  alt={item.product?.name || item.productName}
+  className="img-fluid rounded item-image"
+  style={{width: '60px', height: '60px', objectFit: 'cover'}}
+  onError={(e) => {
+    e.target.src = 'https://via.placeholder.com/60x60/667eea/ffffff?text=Product';
+  }}
+/>
                         </div>
                         <div className="col-md-5">
                           <h6 className="mb-1">{item.name}</h6>
