@@ -6,9 +6,15 @@ require('dotenv').config();
 
 const app = express();
 
-// CORS Middleware
+// ✅ FIXED CORS Middleware - Removed trailing slash
 app.use(cors({
-  origin: ['http://localhost:3000', 'http://localhost:5173', 'http://localhost:5174' , 'https://carttifys-oous.vercel.app/',], 
+  origin: [
+    'http://localhost:3000',
+    'http://localhost:5173', 
+    'http://localhost:5174',
+    'https://carttifys-oous.vercel.app', // ✅ Fixed: removed trailing slash
+    'https://*.vercel.app' // ✅ Added for all Vercel subdomains
+  ],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
@@ -1237,6 +1243,7 @@ app.put('/api/seller/products/:id/status', async (req, res) => {
     });
   }
 });
+
 // ==================== USER PROFILE & HELP SUPPORT ROUTES ====================
 
 // ✅ GET USER PROFILE DATA (Real data from signup)
@@ -1711,7 +1718,6 @@ app.put('/api/user/password', async (req, res) => {
   }
 });
 
-
 // 404 handler
 app.use('*', (req, res) => {
   res.status(404).json({
@@ -1731,7 +1737,8 @@ app.use((error, req, res, next) => {
 
 const PORT = process.env.PORT || 5000;
 
-app.listen(PORT, () => {
+// ✅ Added for Render deployment
+const server = app.listen(PORT, () => {
   console.log(`🛒 E-commerce Backend Server Running on PORT ${PORT}`);
   console.log(`🌐 Environment: ${process.env.NODE_ENV || 'development'}`);
   console.log(`📍 Health Check: http://localhost:${PORT}/api/health`);
@@ -1751,3 +1758,6 @@ app.listen(PORT, () => {
   console.log(`📍 Help Sections: GET http://localhost:${PORT}/api/help/sections`);
   console.log(`📍 FAQs: GET http://localhost:${PORT}/api/help/faqs`);
 });
+
+// Export for testing or serverless if needed
+module.exports = app;
