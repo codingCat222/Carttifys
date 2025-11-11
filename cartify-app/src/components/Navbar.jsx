@@ -3,6 +3,7 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useCart } from '../contexts/CartContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import './Navbar.css';
 import { 
   faShoppingCart, 
   faStore, 
