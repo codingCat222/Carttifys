@@ -1,6 +1,7 @@
-// Simple API service without environment variables
-const API_BASE = '/api';
+// services/api.js - CHANGE ONLY THIS LINE
+const API_BASE = 'https://carttifys.onrender.com/api';
 
+// EVERYTHING ELSE STAYS EXACTLY THE SAME
 export const apiCall = async (endpoint, options = {}) => {
   const url = `${API_BASE}${endpoint}`;
   

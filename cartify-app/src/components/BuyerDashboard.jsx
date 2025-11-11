@@ -35,7 +35,12 @@ import {
   faMessage,
   faChevronRight,
   faDollarSign,
-  faBook
+  faBook,
+  faChevronDown,
+  faHeadset,
+  faLock,
+  faShieldAlt,
+  faBuilding
 } from '@fortawesome/free-solid-svg-icons';
 
 // Import your components
@@ -64,11 +69,11 @@ const BuyerDashboard = memo(() => {
   const [isSearching, setIsSearching] = useState(false);
 
   const [userProfile, setUserProfile] = useState({
-    name: 'John Doe',
-    email: 'john.doe@example.com',
-    phone: '+1 (555) 123-4567',
-    location: 'New York, NY',
-    joinedDate: 'January 2024',
+    name: '',
+    email: '',
+    phone: '',
+    location: '',
+    joinedDate: '',
     notifications: {
       email: true,
       push: true,
@@ -85,7 +90,12 @@ const BuyerDashboard = memo(() => {
       console.log('🔄 Fetching buyer dashboard data from backend...');
 
       // Fetch buyer dashboard data from backend
-      const dashboardResponse = await fetch('http://localhost:5000/api/buyer/dashboard');
+      const dashboardResponse = await fetch('http://localhost:5000/api/buyer/dashboard', {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Content-Type': 'application/json'
+        }
+      });
       
       if (!dashboardResponse.ok) {
         throw new Error(`HTTP error! status: ${dashboardResponse.status}`);
@@ -98,8 +108,47 @@ const BuyerDashboard = memo(() => {
         throw new Error(dashboardResult.message || 'Failed to load dashboard data');
       }
 
+      // ✅ FETCH REAL USER PROFILE DATA FROM BACKEND
+      try {
+        const profileResponse = await fetch('http://localhost:5000/api/user/profile', {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`,
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        if (profileResponse.ok) {
+          const profileResult = await profileResponse.json();
+          if (profileResult.success) {
+            setUserProfile(profileResult.data);
+            console.log('✅ Set real user profile:', profileResult.data);
+          } else {
+            console.warn('⚠️ Using default profile data');
+            // Set default data if profile fetch fails but user is logged in
+            const token = localStorage.getItem('token');
+            if (token) {
+              // You might want to decode the token to get basic user info
+              setUserProfile(prev => ({
+                ...prev,
+                name: 'User',
+                email: 'user@example.com',
+                joinedDate: new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long' })
+              }));
+            }
+          }
+        }
+      } catch (profileError) {
+        console.error('❌ Error fetching profile:', profileError);
+        // Continue with other data even if profile fails
+      }
+
       // Fetch categories from backend
-      const categoriesResponse = await fetch('http://localhost:5000/api/buyer/categories');
+      const categoriesResponse = await fetch('http://localhost:5000/api/buyer/categories', {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Content-Type': 'application/json'
+        }
+      });
       
       if (!categoriesResponse.ok) {
         throw new Error(`HTTP error! status: ${categoriesResponse.status}`);
@@ -206,7 +255,12 @@ const BuyerDashboard = memo(() => {
     
     try {
       console.log('🔍 Searching for:', query);
-      const response = await fetch(`http://localhost:5000/api/buyer/products/search?q=${encodeURIComponent(query)}`);
+      const response = await fetch(`http://localhost:5000/api/buyer/products/search?q=${encodeURIComponent(query)}`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Content-Type': 'application/json'
+        }
+      });
       
       if (!response.ok) {
         throw new Error(`Search failed: ${response.status}`);
@@ -524,106 +578,269 @@ const BuyerDashboard = memo(() => {
   );
 });
 
-// Profile Section Component
-const ProfileSection = ({ userProfile, onNotificationToggle }) => (
-  <div className="profile-section">
-    <div className="profile-header">
-      <div className="profile-avatar">
-        <FontAwesomeIcon icon={faUserCircle} size="3x" />
+// Enhanced Profile Section Component with Real Data
+const ProfileSection = ({ userProfile, onNotificationToggle }) => {
+  // Show loading state if profile data is not loaded yet
+  if (!userProfile.name) {
+    return (
+      <div className="profile-section">
+        <div className="profile-loading">
+          <FontAwesomeIcon icon={faSpinner} spin size="2x" />
+          <p>Loading profile data...</p>
+        </div>
       </div>
-      <div className="profile-info">
-        <h2>{userProfile.name}</h2>
-        <p>{userProfile.email}</p>
-        <span className="member-since">Member since {userProfile.joinedDate}</span>
+    );
+  }
+
+  return (
+    <div className="profile-section">
+      <div className="profile-header">
+        <div className="profile-avatar">
+          <FontAwesomeIcon icon={faUserCircle} size="3x" />
+        </div>
+        <div className="profile-info">
+          <h2>{userProfile.name || 'User'}</h2>
+          <p>{userProfile.email || 'No email provided'}</p>
+          <span className="member-since">
+            Member since {userProfile.joinedDate || new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long' })}
+          </span>
+        </div>
+      </div>
+
+      <div className="settings-section">
+        <h3 className="section-title">
+          <FontAwesomeIcon icon={faCog} className="me-2" />
+          Account Settings
+        </h3>
+
+        <button className="switch-seller-btn">
+          <FontAwesomeIcon icon={faExchangeAlt} />
+          Switch to Seller View
+        </button>
+
+        <div className="settings-group">
+          <h4>Personal Information</h4>
+          <div className="setting-item">
+            <label>Full Name</label>
+            <p>{userProfile.name || 'Not provided'}</p>
+          </div>
+          <div className="setting-item">
+            <label>Email</label>
+            <p>{userProfile.email || 'Not provided'}</p>
+          </div>
+          <div className="setting-item">
+            <label>Phone</label>
+            <p>{userProfile.phone || 'Not provided'}</p>
+          </div>
+          <div className="setting-item">
+            <label>Location</label>
+            <p>{userProfile.location || 'Not provided'}</p>
+          </div>
+        </div>
+
+        <div className="settings-group">
+          <h4>Notifications</h4>
+          <div className="setting-item toggle">
+            <label>Email Notifications</label>
+            <div className="toggle-switch">
+              <input 
+                type="checkbox" 
+                checked={userProfile.notifications.email}
+                onChange={() => onNotificationToggle('email')}
+              />
+              <span className="slider"></span>
+            </div>
+          </div>
+          <div className="setting-item toggle">
+            <label>Push Notifications</label>
+            <div className="toggle-switch">
+              <input 
+                type="checkbox" 
+                checked={userProfile.notifications.push}
+                onChange={() => onNotificationToggle('push')}
+              />
+              <span className="slider"></span>
+            </div>
+          </div>
+          <div className="setting-item toggle">
+            <label>SMS Notifications</label>
+            <div className="toggle-switch">
+              <input 
+                type="checkbox" 
+                checked={userProfile.notifications.sms}
+                onChange={() => onNotificationToggle('sms')}
+              />
+              <span className="slider"></span>
+            </div>
+          </div>
+        </div>
+
+        {/* Enhanced Help & Support Section */}
+        <HelpSupportSection />
       </div>
     </div>
+  );
+};
 
-    <div className="settings-section">
+// Enhanced Help & Support Section Component
+const HelpSupportSection = () => {
+  const [helpSections, setHelpSections] = useState([]);
+  const [expandedSection, setExpandedSection] = useState(null);
+
+  useEffect(() => {
+    // Fetch help sections from backend
+    const fetchHelpSections = async () => {
+      try {
+        const response = await fetch('http://localhost:5000/api/help/sections', {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`,
+            'Content-Type': 'application/json'
+          }
+        });
+        if (response.ok) {
+          const result = await response.json();
+          if (result.success) {
+            setHelpSections(result.data);
+          }
+        } else {
+          // Use fallback data if API fails
+          setHelpSections(getFallbackHelpSections());
+        }
+      } catch (error) {
+        console.error('Error fetching help sections:', error);
+        // Use fallback data if API fails
+        setHelpSections(getFallbackHelpSections());
+      }
+    };
+
+    fetchHelpSections();
+  }, []);
+
+  const getFallbackHelpSections = () => [
+    {
+      id: 'help-center',
+      title: 'Help Center',
+      icon: 'faQuestionCircle',
+      description: 'Find answers to common questions and get support',
+      sections: [
+        'How to buy products',
+        'How to contact sellers',
+        'Return policy',
+        'Payment issues',
+        'Account settings',
+        'Shipping information',
+        'Canceling orders'
+      ]
+    },
+    {
+      id: 'privacy-security',
+      title: 'Privacy & Security',
+      icon: 'faShieldAlt',
+      description: 'Learn about our security measures and privacy policies',
+      sections: [
+        'Privacy policy',
+        'Data protection',
+        'Safe transactions',
+        'Report suspicious activity',
+        'Two-factor authentication',
+        'Account security',
+        'Data usage'
+      ]
+    },
+    {
+      id: 'about-marketplace',
+      title: 'About Marketplace',
+      icon: 'faBuilding',
+      description: 'Learn about our platform and community guidelines',
+      sections: [
+        'About us',
+        'Terms of service',
+        'Community guidelines',
+        'Contact support',
+        'Feedback & suggestions',
+        'Partnership opportunities',
+        'Career opportunities'
+      ]
+    }
+  ];
+
+  const toggleSection = (sectionId) => {
+    setExpandedSection(expandedSection === sectionId ? null : sectionId);
+  };
+
+  const handleSubsectionClick = (subsection, mainSection) => {
+    alert(`Opening: ${subsection} (${mainSection})`);
+    // Here you would typically navigate to the specific help page
+  };
+
+  return (
+    <div className="help-support-section">
       <h3 className="section-title">
-        <FontAwesomeIcon icon={faCog} className="me-2" />
-        Account Settings
+        <FontAwesomeIcon icon={faHeadset} className="me-2" />
+        Help & Support
       </h3>
 
-      <button className="switch-seller-btn">
-        <FontAwesomeIcon icon={faExchangeAlt} />
-        Switch to Seller View
-      </button>
-
-      <div className="settings-group">
-        <h4>Personal Information</h4>
-        <div className="setting-item">
-          <label>Full Name</label>
-          <p>{userProfile.name}</p>
-        </div>
-        <div className="setting-item">
-          <label>Email</label>
-          <p>{userProfile.email}</p>
-        </div>
-        <div className="setting-item">
-          <label>Phone</label>
-          <p>{userProfile.phone}</p>
-        </div>
-        <div className="setting-item">
-          <label>Location</label>
-          <p>{userProfile.location}</p>
-        </div>
+      <div className="help-sections">
+        {helpSections.map((section) => (
+          <div key={section.id} className="help-section">
+            <button 
+              className="help-section-header"
+              onClick={() => toggleSection(section.id)}
+            >
+              <div className="help-section-title">
+                <FontAwesomeIcon icon={getHelpIcon(section.icon)} />
+                <span>{section.title}</span>
+              </div>
+              <FontAwesomeIcon 
+                icon={expandedSection === section.id ? faChevronDown : faChevronRight} 
+                className="section-arrow"
+              />
+            </button>
+            
+            {expandedSection === section.id && (
+              <div className="help-section-content">
+                <p className="section-description">{section.description}</p>
+                <div className="subsection-list">
+                  {section.sections.map((subsection, index) => (
+                    <button 
+                      key={index} 
+                      className="subsection-item"
+                      onClick={() => handleSubsectionClick(subsection, section.title)}
+                    >
+                      <span>{subsection}</span>
+                      <FontAwesomeIcon icon={faChevronRight} className="subsection-arrow" />
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        ))}
       </div>
 
-      <div className="settings-group">
-        <h4>Notifications</h4>
-        <div className="setting-item toggle">
-          <label>Email Notifications</label>
-          <div className="toggle-switch">
-            <input 
-              type="checkbox" 
-              checked={userProfile.notifications.email}
-              onChange={() => onNotificationToggle('email')}
-            />
-            <span className="slider"></span>
-          </div>
-        </div>
-        <div className="setting-item toggle">
-          <label>Push Notifications</label>
-          <div className="toggle-switch">
-            <input 
-              type="checkbox" 
-              checked={userProfile.notifications.push}
-              onChange={() => onNotificationToggle('push')}
-            />
-            <span className="slider"></span>
-          </div>
-        </div>
-        <div className="setting-item toggle">
-          <label>SMS Notifications</label>
-          <div className="toggle-switch">
-            <input 
-              type="checkbox" 
-              checked={userProfile.notifications.sms}
-              onChange={() => onNotificationToggle('sms')}
-            />
-            <span className="slider"></span>
-          </div>
-        </div>
-      </div>
-
-      <div className="settings-group">
-        <h4>Help & Support</h4>
-        <button className="help-btn">
-          <FontAwesomeIcon icon={faQuestionCircle} />
-          Help Center
-        </button>
-        <button className="help-btn">
-          <FontAwesomeIcon icon={faShield} />
-          Privacy & Security
-        </button>
-        <button className="help-btn">
-          <FontAwesomeIcon icon={faInfoCircle} />
-          About Marketplace
+      <div className="contact-support">
+        <button className="contact-support-btn">
+          <FontAwesomeIcon icon={faEnvelope} />
+          Contact Support Team
         </button>
       </div>
     </div>
-  </div>
-);
+  );
+};
+
+// Helper function for help section icons
+const getHelpIcon = (iconName) => {
+  const iconMap = {
+    'faQuestionCircle': faQuestionCircle,
+    'faShield': faShield,
+    'faShieldAlt': faShieldAlt,
+    'faInfoCircle': faInfoCircle,
+    'faBuilding': faBuilding,
+    'faHeadset': faHeadset,
+    'faLock': faLock
+  };
+  return iconMap[iconName] || faQuestionCircle;
+};
 
 // Inbox Section Component
 const InboxSection = ({ messages, onMarkAsRead }) => (

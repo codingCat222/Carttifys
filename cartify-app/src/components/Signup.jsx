@@ -25,15 +25,53 @@ const Signup = () => {
   
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
   
   const { login } = useAuth();
   const navigate = useNavigate();
 
   const handleChange = (e) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value
-    });
+    const { name, value } = e.target;
+    
+    // Phone number validation - only allow numbers and limit to 11 digits
+    if (name === 'phone') {
+      // Remove any non-digit characters
+      const phoneValue = value.replace(/\D/g, '');
+      // Limit to 11 characters
+      const limitedValue = phoneValue.slice(0, 11);
+      setFormData({
+        ...formData,
+        [name]: limitedValue
+      });
+    } else {
+      setFormData({
+        ...formData,
+        [name]: value
+      });
+    }
+  };
+
+  const handlePhoneInput = (e) => {
+    const input = e.target.value.replace(/\D/g, '').slice(0, 11);
+    e.target.value = input;
+    handleChange(e);
+  };
+
+  const validatePhoneNumber = (phone) => {
+    // Check if phone number is exactly 11 digits
+    if (phone.length !== 11) {
+      return 'Phone number must be exactly 11 digits';
+    }
+    
+    // Check if it starts with a valid prefix (common phone number patterns)
+    const validPrefixes = ['09', '08', '07', '01'];
+    const startsWithValidPrefix = validPrefixes.some(prefix => phone.startsWith(prefix));
+    
+    if (!startsWithValidPrefix) {
+      return 'Please enter a valid phone number';
+    }
+    
+    return null;
   };
 
   const handleSubmit = async (e) => {
@@ -48,6 +86,21 @@ const Signup = () => {
 
     if (formData.password.length < 6) {
       setError('Password must be at least 6 characters');
+      return;
+    }
+
+    // Phone number validation
+    if (formData.role === 'buyer' && formData.phone) {
+      const phoneError = validatePhoneNumber(formData.phone);
+      if (phoneError) {
+        setError(phoneError);
+        return;
+      }
+    }
+
+    // Terms and conditions validation
+    if (!acceptedTerms) {
+      setError('Please accept the Terms and Conditions to continue');
       return;
     }
 
@@ -88,17 +141,16 @@ const Signup = () => {
       }
 
       // Registration successful
-// In your handleSubmit function, update the success part:
-if (data.success) {
-  // Store token in localStorage
-  localStorage.setItem('token', data.token);
-  
-  // Update auth context with both user data AND token
-  login(data.user, data.token);
-  
-  // Navigate to appropriate dashboard
-  navigate(data.redirectTo);
-}
+      if (data.success) {
+        // Store token in localStorage
+        localStorage.setItem('token', data.token);
+        
+        // Update auth context with both user data AND token
+        login(data.user, data.token);
+        
+        // Navigate to appropriate dashboard
+        navigate(data.redirectTo);
+      }
 
     } catch (err) {
       setError(err.message || 'Failed to create account');
@@ -107,7 +159,6 @@ if (data.success) {
     setLoading(false);
   };
 
-  // Rest of your JSX remains exactly the same...
   return (
     <div className="signup-container">
       <div className="signup-card">
@@ -187,6 +238,7 @@ if (data.success) {
                 <label htmlFor="phone" className="form-label">
                   <i className="fas fa-phone"></i>
                   Phone Number
+                  <span className="required-asterisk">*</span>
                 </label>
                 <input
                   type="tel"
@@ -195,9 +247,23 @@ if (data.success) {
                   name="phone"
                   value={formData.phone}
                   onChange={handleChange}
+                  onInput={handlePhoneInput}
                   required
-                  placeholder="Enter your phone number"
+                  placeholder="09XXXXXXXXX (11 digits)"
+                  pattern="[0-9]{11}"
+                  maxLength="11"
+                  inputMode="numeric"
                 />
+                <div className="phone-hint">
+                  <i className="fas fa-info-circle"></i>
+                  Must be exactly 11 digits (e.g., 09123456789)
+                </div>
+                {formData.phone && (
+                  <div className={`phone-validation ${formData.phone.length === 11 ? 'valid' : 'invalid'}`}>
+                    <i className={`fas ${formData.phone.length === 11 ? 'fa-check-circle' : 'fa-times-circle'}`}></i>
+                    {formData.phone.length}/11 digits
+                  </div>
+                )}
               </div>
             </div>
           ) : (
@@ -261,6 +327,10 @@ if (data.success) {
                 placeholder="Create a password"
                 minLength="6"
               />
+              <div className="password-hint">
+                <i className="fas fa-info-circle"></i>
+                Must be at least 6 characters long
+              </div>
             </div>
             <div className="form-group">
               <label htmlFor="confirmPassword" className="form-label">
@@ -277,13 +347,48 @@ if (data.success) {
                 required
                 placeholder="Confirm your password"
               />
+              {formData.confirmPassword && (
+                <div className={`password-validation ${formData.password === formData.confirmPassword ? 'valid' : 'invalid'}`}>
+                  <i className={`fas ${formData.password === formData.confirmPassword ? 'fa-check-circle' : 'fa-times-circle'}`}></i>
+                  {formData.password === formData.confirmPassword ? 'Passwords match' : 'Passwords do not match'}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Terms and Conditions */}
+          <div className="terms-section">
+            <div className="terms-checkbox">
+              <input
+                type="checkbox"
+                id="acceptTerms"
+                name="acceptTerms"
+                checked={acceptedTerms}
+                onChange={(e) => setAcceptedTerms(e.target.checked)}
+                className="terms-input"
+              />
+              <label htmlFor="acceptTerms" className="terms-label">
+                I agree to the{' '}
+                <Link to="/terms" className="terms-link" target="_blank">
+                  Terms and Conditions
+                </Link>{' '}
+                and{' '}
+                <Link to="/privacy" className="terms-link" target="_blank">
+                  Privacy Policy
+                </Link>
+              </label>
+            </div>
+            <div className="terms-summary">
+              <i className="fas fa-file-contract"></i>
+              By creating an account, you agree to our platform's terms of service, 
+              privacy policy, and consent to receive important notifications about your account.
             </div>
           </div>
 
           <button 
             type="submit" 
             className="submit-btn"
-            disabled={loading}
+            disabled={loading || !acceptedTerms}
           >
             {loading ? (
               <>
