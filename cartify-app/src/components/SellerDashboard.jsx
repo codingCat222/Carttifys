@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { sellerAPI, healthAPI } from '../services/Api';
 import './SellerDashboard.css';
 
 const SellerDashboard = () => {
@@ -22,41 +23,49 @@ const SellerDashboard = () => {
   const [timeRange, setTimeRange] = useState('monthly');
   const [notifications, setNotifications] = useState([]);
   const [usingRealData, setUsingRealData] = useState(false);
+  const [backendStatus, setBackendStatus] = useState('checking');
   
   const navigate = useNavigate();
 
   useEffect(() => {
+    checkBackendConnection();
     fetchDashboardData();
   }, [timeRange]);
 
-  // ✅ REAL API CALL TO BACKEND
+  // ✅ Check backend connection first
+  const checkBackendConnection = async () => {
+    try {
+      const result = await healthAPI.check();
+      setBackendStatus('connected');
+      console.log('✅ Backend connected:', result);
+    } catch (error) {
+      setBackendStatus('disconnected');
+      console.error('❌ Backend connection failed:', error);
+    }
+  };
+
+  // ✅ REAL API CALL TO DEPLOYED BACKEND
   const fetchDashboardData = async () => {
     try {
       setLoading(true);
       
-      const response = await fetch(`http://localhost:5000/api/seller/dashboard`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token') || 'mock_token'}`
-        }
-      });
+      // Use the API service instead of direct fetch
+      const data = await sellerAPI.getDashboard();
 
-      if (response.ok) {
-        const data = await response.json();
+      if (data.success) {
+        setUsingRealData(true);
+        setStats(data.data.stats);
+        setRecentOrders(data.data.recentOrders || []);
+        setTopProducts(data.data.topProducts || []);
         
-        if (data.success) {
-          setUsingRealData(true);
-          setStats(data.data.stats);
-          setRecentOrders(data.data.recentOrders);
-          setTopProducts(data.data.topProducts);
-          setLoading(false);
-          return;
-        }
+        // Fetch additional data
+        await fetchAdditionalData();
+        
+        setLoading(false);
+        return;
+      } else {
+        throw new Error(data.message || 'Failed to fetch dashboard data');
       }
-      
-      // If API fails, use mock data
-      loadDemoData();
       
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
@@ -65,54 +74,29 @@ const SellerDashboard = () => {
     }
   };
 
-  // ✅ REAL API CALL FOR EARNINGS
-  const fetchEarningsData = async () => {
+  // ✅ REAL API CALLS FOR ADDITIONAL DATA
+  const fetchAdditionalData = async () => {
     try {
-      const response = await fetch('http://localhost:5000/api/seller/earnings', {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token') || 'mock_token'}`
-        }
-      });
+      // Fetch earnings data
+      const earningsData = await sellerAPI.getEarnings();
+      if (earningsData.success) {
+        setStats(prev => ({
+          ...prev,
+          totalEarnings: earningsData.data.totalEarnings,
+          totalCommission: earningsData.data.totalCommission || 0
+        }));
+      }
 
-      if (response.ok) {
-        const data = await response.json();
-        if (data.success) {
-          setStats(prev => ({
-            ...prev,
-            totalEarnings: data.data.totalEarnings,
-            totalCommission: data.data.totalCommission
-          }));
-        }
+      // Fetch products data
+      const productsData = await sellerAPI.getProducts({ limit: 3 });
+      if (productsData.success) {
+        setStats(prev => ({
+          ...prev,
+          totalProducts: productsData.data.stats?.totalProducts || prev.totalProducts
+        }));
       }
     } catch (error) {
-      console.error('Error fetching earnings:', error);
-    }
-  };
-
-  // ✅ REAL API CALL FOR PRODUCTS
-  const fetchProductsData = async () => {
-    try {
-      const response = await fetch('http://localhost:5000/api/seller/products?limit=3', {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token') || 'mock_token'}`
-        }
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        if (data.success) {
-          setStats(prev => ({
-            ...prev,
-            totalProducts: data.data.stats.totalProducts
-          }));
-        }
-      }
-    } catch (error) {
-      console.error('Error fetching products:', error);
+      console.error('Error fetching additional data:', error);
     }
   };
 
@@ -239,8 +223,6 @@ const SellerDashboard = () => {
   const refreshData = () => {
     setLoading(true);
     fetchDashboardData();
-    fetchEarningsData();
-    fetchProductsData();
   };
 
   const getStatusBadge = (status) => {
@@ -420,9 +402,14 @@ const SellerDashboard = () => {
           </div>
           
           {/* Data Status Banner */}
-          <div className={`data-status-banner ${usingRealData ? 'real-data' : 'demo-data'}`}>
-            <i className={`fas ${usingRealData ? 'fa-check-circle' : 'fa-info-circle'}`}></i>
-            {usingRealData ? '✅ Connected to live data' : '📊 Showing demo data - Backend connected'}
+          <div className={`data-status-banner ${usingRealData ? 'real-data' : 'demo-data'} ${backendStatus === 'disconnected' ? 'backend-error' : ''}`}>
+            <i className={`fas ${
+              usingRealData ? 'fa-check-circle' : 
+              backendStatus === 'disconnected' ? 'fa-exclamation-triangle' : 'fa-info-circle'
+            }`}></i>
+            {usingRealData ? '✅ Connected to live data' : 
+             backendStatus === 'disconnected' ? '⚠️ Backend connection issue - showing demo data' : 
+             '📊 Showing demo data - Backend connected'}
           </div>
         </div>
 
