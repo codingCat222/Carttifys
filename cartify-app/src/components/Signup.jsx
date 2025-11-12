@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { authAPI } from '../services/Api'; 
 import './Signup.css';
 
 const Signup = () => {
@@ -125,35 +126,32 @@ const Signup = () => {
         userData.businessAddress = formData.businessAddress;
       }
 
-      // Call backend API
-      const response = await fetch('http://localhost:5000/api/auth/register', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(userData),
-      });
+      // ✅ FIXED: Use the API service instead of direct fetch
+      const data = await authAPI.register(userData);
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || 'Registration failed');
-      }
-
-      // Registration successful
       if (data.success) {
         // Store token in localStorage
-        localStorage.setItem('token', data.token);
+        if (data.token) {
+          localStorage.setItem('token', data.token);
+        }
         
         // Update auth context with both user data AND token
         login(data.user, data.token);
         
         // Navigate to appropriate dashboard
-        navigate(data.redirectTo);
+        if (data.redirectTo) {
+          navigate(data.redirectTo);
+        } else {
+          // Fallback navigation based on role
+          navigate(formData.role === 'buyer' ? '/buyer/dashboard' : '/seller/dashboard');
+        }
+      } else {
+        throw new Error(data.message || 'Registration failed');
       }
 
     } catch (err) {
-      setError(err.message || 'Failed to create account');
+      console.error('Registration error:', err);
+      setError(err.message || 'Failed to create account. Please try again.');
     }
     
     setLoading(false);

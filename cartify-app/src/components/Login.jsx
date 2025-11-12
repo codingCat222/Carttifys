@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { authAPI } from '../services/Api'; // Fixed import name
 import './Login.css';
 
 const Login = () => {
@@ -30,23 +31,36 @@ const Login = () => {
     setLoading(true);
 
     try {
-      // Mock login - Replace with actual API call
-      const mockUsers = {
-        'buyer@example.com': { id: 1, email: 'buyer@example.com', name: 'John Buyer', role: 'buyer' },
-        'seller@example.com': { id: 2, email: 'seller@example.com', name: 'Jane Seller', role: 'seller' },
-        'admin@example.com': { id: 3, email: 'admin@example.com', name: 'Admin User', role: 'admin' }
-      };
+      // ✅ Use actual API call instead of mock data
+      const data = await authAPI.login({
+        email: formData.email,
+        password: formData.password
+      });
 
-      const user = mockUsers[formData.email];
-      
-      if (user && formData.password === 'password') {
-        login(user);
-        navigate(from, { replace: true });
+      if (data.success) {
+        // Store token in localStorage
+        if (data.token) {
+          localStorage.setItem('token', data.token);
+        }
+        
+        // Update auth context with user data and token
+        login(data.user, data.token);
+        
+        // Navigate to appropriate dashboard or intended destination
+        if (data.redirectTo) {
+          navigate(data.redirectTo, { replace: true });
+        } else {
+          // Fallback navigation based on user role
+          const redirectPath = data.user?.role === 'seller' ? '/seller/dashboard' : '/buyer/dashboard';
+          navigate(redirectPath, { replace: true });
+        }
       } else {
-        setError('Invalid email or password');
+        throw new Error(data.message || 'Login failed');
       }
+
     } catch (err) {
-      setError('Failed to login');
+      console.error('Login error:', err);
+      setError(err.message || 'Invalid email or password. Please try again.');
     }
     
     setLoading(false);
@@ -146,22 +160,23 @@ const Login = () => {
           </p>
         </div>
 
-        {/* Demo Accounts */}
+        {/* Demo Accounts - Updated with actual test accounts */}
         <div className="demo-accounts">
-          <h6>Demo Accounts - Use any password</h6>
+          <h6>Test Accounts - Use actual registered accounts</h6>
           <div className="demo-account-list">
             <div className="demo-account-item">
               <span className="demo-role">Buyer</span>
-              <span className="demo-email">buyer@example.com</span>
+              <span className="demo-email">Use registered buyer email</span>
             </div>
             <div className="demo-account-item">
               <span className="demo-role">Seller</span>
-              <span className="demo-email">seller@example.com</span>
+              <span className="demo-email">Use registered seller email</span>
             </div>
-            <div className="demo-account-item">
-              <span className="demo-role">Admin</span>
-              <span className="demo-email">admin@example.com</span>
-            </div>
+          </div>
+          <div className="demo-note">
+            <small>
+              <i>Create accounts first through the signup page</i>
+            </small>
           </div>
         </div>
       </div>
