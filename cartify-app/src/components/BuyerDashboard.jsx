@@ -43,6 +43,9 @@ import {
   faBuilding
 } from '@fortawesome/free-solid-svg-icons';
 
+// Import API service
+import { buyerAPI, userAPI, helpAPI } from '../services/Api';
+
 // Import your components
 import ProductList from './ProductList';
 import BuyerOrders from './BuyerOrders';
@@ -81,7 +84,7 @@ const BuyerDashboard = memo(() => {
     }
   });
 
-  // ✅ REAL API CALLS TO BACKEND - NO MOCK DATA
+  // ✅ REAL API CALLS TO DEPLOYED BACKEND - NO MOCK DATA
   const fetchDashboardData = useCallback(async () => {
     try {
       setLoading(true);
@@ -89,19 +92,8 @@ const BuyerDashboard = memo(() => {
 
       console.log('🔄 Fetching buyer dashboard data from backend...');
 
-      // Fetch buyer dashboard data from backend
-      const dashboardResponse = await fetch('http://localhost:5000/api/buyer/dashboard', {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
-          'Content-Type': 'application/json'
-        }
-      });
-      
-      if (!dashboardResponse.ok) {
-        throw new Error(`HTTP error! status: ${dashboardResponse.status}`);
-      }
-      
-      const dashboardResult = await dashboardResponse.json();
+      // Fetch buyer dashboard data from backend using API service
+      const dashboardResult = await buyerAPI.getDashboard();
       console.log('📊 Dashboard API Response:', dashboardResult);
 
       if (!dashboardResult.success) {
@@ -110,31 +102,21 @@ const BuyerDashboard = memo(() => {
 
       // ✅ FETCH REAL USER PROFILE DATA FROM BACKEND
       try {
-        const profileResponse = await fetch('http://localhost:5000/api/user/profile', {
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('token')}`,
-            'Content-Type': 'application/json'
-          }
-        });
-        
-        if (profileResponse.ok) {
-          const profileResult = await profileResponse.json();
-          if (profileResult.success) {
-            setUserProfile(profileResult.data);
-            console.log('✅ Set real user profile:', profileResult.data);
-          } else {
-            console.warn('⚠️ Using default profile data');
-            // Set default data if profile fetch fails but user is logged in
-            const token = localStorage.getItem('token');
-            if (token) {
-              // You might want to decode the token to get basic user info
-              setUserProfile(prev => ({
-                ...prev,
-                name: 'User',
-                email: 'user@example.com',
-                joinedDate: new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long' })
-              }));
-            }
+        const profileResult = await userAPI.getProfile();
+        if (profileResult.success) {
+          setUserProfile(profileResult.data);
+          console.log('✅ Set real user profile:', profileResult.data);
+        } else {
+          console.warn('⚠️ Using default profile data');
+          // Set default data if profile fetch fails but user is logged in
+          const token = localStorage.getItem('token');
+          if (token) {
+            setUserProfile(prev => ({
+              ...prev,
+              name: 'User',
+              email: 'user@example.com',
+              joinedDate: new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long' })
+            }));
           }
         }
       } catch (profileError) {
@@ -142,19 +124,8 @@ const BuyerDashboard = memo(() => {
         // Continue with other data even if profile fails
       }
 
-      // Fetch categories from backend
-      const categoriesResponse = await fetch('http://localhost:5000/api/buyer/categories', {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
-          'Content-Type': 'application/json'
-        }
-      });
-      
-      if (!categoriesResponse.ok) {
-        throw new Error(`HTTP error! status: ${categoriesResponse.status}`);
-      }
-      
-      const categoriesResult = await categoriesResponse.json();
+      // Fetch categories from backend using API service
+      const categoriesResult = await buyerAPI.getCategories();
       console.log('📂 Categories API Response:', categoriesResult);
 
       // ✅ SET REAL DATA FROM BACKEND
@@ -243,7 +214,7 @@ const BuyerDashboard = memo(() => {
     }
   }, []);
 
-  // ✅ REAL SEARCH WITH BACKEND
+  // ✅ REAL SEARCH WITH DEPLOYED BACKEND
   const handleSearch = useCallback(async (query) => {
     if (!query.trim()) {
       setSearchResults([]);
@@ -255,18 +226,7 @@ const BuyerDashboard = memo(() => {
     
     try {
       console.log('🔍 Searching for:', query);
-      const response = await fetch(`http://localhost:5000/api/buyer/products/search?q=${encodeURIComponent(query)}`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
-          'Content-Type': 'application/json'
-        }
-      });
-      
-      if (!response.ok) {
-        throw new Error(`Search failed: ${response.status}`);
-      }
-      
-      const result = await response.json();
+      const result = await buyerAPI.searchProducts({ q: query });
       console.log('🔍 Search results:', result);
 
       if (result.success) {
@@ -504,10 +464,7 @@ const BuyerDashboard = memo(() => {
                   {dashboardData.recommendedProducts.map(product => (
                     <div key={product.id} className="recommended-item">
                       <img 
-                        src={product.images && product.images[0] && product.images[0].data 
-                          ? `data:${product.images[0].contentType};base64,${product.images[0].data}`
-                          : 'https://via.placeholder.com/150?text=No+Image'
-                        } 
+                        src={product.image || 'https://via.placeholder.com/150?text=No+Image'} 
                         alt={product.name}
                         onError={(e) => {
                           e.target.src = 'https://via.placeholder.com/150?text=No+Image';
@@ -688,20 +645,12 @@ const HelpSupportSection = () => {
   const [expandedSection, setExpandedSection] = useState(null);
 
   useEffect(() => {
-    // Fetch help sections from backend
+    // Fetch help sections from backend using API service
     const fetchHelpSections = async () => {
       try {
-        const response = await fetch('http://localhost:5000/api/help/sections', {
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('token')}`,
-            'Content-Type': 'application/json'
-          }
-        });
-        if (response.ok) {
-          const result = await response.json();
-          if (result.success) {
-            setHelpSections(result.data);
-          }
+        const result = await helpAPI.getSections();
+        if (result.success) {
+          setHelpSections(result.data);
         } else {
           // Use fallback data if API fails
           setHelpSections(getFallbackHelpSections());
@@ -1000,10 +949,7 @@ const SearchSection = ({ searchQuery, searchResults, isSearching, onSearchChange
           <div key={product.id} className="marketplace-item">
             <div className="item-image">
               <img 
-                src={product.images && product.images[0] && product.images[0].data 
-                  ? `data:${product.images[0].contentType};base64,${product.images[0].data}`
-                  : 'https://via.placeholder.com/150?text=No+Image'
-                } 
+                src={product.image || 'https://via.placeholder.com/150?text=No+Image'} 
                 alt={product.name}
                 onError={(e) => {
                   e.target.src = 'https://via.placeholder.com/150?text=No+Image';
