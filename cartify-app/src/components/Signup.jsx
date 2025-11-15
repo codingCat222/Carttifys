@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { authAPI } from '../services/Api'; 
+import { authAPI } from '../services/api'; // ✅ FIXED: Changed 'Api' to 'api'
 import './Signup.css';
 
 const Signup = () => {
@@ -124,37 +124,82 @@ const Signup = () => {
         userData.businessName = formData.businessName;
         userData.businessType = formData.businessType;
         userData.businessAddress = formData.businessAddress;
+        // ✅ ADDED: Include name field for seller too (some backends require it)
+        userData.name = formData.businessName;
       }
+
+      console.log('🔄 Sending registration data:', userData);
 
       // ✅ FIXED: Use the API service instead of direct fetch
       const data = await authAPI.register(userData);
+
+      console.log('✅ Registration response:', data);
 
       if (data.success) {
         // Store token in localStorage
         if (data.token) {
           localStorage.setItem('token', data.token);
+          console.log('🔑 Token stored in localStorage');
+        } else {
+          console.warn('⚠️ No token received in response');
         }
         
-        // Update auth context with both user data AND token
-        login(data.user, data.token);
+        // ✅ IMPROVED: Better error handling for login context
+        try {
+          // Update auth context with both user data AND token
+          if (login) {
+            await login(data.user || data.data, data.token);
+          } else {
+            console.warn('⚠️ login function not available in AuthContext');
+          }
+        } catch (authError) {
+          console.error('Auth context error:', authError);
+          // Continue anyway - the user is registered
+        }
         
         // Navigate to appropriate dashboard
         if (data.redirectTo) {
           navigate(data.redirectTo);
         } else {
           // Fallback navigation based on role
-          navigate(formData.role === 'buyer' ? '/buyer/dashboard' : '/seller/dashboard');
+          const redirectPath = formData.role === 'buyer' ? '/buyer/dashboard' : '/seller/dashboard';
+          console.log(`📍 Navigating to: ${redirectPath}`);
+          navigate(redirectPath);
         }
       } else {
         throw new Error(data.message || 'Registration failed');
       }
 
     } catch (err) {
-      console.error('Registration error:', err);
-      setError(err.message || 'Failed to create account. Please try again.');
+      console.error('❌ Registration error:', err);
+      
+      // ✅ IMPROVED: Better error messages
+      let errorMessage = err.message || 'Failed to create account. Please try again.';
+      
+      // Handle specific error cases
+      if (err.message.includes('Network Error') || err.message.includes('Failed to fetch')) {
+        errorMessage = 'Cannot connect to server. Please check your internet connection.';
+      } else if (err.message.includes('409') || err.message.includes('already exists')) {
+        errorMessage = 'An account with this email already exists. Please use a different email or login.';
+      } else if (err.message.includes('400') || err.message.includes('validation')) {
+        errorMessage = 'Invalid data provided. Please check your information and try again.';
+      }
+      
+      setError(errorMessage);
     }
     
     setLoading(false);
+  };
+
+  // ✅ ADDED: Form validation state
+  const isFormValid = () => {
+    const basicFields = formData.email && formData.password && formData.confirmPassword;
+    
+    if (formData.role === 'buyer') {
+      return basicFields && formData.name && formData.address && formData.phone && formData.phone.length === 11;
+    } else {
+      return basicFields && formData.businessName && formData.businessType && formData.businessAddress;
+    }
   };
 
   return (
@@ -166,6 +211,12 @@ const Signup = () => {
             {formData.role === 'seller' ? 'Start Selling' : 'Start Shopping'}
           </h1>
           <p>Create your {formData.role === 'seller' ? 'Seller' : 'Buyer'} account</p>
+          
+          {/* ✅ ADDED: Role indicator */}
+          <div className={`role-badge ${formData.role}`}>
+            <i className={`fas ${formData.role === 'seller' ? 'fa-store' : 'fa-shopping-cart'}`}></i>
+            {formData.role === 'seller' ? 'Seller Account' : 'Buyer Account'}
+          </div>
         </div>
 
         {error && (
@@ -192,6 +243,7 @@ const Signup = () => {
                 onChange={handleChange}
                 required
                 placeholder="Enter your email"
+                disabled={loading}
               />
             </div>
             
@@ -209,6 +261,7 @@ const Signup = () => {
                 onChange={handleChange}
                 required
                 placeholder={formData.role === 'seller' ? 'Enter business name' : 'Enter your full name'}
+                disabled={loading}
               />
             </div>
           </div>
@@ -230,6 +283,7 @@ const Signup = () => {
                   onChange={handleChange}
                   required
                   placeholder="Enter your address"
+                  disabled={loading}
                 />
               </div>
               <div className="form-group">
@@ -251,6 +305,7 @@ const Signup = () => {
                   pattern="[0-9]{11}"
                   maxLength="11"
                   inputMode="numeric"
+                  disabled={loading}
                 />
                 <div className="phone-hint">
                   <i className="fas fa-info-circle"></i>
@@ -278,6 +333,7 @@ const Signup = () => {
                   value={formData.businessType}
                   onChange={handleChange}
                   required
+                  disabled={loading}
                 >
                   <option value="">Select business type</option>
                   <option value="fashion">Fashion & Clothing</option>
@@ -302,6 +358,7 @@ const Signup = () => {
                   onChange={handleChange}
                   required
                   placeholder="Enter business address"
+                  disabled={loading}
                 />
               </div>
             </div>
@@ -324,11 +381,18 @@ const Signup = () => {
                 required
                 placeholder="Create a password"
                 minLength="6"
+                disabled={loading}
               />
               <div className="password-hint">
                 <i className="fas fa-info-circle"></i>
                 Must be at least 6 characters long
               </div>
+              {formData.password && (
+                <div className={`password-strength ${formData.password.length >= 6 ? 'strong' : 'weak'}`}>
+                  <i className={`fas ${formData.password.length >= 6 ? 'fa-check-circle' : 'fa-exclamation-circle'}`}></i>
+                  {formData.password.length >= 6 ? 'Strong password' : 'Weak password'}
+                </div>
+              )}
             </div>
             <div className="form-group">
               <label htmlFor="confirmPassword" className="form-label">
@@ -344,6 +408,7 @@ const Signup = () => {
                 onChange={handleChange}
                 required
                 placeholder="Confirm your password"
+                disabled={loading}
               />
               {formData.confirmPassword && (
                 <div className={`password-validation ${formData.password === formData.confirmPassword ? 'valid' : 'invalid'}`}>
@@ -364,6 +429,7 @@ const Signup = () => {
                 checked={acceptedTerms}
                 onChange={(e) => setAcceptedTerms(e.target.checked)}
                 className="terms-input"
+                disabled={loading}
               />
               <label htmlFor="acceptTerms" className="terms-label">
                 I agree to the{' '}
@@ -385,8 +451,8 @@ const Signup = () => {
 
           <button 
             type="submit" 
-            className="submit-btn"
-            disabled={loading || !acceptedTerms}
+            className={`submit-btn ${(!isFormValid() || !acceptedTerms || loading) ? 'disabled' : ''}`}
+            disabled={!isFormValid() || !acceptedTerms || loading}
           >
             {loading ? (
               <>
