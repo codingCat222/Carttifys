@@ -13,7 +13,7 @@ app.use(cors({
     'http://localhost:5173', 
     'http://localhost:5174',
     'https://carttifys-oous.vercel.app', // ✅ Fixed: removed trailing slash
-    'https://*.vercel.app' // ✅ Added for all Vercel subdomains
+    'https://www.cartifymarket.com.ng' // ✅ Added for all Vercel subdomains
   ],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
