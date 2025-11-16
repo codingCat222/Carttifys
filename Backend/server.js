@@ -12,8 +12,8 @@ app.use(cors({
     'http://localhost:3000',
     'http://localhost:5173', 
     'http://localhost:5174',
-    'https://carttifys-oous.vercel.app', // ✅ Fixed: removed trailing slash
-    'https://*.vercel.app' // ✅ Added for all Vercel subdomains
+    'https://carttifys-oous.vercel.app',
+    'https://*.vercel.app'
   ],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
@@ -24,6 +24,69 @@ app.options('*', cors());
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
+// ✅ ADDED: PRODUCT ROUTES - Right after middleware, before database connection
+app.get('/api/products', async (req, res) => {
+  try {
+    const Product = require('./models/Product');
+    const products = await Product.find({ stock: { $gt: 0 } })
+      .populate('seller', 'name businessName')
+      .select('-images.data -videos.data')
+      .limit(20);
+
+    res.json({
+      success: true,
+      count: products.length,
+      data: products.map(product => ({
+        id: product._id,
+        name: product.name,
+        price: product.price,
+        category: product.category,
+        stock: product.stock,
+        seller: product.seller?.businessName || product.seller?.name,
+        image: product.images && product.images[0] ? 
+          (product.images[0].data ? `data:${product.images[0].contentType};base64,${product.images[0].data}` : 'https://via.placeholder.com/300') 
+          : 'https://via.placeholder.com/300',
+        averageRating: product.averageRating
+      }))
+    });
+  } catch (error) {
+    console.error('Products error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching products'
+    });
+  }
+});
+
+app.get('/api/products/:id', async (req, res) => {
+  try {
+    const Product = require('./models/Product');
+    const product = await Product.findById(req.params.id)
+      .populate('seller', 'name email businessName businessType rating');
+
+    if (!product) {
+      return res.status(404).json({
+        success: false,
+        message: 'Product not found'
+      });
+    }
+
+    res.json({
+      success: true,
+      data: {
+        ...product.toObject(),
+        sellerName: product.seller?.businessName || product.seller?.name
+      }
+    });
+  } catch (error) {
+    console.error('Product details error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching product details'
+    });
+  }
+});
 
 // Database connection
 const connectDB = async () => {
@@ -1744,6 +1807,7 @@ const server = app.listen(PORT, () => {
   console.log(`📍 Health Check: http://localhost:${PORT}/api/health`);
   console.log(`📍 Register: POST http://localhost:${PORT}/api/auth/register`);
   console.log(`📍 Login: POST http://localhost:${PORT}/api/auth/login`);
+  console.log(`📍 Products: GET http://localhost:${PORT}/api/products`); // ✅ Now this will work!
   console.log(`\n📍 BUYER ENDPOINTS:`);
   console.log(`📍 Buyer Dashboard: GET http://localhost:${PORT}/api/buyer/dashboard`);
   console.log(`📍 Buyer Products: GET http://localhost:${PORT}/api/buyer/products`);
