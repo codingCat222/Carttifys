@@ -4,9 +4,6 @@ const cors = require('cors');
 const path = require('path');
 require('dotenv').config();
 
-// ✅ ADDED: Import product routes
-const productRoutes = require('./routes/productRoutes');
-
 const app = express();
 
 // ✅ FIXED CORS Middleware - Removed trailing slash
@@ -27,9 +24,6 @@ app.options('*', cors());
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
-
-// ✅ ADDED: Mount product routes
-app.use('/api/products', productRoutes);
 
 // Database connection
 const connectDB = async () => {
@@ -1750,7 +1744,6 @@ const server = app.listen(PORT, () => {
   console.log(`📍 Health Check: http://localhost:${PORT}/api/health`);
   console.log(`📍 Register: POST http://localhost:${PORT}/api/auth/register`);
   console.log(`📍 Login: POST http://localhost:${PORT}/api/auth/login`);
-  console.log(`📍 Products: GET http://localhost:${PORT}/api/products`); // ✅ Now this will work!
   console.log(`\n📍 BUYER ENDPOINTS:`);
   console.log(`📍 Buyer Dashboard: GET http://localhost:${PORT}/api/buyer/dashboard`);
   console.log(`📍 Buyer Products: GET http://localhost:${PORT}/api/buyer/products`);
