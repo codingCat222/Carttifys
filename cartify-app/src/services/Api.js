@@ -99,6 +99,9 @@ export const authAPI = {
     body: credentials
   }),
   
+  // ✅ ADDED: Missing method for AuthContext
+  getCurrentUser: () => apiCall('/api/auth/me'),
+  
   logout: () => {
     localStorage.removeItem('token');
     console.log('🔒 User logged out');
