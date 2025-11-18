@@ -15,12 +15,10 @@ app.use(cors({
     'http://localhost:5173', 
     'http://localhost:5174',
     'https://carttifys-oous.vercel.app',
-<<<<<<< HEAD
-    'https://*.vercel.app'
-=======
+    'https://*.vercel.app',
+
     'https://www.cartifymarket.com.ng',
     'https://cartifymarket.com.ng'
->>>>>>> a5bf398a76cec1849464c81f545cbdb39d8290ab
   ],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
@@ -32,7 +30,6 @@ app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-<<<<<<< HEAD
 // ==================== MULTER CONFIGURATION ====================
 
 const storage = multer.diskStorage({
@@ -345,9 +342,8 @@ app.get('/api/seller/uploads', async (req, res) => {
 
 // ==================== PRODUCT ROUTES ====================
 
-=======
+
 // ✅ ADDED: PRODUCT ROUTES - Right after middleware, before database connection
->>>>>>> a5bf398a76cec1849464c81f545cbdb39d8290ab
 app.get('/api/products', async (req, res) => {
   try {
     const Product = require('./models/Product');
@@ -410,12 +406,9 @@ app.get('/api/products/:id', async (req, res) => {
   }
 });
 
-<<<<<<< HEAD
 // ==================== DATABASE CONNECTION ====================
 
-=======
 // Database connection
->>>>>>> a5bf398a76cec1849464c81f545cbdb39d8290ab
 const connectDB = async () => {
   try {
     console.log('🔗 Attempting to connect to MongoDB...');
@@ -2068,15 +2061,12 @@ const server = app.listen(PORT, () => {
   console.log(`📍 Health Check: http://localhost:${PORT}/api/health`);
   console.log(`📍 Register: POST http://localhost:${PORT}/api/auth/register`);
   console.log(`📍 Login: POST http://localhost:${PORT}/api/auth/login`);
-<<<<<<< HEAD
   console.log(`\n📍 UPLOAD ENDPOINTS:`);
   console.log(`📍 Upload Media: POST http://localhost:${PORT}/api/upload/media`);
   console.log(`📍 Upload Single: POST http://localhost:${PORT}/api/upload/single`);
   console.log(`📍 Create Product with Media: POST http://localhost:${PORT}/api/seller/products/with-media`);
   console.log(`📍 Get Uploads: GET http://localhost:${PORT}/api/seller/uploads`);
-=======
   console.log(`📍 Products: GET http://localhost:${PORT}/api/products`); // ✅ Now this will work!
->>>>>>> a5bf398a76cec1849464c81f545cbdb39d8290ab
   console.log(`\n📍 BUYER ENDPOINTS:`);
   console.log(`📍 Buyer Dashboard: GET http://localhost:${PORT}/api/buyer/dashboard`);
   console.log(`📍 Buyer Products: GET http://localhost:${PORT}/api/buyer/products`);
@@ -2092,9 +2082,5 @@ const server = app.listen(PORT, () => {
   console.log(`📍 FAQs: GET http://localhost:${PORT}/api/help/faqs`);
 });
 
-<<<<<<< HEAD
-module.exports = app;
-=======
 // Export for testing or serverless if needed
 module.exports = app;
->>>>>>> a5bf398a76cec1849464c81f545cbdb39d8290ab
