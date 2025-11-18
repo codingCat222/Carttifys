@@ -127,7 +127,7 @@ const Footer = () => {
       <div className="footer-bottom">
         <div className="container">
           <div className="footer-bottom-content">
-            <p className="copyright">&copy; 2024 BuyLink. All rights reserved.</p>
+            <p className="copyright">&copy; 2025 CartifyMarket. All rights reserved.</p>
             <div className="footer-legal">
               <Link to="/privacy" className="legal-link">Privacy Policy</Link>
               <Link to="/terms" className="legal-link">Terms of Service</Link>

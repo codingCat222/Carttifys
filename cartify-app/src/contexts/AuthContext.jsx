@@ -1,5 +1,8 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
 
+// Import your API service
+import { authAPI } from '../services/Api';
+
 const AuthContext = createContext();
 
 export const useAuth = () => {
@@ -21,31 +24,25 @@ export const AuthProvider = ({ children }) => {
       
       if (token) {
         try {
-          // Verify token with backend
-          const response = await fetch('http://localhost:5000/api/auth/me', {
-            method: 'GET',
-            headers: {
-              'Authorization': `Bearer ${token}`,
-              'Content-Type': 'application/json',
-            },
-          });
-
-          if (response.ok) {
-            const data = await response.json();
-            if (data.success) {
-              setCurrentUser(data.user);
-            } else {
-              // Token is invalid, clear storage
-              clearAuthData();
-            }
+          console.log('🔐 Checking authentication status...');
+          
+          // ✅ FIXED: Use API service instead of direct fetch
+          const result = await authAPI.getCurrentUser();
+          
+          if (result.success) {
+            console.log('✅ User authenticated:', result.user.email);
+            setCurrentUser(result.user);
           } else {
-            // Token verification failed, clear storage
+            // Token is invalid, clear storage
+            console.warn('❌ Token invalid, clearing auth data');
             clearAuthData();
           }
         } catch (error) {
-          console.error('Auth check failed:', error);
+          console.error('❌ Auth check failed:', error);
           clearAuthData();
         }
+      } else {
+        console.log('🔐 No token found, user not authenticated');
       }
       setLoading(false);
     };
@@ -70,22 +67,18 @@ export const AuthProvider = ({ children }) => {
     }
     setCurrentUser(userData);
     localStorage.setItem('currentUser', JSON.stringify(userData));
+    console.log('✅ User logged in:', userData.email);
   };
 
   const logout = () => {
     return new Promise((resolve) => {
       // Optional: Call backend logout if needed
-      // await fetch('http://localhost:5000/api/auth/logout', {
-      //   method: 'POST',
-      //   headers: {
-      //     'Authorization': `Bearer ${localStorage.getItem('token')}`,
-      //   },
-      // });
+      // await authAPI.logout();
 
       // Clear ALL user-related data from storage
       clearAuthData();
       
-      console.log('Logout completed - user data cleared');
+      console.log('✅ Logout completed - user data cleared');
       resolve();
     });
   };
@@ -94,6 +87,7 @@ export const AuthProvider = ({ children }) => {
   const updateUser = (updatedUserData) => {
     setCurrentUser(updatedUserData);
     localStorage.setItem('currentUser', JSON.stringify(updatedUserData));
+    console.log('✅ User profile updated');
   };
 
   // Check if user has specific role

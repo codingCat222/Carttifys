@@ -2,18 +2,20 @@ const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const path = require('path');
+const multer = require('multer');
+const fs = require('fs');
 require('dotenv').config();
 
 const app = express();
 
-// ✅ FIXED CORS Middleware - Removed trailing slash
+// ✅ CORS Middleware
 app.use(cors({
   origin: [
     'http://localhost:3000',
     'http://localhost:5173', 
     'http://localhost:5174',
-    'https://carttifys-oous.vercel.app', // ✅ Fixed: removed trailing slash
-    'https://*.vercel.app' // ✅ Added for all Vercel subdomains
+    'https://carttifys-oous.vercel.app',
+    'https://*.vercel.app'
   ],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
@@ -21,11 +23,386 @@ app.use(cors({
 }));
 
 app.options('*', cors());
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-// Database connection
+// ==================== MULTER CONFIGURATION ====================
+
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    const uploadDir = 'uploads/';
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir, { recursive: true });
+    }
+    cb(null, uploadDir);
+  },
+  filename: function (req, file, cb) {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname));
+  }
+});
+
+const fileFilter = (req, file, cb) => {
+  const allowedMimes = [
+    'image/jpeg', 
+    'image/jpg', 
+    'image/png', 
+    'image/gif',
+    'image/webp',
+    'video/mp4',
+    'video/mpeg',
+    'video/quicktime',
+    'video/x-msvideo',
+    'video/webm'
+  ];
+
+  if (allowedMimes.includes(file.mimetype)) {
+    cb(null, true);
+  } else {
+    cb(new Error(`Invalid file type. Only images and videos are allowed.`), false);
+  }
+};
+
+const upload = multer({
+  storage: storage,
+  fileFilter: fileFilter,
+  limits: {
+    fileSize: 50 * 1024 * 1024
+  }
+});
+
+// ==================== UPLOAD ROUTES ====================
+
+// ✅ UPLOAD MEDIA FILES
+app.post('/api/upload/media', upload.array('media', 10), async (req, res) => {
+  try {
+    if (!req.files || req.files.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'No files uploaded'
+      });
+    }
+
+    const PORT = process.env.PORT || 5000;
+    const uploadedFiles = req.files.map(file => ({
+      filename: file.filename,
+      originalName: file.originalname,
+      mimetype: file.mimetype,
+      size: file.size,
+      path: `/uploads/${file.filename}`,
+      type: file.mimetype.startsWith('image/') ? 'image' : 'video',
+      url: `http://localhost:${PORT}/uploads/${file.filename}`
+    }));
+
+    res.json({
+      success: true,
+      message: `Successfully uploaded ${uploadedFiles.length} file(s)`,
+      data: uploadedFiles
+    });
+
+  } catch (error) {
+    console.error('Upload error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error uploading files',
+      error: error.message
+    });
+  }
+});
+
+// ✅ UPLOAD SINGLE FILE
+app.post('/api/upload/single', upload.single('file'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        message: 'No file uploaded'
+      });
+    }
+
+    const PORT = process.env.PORT || 5000;
+    const fileInfo = {
+      filename: req.file.filename,
+      originalName: req.file.originalname,
+      mimetype: req.file.mimetype,
+      size: req.file.size,
+      path: `/uploads/${req.file.filename}`,
+      type: req.file.mimetype.startsWith('image/') ? 'image' : 'video',
+      url: `http://localhost:${PORT}/uploads/${req.file.filename}`
+    };
+
+    res.json({
+      success: true,
+      message: 'File uploaded successfully',
+      data: fileInfo
+    });
+
+  } catch (error) {
+    console.error('Single upload error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error uploading file',
+      error: error.message
+    });
+  }
+});
+
+// ✅ CREATE PRODUCT WITH MEDIA UPLOAD
+app.post('/api/seller/products/with-media', upload.array('media', 10), async (req, res) => {
+  try {
+    const User = require('./models/User');
+    const Product = require('./models/Product');
+
+    const seller = await User.findOne({ role: 'seller' });
+    
+    if (!seller) {
+      return res.status(404).json({
+        success: false,
+        message: 'Seller not found'
+      });
+    }
+
+    const {
+      name,
+      description,
+      price,
+      category,
+      stock,
+      features
+    } = req.body;
+
+    if (!name || !description || !price || !category || stock === undefined) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please provide all required fields'
+      });
+    }
+
+    const PORT = process.env.PORT || 5000;
+    const images = [];
+    const videos = [];
+
+    if (req.files && req.files.length > 0) {
+      req.files.forEach(file => {
+        const fileData = {
+          filename: file.filename,
+          originalName: file.originalname,
+          contentType: file.mimetype,
+          size: file.size,
+          path: `/uploads/${file.filename}`,
+          url: `http://localhost:${PORT}/uploads/${file.filename}`,
+          uploadedAt: new Date()
+        };
+
+        if (file.mimetype.startsWith('image/')) {
+          images.push(fileData);
+        } else if (file.mimetype.startsWith('video/')) {
+          videos.push(fileData);
+        }
+      });
+    }
+
+    const product = await Product.create({
+      name,
+      description,
+      price: parseFloat(price),
+      category,
+      stock: parseInt(stock),
+      features: features ? (Array.isArray(features) ? features : [features]).filter(feature => feature.trim() !== '') : [],
+      images,
+      videos,
+      seller: seller._id,
+      status: 'active',
+      featured: false,
+      salesCount: 0,
+      averageRating: 0
+    });
+
+    res.status(201).json({
+      success: true,
+      message: 'Product created successfully with media files',
+      data: {
+        id: product._id,
+        name: product.name,
+        price: product.price,
+        category: product.category,
+        stock: product.stock,
+        status: product.status,
+        featured: product.featured,
+        images: product.images,
+        videos: product.videos,
+        createdAt: product.createdAt
+      }
+    });
+
+  } catch (error) {
+    console.error('Create product with media error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error creating product with media',
+      error: error.message
+    });
+  }
+});
+
+// ✅ GET UPLOADED FILES
+app.get('/api/uploads/:filename', (req, res) => {
+  try {
+    const filename = req.params.filename;
+    const filePath = path.join(__dirname, 'uploads', filename);
+    
+    if (!fs.existsSync(filePath)) {
+      return res.status(404).json({
+        success: false,
+        message: 'File not found'
+      });
+    }
+
+    res.sendFile(filePath);
+  } catch (error) {
+    console.error('File serve error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error serving file'
+    });
+  }
+});
+
+// ✅ DELETE UPLOADED FILE
+app.delete('/api/uploads/:filename', async (req, res) => {
+  try {
+    const filename = req.params.filename;
+    const filePath = path.join(__dirname, 'uploads', filename);
+    
+    if (!fs.existsSync(filePath)) {
+      return res.status(404).json({
+        success: false,
+        message: 'File not found'
+      });
+    }
+
+    fs.unlinkSync(filePath);
+
+    res.json({
+      success: true,
+      message: 'File deleted successfully'
+    });
+  } catch (error) {
+    console.error('File delete error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error deleting file'
+    });
+  }
+});
+
+// ✅ GET ALL UPLOADED FILES
+app.get('/api/seller/uploads', async (req, res) => {
+  try {
+    const uploadDir = path.join(__dirname, 'uploads');
+    
+    if (!fs.existsSync(uploadDir)) {
+      return res.json({
+        success: true,
+        data: []
+      });
+    }
+
+    const PORT = process.env.PORT || 5000;
+    const files = fs.readdirSync(uploadDir).map(filename => {
+      const filePath = path.join(uploadDir, filename);
+      const stats = fs.statSync(filePath);
+      
+      return {
+        filename,
+        path: `/uploads/${filename}`,
+        url: `http://localhost:${PORT}/uploads/${filename}`,
+        size: stats.size,
+        uploadedAt: stats.birthtime,
+        type: path.extname(filename).toLowerCase().substring(1)
+      };
+    });
+
+    res.json({
+      success: true,
+      data: files
+    });
+  } catch (error) {
+    console.error('Get uploads error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching uploaded files'
+    });
+  }
+});
+
+// ==================== PRODUCT ROUTES ====================
+
+app.get('/api/products', async (req, res) => {
+  try {
+    const Product = require('./models/Product');
+    const products = await Product.find({ stock: { $gt: 0 } })
+      .populate('seller', 'name businessName')
+      .select('-images.data -videos.data')
+      .limit(20);
+
+    res.json({
+      success: true,
+      count: products.length,
+      data: products.map(product => ({
+        id: product._id,
+        name: product.name,
+        price: product.price,
+        category: product.category,
+        stock: product.stock,
+        seller: product.seller?.businessName || product.seller?.name,
+        image: product.images && product.images[0] ? 
+          (product.images[0].data ? `data:${product.images[0].contentType};base64,${product.images[0].data}` : 'https://via.placeholder.com/300') 
+          : 'https://via.placeholder.com/300',
+        averageRating: product.averageRating
+      }))
+    });
+  } catch (error) {
+    console.error('Products error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching products'
+    });
+  }
+});
+
+app.get('/api/products/:id', async (req, res) => {
+  try {
+    const Product = require('./models/Product');
+    const product = await Product.findById(req.params.id)
+      .populate('seller', 'name email businessName businessType rating');
+
+    if (!product) {
+      return res.status(404).json({
+        success: false,
+        message: 'Product not found'
+      });
+    }
+
+    res.json({
+      success: true,
+      data: {
+        ...product.toObject(),
+        sellerName: product.seller?.businessName || product.seller?.name
+      }
+    });
+  } catch (error) {
+    console.error('Product details error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching product details'
+    });
+  }
+});
+
+// ==================== DATABASE CONNECTION ====================
+
 const connectDB = async () => {
   try {
     console.log('🔗 Attempting to connect to MongoDB...');
@@ -51,7 +428,8 @@ const connectDB = async () => {
 
 connectDB();
 
-// Health check
+// ==================== HEALTH CHECK ====================
+
 app.get('/api/health', (req, res) => {
   res.status(200).json({
     success: true,
@@ -61,14 +439,14 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-// ✅ WORKING AUTH ROUTES
+// ==================== AUTH ROUTES ====================
+
 app.post('/api/auth/register', async (req, res) => {
   try {
     console.log('📝 Registration attempt:', req.body);
     
     const { email, password, role, name, phone, address, businessName, businessType, businessAddress } = req.body;
     
-    // Validation
     if (!email || !password || !role) {
       return res.status(400).json({
         success: false,
@@ -90,7 +468,6 @@ app.post('/api/auth/register', async (req, res) => {
       });
     }
     
-    // Check if user already exists
     const User = require('./models/User');
     const existingUser = await User.findOne({ email });
     if (existingUser) {
@@ -100,7 +477,6 @@ app.post('/api/auth/register', async (req, res) => {
       });
     }
     
-    // Create user
     const userData = {
       email,
       password,
@@ -116,7 +492,6 @@ app.post('/api/auth/register', async (req, res) => {
     
     const user = await User.create(userData);
     
-    // Return response (exclude password)
     const userResponse = {
       id: user._id,
       email: user.email,
@@ -147,7 +522,6 @@ app.post('/api/auth/register', async (req, res) => {
   }
 });
 
-// Login route
 app.post('/api/auth/login', async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -169,7 +543,6 @@ app.post('/api/auth/login', async (req, res) => {
       });
     }
     
-    // Simple password check
     if (user.password !== password) {
       return res.status(401).json({
         success: false,
@@ -206,14 +579,14 @@ app.post('/api/auth/login', async (req, res) => {
   }
 });
 
-// ✅ REAL BUYER DASHBOARD API
+// ==================== BUYER ROUTES ====================
+
 app.get('/api/buyer/dashboard', async (req, res) => {
   try {
     const User = require('./models/User');
     const Product = require('./models/Product');
     const Order = require('./models/Order');
 
-    // Get the first buyer (for now - you'll add authentication later)
     const buyer = await User.findOne({ role: 'buyer' });
     
     if (!buyer) {
@@ -232,7 +605,6 @@ app.get('/api/buyer/dashboard', async (req, res) => {
       });
     }
 
-    // Get order stats
     const orderStats = await Order.aggregate([
       { $match: { buyer: buyer._id } },
       {
@@ -257,14 +629,12 @@ app.get('/api/buyer/dashboard', async (req, res) => {
       totalSpent: 0
     };
 
-    // Get recent orders
     const recentOrders = await Order.find({ buyer: buyer._id })
       .populate('seller', 'name businessName')
       .populate('items.product', 'name images')
       .sort({ createdAt: -1 })
       .limit(5);
 
-    // Get recommended products
     const recommendedProducts = await Product.find({ stock: { $gt: 0 } })
       .populate('seller', 'name businessName')
       .sort({ createdAt: -1 })
@@ -309,7 +679,6 @@ app.get('/api/buyer/dashboard', async (req, res) => {
   }
 });
 
-// ✅ BUYER MARKETPLACE PRODUCTS
 app.get('/api/buyer/products', async (req, res) => {
   try {
     const {
@@ -325,7 +694,6 @@ app.get('/api/buyer/products', async (req, res) => {
 
     const Product = require('./models/Product');
 
-    // Build filter object
     const filter = { stock: { $gt: 0 } };
 
     if (category && category !== 'all') {
@@ -346,10 +714,8 @@ app.get('/api/buyer/products', async (req, res) => {
       ];
     }
 
-    // Calculate pagination
     const skip = (page - 1) * limit;
 
-    // Get products with seller info
     const products = await Product.find(filter)
       .populate('seller', 'name email businessName')
       .sort({ [sortBy]: sortOrder === 'desc' ? -1 : 1 })
@@ -357,7 +723,6 @@ app.get('/api/buyer/products', async (req, res) => {
       .limit(parseInt(limit))
       .select('-images.data -videos.data');
 
-    // Get total count for pagination
     const total = await Product.countDocuments(filter);
     const totalPages = Math.ceil(total / limit);
 
@@ -398,7 +763,6 @@ app.get('/api/buyer/products', async (req, res) => {
   }
 });
 
-// ✅ BUYER PRODUCT DETAILS
 app.get('/api/buyer/products/:id', async (req, res) => {
   try {
     const Product = require('./models/Product');
@@ -434,7 +798,6 @@ app.get('/api/buyer/products/:id', async (req, res) => {
   }
 });
 
-// ✅ BUYER ORDERS
 app.get('/api/buyer/orders', async (req, res) => {
   try {
     const User = require('./models/User');
@@ -511,7 +874,6 @@ app.get('/api/buyer/orders', async (req, res) => {
   }
 });
 
-// ✅ BUYER ORDER DETAILS
 app.get('/api/buyer/orders/:id', async (req, res) => {
   try {
     const User = require('./models/User');
@@ -548,7 +910,6 @@ app.get('/api/buyer/orders/:id', async (req, res) => {
   }
 });
 
-// ✅ CREATE ORDER
 app.post('/api/buyer/orders', async (req, res) => {
   try {
     const { items, shippingAddress, paymentMethod, notes } = req.body;
@@ -557,7 +918,6 @@ app.post('/api/buyer/orders', async (req, res) => {
     const Product = require('./models/Product');
     const Order = require('./models/Order');
 
-    // Get first buyer for now
     const buyer = await User.findOne({ role: 'buyer' });
     if (!buyer) {
       return res.status(404).json({
@@ -566,7 +926,6 @@ app.post('/api/buyer/orders', async (req, res) => {
       });
     }
 
-    // Validate items
     if (!items || items.length === 0) {
       return res.status(400).json({
         success: false,
@@ -574,7 +933,6 @@ app.post('/api/buyer/orders', async (req, res) => {
       });
     }
 
-    // Calculate total and verify products
     let totalAmount = 0;
     const orderItems = [];
     let sellerId = null;
@@ -595,7 +953,6 @@ app.post('/api/buyer/orders', async (req, res) => {
         });
       }
 
-      // Set seller ID (assuming all items from same seller)
       if (!sellerId) {
         sellerId = product.seller;
       }
@@ -610,12 +967,10 @@ app.post('/api/buyer/orders', async (req, res) => {
         productName: product.name
       });
 
-      // Update product stock
       product.stock -= item.quantity;
       await product.save();
     }
 
-    // Create order
     const order = new Order({
       buyer: buyer._id,
       seller: sellerId,
@@ -630,7 +985,6 @@ app.post('/api/buyer/orders', async (req, res) => {
 
     await order.save();
 
-    // Populate the saved order for response
     const populatedOrder = await Order.findById(order._id)
       .populate('seller', 'name email businessName')
       .populate('items.product', 'name images');
@@ -651,7 +1005,6 @@ app.post('/api/buyer/orders', async (req, res) => {
   }
 });
 
-// ✅ CANCEL ORDER
 app.put('/api/buyer/orders/:id/cancel', async (req, res) => {
   try {
     const User = require('./models/User');
@@ -672,7 +1025,6 @@ app.put('/api/buyer/orders/:id/cancel', async (req, res) => {
       });
     }
 
-    // Only allow cancellation for pending or confirmed orders
     if (!['pending', 'confirmed'].includes(order.status)) {
       return res.status(400).json({
         success: false,
@@ -680,7 +1032,6 @@ app.put('/api/buyer/orders/:id/cancel', async (req, res) => {
       });
     }
 
-    // Restore product stock
     for (const item of order.items) {
       await Product.findByIdAndUpdate(
         item.product,
@@ -706,7 +1057,6 @@ app.put('/api/buyer/orders/:id/cancel', async (req, res) => {
   }
 });
 
-// ✅ BUYER CATEGORIES
 app.get('/api/buyer/categories', async (req, res) => {
   try {
     const Product = require('./models/Product');
@@ -749,7 +1099,6 @@ app.get('/api/buyer/categories', async (req, res) => {
   }
 });
 
-// ✅ BUYER SEARCH
 app.get('/api/buyer/products/search', async (req, res) => {
   try {
     const { q, category, minPrice, maxPrice, page = 1, limit = 20 } = req.query;
@@ -818,14 +1167,14 @@ app.get('/api/buyer/products/search', async (req, res) => {
   }
 });
 
-// ✅ REAL SELLER DASHBOARD API (NO MOCK DATA)
+// ==================== SELLER ROUTES ====================
+
 app.get('/api/seller/dashboard', async (req, res) => {
   try {
     const User = require('./models/User');
     const Product = require('./models/Product');
     const Order = require('./models/Order');
 
-    // Get the first seller (for now - you'll add authentication later)
     const seller = await User.findOne({ role: 'seller' });
     
     if (!seller) {
@@ -848,7 +1197,6 @@ app.get('/api/seller/dashboard', async (req, res) => {
       });
     }
 
-    // Get REAL data from database
     const totalProducts = await Product.countDocuments({ seller: seller._id });
     const activeProducts = await Product.countDocuments({ 
       seller: seller._id, 
@@ -859,7 +1207,6 @@ app.get('/api/seller/dashboard', async (req, res) => {
       status: { $in: ['pending', 'confirmed'] }
     });
 
-    // Get sales data
     const salesData = await Order.aggregate([
       { $match: { seller: seller._id, paymentStatus: 'completed' } },
       {
@@ -873,13 +1220,11 @@ app.get('/api/seller/dashboard', async (req, res) => {
 
     const sales = salesData[0] || { totalSales: 0, totalEarnings: 0 };
 
-    // Get recent orders
     const recentOrders = await Order.find({ seller: seller._id })
       .populate('buyer', 'name email')
       .sort({ createdAt: -1 })
       .limit(5);
 
-    // Get top products
     const topProducts = await Product.find({ seller: seller._id })
       .sort({ createdAt: -1 })
       .limit(3);
@@ -931,7 +1276,6 @@ app.get('/api/seller/dashboard', async (req, res) => {
   }
 });
 
-// ✅ REAL EARNINGS API (NO MOCK DATA)
 app.get('/api/seller/earnings', async (req, res) => {
   try {
     const User = require('./models/User');
@@ -953,7 +1297,6 @@ app.get('/api/seller/earnings', async (req, res) => {
       });
     }
 
-    // Get REAL earnings data
     const earningsData = await Order.aggregate([
       { $match: { seller: seller._id, paymentStatus: 'completed' } },
       {
@@ -975,7 +1318,6 @@ app.get('/api/seller/earnings', async (req, res) => {
 
     const earnings = earningsData[0] || { totalEarnings: 0, pendingPayout: 0 };
 
-    // Get recent transactions
     const transactions = await Order.find({ 
       seller: seller._id,
       paymentStatus: 'completed'
@@ -1014,7 +1356,6 @@ app.get('/api/seller/earnings', async (req, res) => {
   }
 });
 
-// ✅ REAL PRODUCTS API (NO MOCK DATA)
 app.get('/api/seller/products', async (req, res) => {
   try {
     const { page = 1, limit = 10, status, category, search } = req.query;
@@ -1049,7 +1390,6 @@ app.get('/api/seller/products', async (req, res) => {
     if (category && category !== 'all') filter.category = category;
     if (search) filter.name = { $regex: search, $options: 'i' };
 
-    // Get REAL products
     const products = await Product.find(filter)
       .sort({ createdAt: -1 })
       .limit(limit * 1)
@@ -1057,7 +1397,6 @@ app.get('/api/seller/products', async (req, res) => {
 
     const total = await Product.countDocuments(filter);
 
-    // Get product stats
     const productStats = await Product.aggregate([
       { $match: { seller: seller._id } },
       {
@@ -1113,7 +1452,6 @@ app.get('/api/seller/products', async (req, res) => {
   }
 });
 
-// ✅ REAL PRODUCT CREATION
 app.post('/api/seller/products', async (req, res) => {
   try {
     const User = require('./models/User');
@@ -1139,7 +1477,6 @@ app.post('/api/seller/products', async (req, res) => {
       videos
     } = req.body;
 
-    // Validate required fields
     if (!name || !description || !price || !category || stock === undefined) {
       return res.status(400).json({
         success: false,
@@ -1147,7 +1484,6 @@ app.post('/api/seller/products', async (req, res) => {
       });
     }
 
-    // Create REAL product in database
     const product = await Product.create({
       name,
       description,
@@ -1188,7 +1524,6 @@ app.post('/api/seller/products', async (req, res) => {
   }
 });
 
-// ✅ REAL PRODUCT UPDATE
 app.put('/api/seller/products/:id/status', async (req, res) => {
   try {
     const { id } = req.params;
@@ -1244,12 +1579,10 @@ app.put('/api/seller/products/:id/status', async (req, res) => {
   }
 });
 
-// ==================== USER PROFILE & HELP SUPPORT ROUTES ====================
+// ==================== USER PROFILE & HELP ROUTES ====================
 
-// ✅ GET USER PROFILE DATA (Real data from signup)
 app.get('/api/user/profile', async (req, res) => {
   try {
-    // For now, get the first user (you'll add authentication later)
     const User = require('./models/User');
     const user = await User.findOne().sort({ createdAt: -1 });
     
@@ -1260,7 +1593,6 @@ app.get('/api/user/profile', async (req, res) => {
       });
     }
     
-    // Format user data for profile
     const profileData = {
       name: user.name || 'User',
       email: user.email,
@@ -1295,7 +1627,6 @@ app.get('/api/user/profile', async (req, res) => {
   }
 });
 
-// ✅ UPDATE USER PROFILE
 app.put('/api/user/profile', async (req, res) => {
   try {
     const { name, phone, location, notifications } = req.body;
@@ -1310,7 +1641,6 @@ app.put('/api/user/profile', async (req, res) => {
       });
     }
 
-    // Update user data
     if (name) user.name = name;
     if (phone) user.phone = phone;
     if (location) {
@@ -1354,7 +1684,6 @@ app.put('/api/user/profile', async (req, res) => {
   }
 });
 
-// ✅ HELP & SUPPORT SECTIONS
 app.get('/api/help/sections', (req, res) => {
   try {
     const helpSections = [
@@ -1421,7 +1750,6 @@ app.get('/api/help/sections', (req, res) => {
   }
 });
 
-// ✅ CONTACT SUPPORT
 app.post('/api/help/contact', async (req, res) => {
   try {
     const { name, email, subject, message, category } = req.body;
@@ -1433,7 +1761,6 @@ app.post('/api/help/contact', async (req, res) => {
       });
     }
 
-    // Here you would typically save to database or send email
     console.log('Support request received:', {
       name,
       email,
@@ -1460,7 +1787,6 @@ app.post('/api/help/contact', async (req, res) => {
   }
 });
 
-// ✅ GET FAQS
 app.get('/api/help/faqs', (req, res) => {
   try {
     const faqs = [
@@ -1515,7 +1841,6 @@ app.get('/api/help/faqs', (req, res) => {
   }
 });
 
-// ✅ GET SPECIFIC HELP ARTICLE
 app.get('/api/help/articles/:topic', (req, res) => {
   try {
     const { topic } = req.params;
@@ -1590,9 +1915,6 @@ app.get('/api/help/articles/:topic', (req, res) => {
   }
 });
 
-// ==================== NOTIFICATION SETTINGS ====================
-
-// ✅ UPDATE NOTIFICATION PREFERENCES
 app.put('/api/user/notifications', async (req, res) => {
   try {
     const { email, push, sms } = req.body;
@@ -1607,7 +1929,6 @@ app.put('/api/user/notifications', async (req, res) => {
       });
     }
 
-    // Update notification preferences
     user.notifications = {
       email: email !== undefined ? email : true,
       push: push !== undefined ? push : true,
@@ -1630,9 +1951,6 @@ app.put('/api/user/notifications', async (req, res) => {
   }
 });
 
-// ==================== ACCOUNT MANAGEMENT ====================
-
-// ✅ DELETE ACCOUNT
 app.delete('/api/user/account', async (req, res) => {
   try {
     const { confirm } = req.body;
@@ -1654,10 +1972,6 @@ app.delete('/api/user/account', async (req, res) => {
       });
     }
 
-    // In a real app, you might want to soft delete or archive the user
-    // For now, we'll just return success
-    // await User.findByIdAndDelete(user._id);
-
     res.json({
       success: true,
       message: 'Account deletion request received. Your account will be deleted within 24 hours.'
@@ -1671,7 +1985,6 @@ app.delete('/api/user/account', async (req, res) => {
   }
 });
 
-// ✅ CHANGE PASSWORD
 app.put('/api/user/password', async (req, res) => {
   try {
     const { currentPassword, newPassword } = req.body;
@@ -1693,7 +2006,6 @@ app.put('/api/user/password', async (req, res) => {
       });
     }
 
-    // Check current password (in real app, use proper password hashing)
     if (user.password !== currentPassword) {
       return res.status(400).json({
         success: false,
@@ -1701,7 +2013,6 @@ app.put('/api/user/password', async (req, res) => {
       });
     }
 
-    // Update password
     user.password = newPassword;
     await user.save();
 
@@ -1718,7 +2029,8 @@ app.put('/api/user/password', async (req, res) => {
   }
 });
 
-// 404 handler
+// ==================== ERROR HANDLERS ====================
+
 app.use('*', (req, res) => {
   res.status(404).json({
     success: false,
@@ -1726,7 +2038,6 @@ app.use('*', (req, res) => {
   });
 });
 
-// Global error handler
 app.use((error, req, res, next) => {
   console.error('🔥 Error:', error);
   res.status(500).json({
@@ -1737,13 +2048,18 @@ app.use((error, req, res, next) => {
 
 const PORT = process.env.PORT || 5000;
 
-// ✅ Added for Render deployment
 const server = app.listen(PORT, () => {
   console.log(`🛒 E-commerce Backend Server Running on PORT ${PORT}`);
   console.log(`🌐 Environment: ${process.env.NODE_ENV || 'development'}`);
+  console.log(`\n📍 HEALTH & AUTH:`);
   console.log(`📍 Health Check: http://localhost:${PORT}/api/health`);
   console.log(`📍 Register: POST http://localhost:${PORT}/api/auth/register`);
   console.log(`📍 Login: POST http://localhost:${PORT}/api/auth/login`);
+  console.log(`\n📍 UPLOAD ENDPOINTS:`);
+  console.log(`📍 Upload Media: POST http://localhost:${PORT}/api/upload/media`);
+  console.log(`📍 Upload Single: POST http://localhost:${PORT}/api/upload/single`);
+  console.log(`📍 Create Product with Media: POST http://localhost:${PORT}/api/seller/products/with-media`);
+  console.log(`📍 Get Uploads: GET http://localhost:${PORT}/api/seller/uploads`);
   console.log(`\n📍 BUYER ENDPOINTS:`);
   console.log(`📍 Buyer Dashboard: GET http://localhost:${PORT}/api/buyer/dashboard`);
   console.log(`📍 Buyer Products: GET http://localhost:${PORT}/api/buyer/products`);
@@ -1759,5 +2075,4 @@ const server = app.listen(PORT, () => {
   console.log(`📍 FAQs: GET http://localhost:${PORT}/api/help/faqs`);
 });
 
-// Export for testing or serverless if needed
 module.exports = app;

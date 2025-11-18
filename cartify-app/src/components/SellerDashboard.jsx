@@ -24,6 +24,9 @@ const SellerDashboard = () => {
   const [notifications, setNotifications] = useState([]);
   const [usingRealData, setUsingRealData] = useState(false);
   const [backendStatus, setBackendStatus] = useState('checking');
+  const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [selectedFiles, setSelectedFiles] = useState([]);
   
   const navigate = useNavigate();
 
@@ -41,6 +44,8 @@ const SellerDashboard = () => {
     } catch (error) {
       setBackendStatus('disconnected');
       console.error('❌ Backend connection failed:', error);
+      // Auto-load demo data if backend is down
+      loadDemoData();
     }
   };
 
@@ -98,6 +103,119 @@ const SellerDashboard = () => {
     } catch (error) {
       console.error('Error fetching additional data:', error);
     }
+  };
+
+  // ✅ FILE UPLOAD HANDLING
+  const handleFileSelect = (event) => {
+    const files = Array.from(event.target.files);
+    
+    // Validate file types and sizes
+    const validFiles = files.filter(file => {
+      const isValidType = file.type.startsWith('image/') || file.type.startsWith('video/');
+      const isValidSize = file.size <= 50 * 1024 * 1024; // 50MB limit
+      
+      if (!isValidType) {
+        alert(`❌ ${file.name} is not a valid image or video file`);
+        return false;
+      }
+      
+      if (!isValidSize) {
+        alert(`❌ ${file.name} is too large. Maximum size is 50MB`);
+        return false;
+      }
+      
+      return true;
+    });
+    
+    setSelectedFiles(validFiles);
+    
+    // Auto-upload if files are selected
+    if (validFiles.length > 0) {
+      handleFileUpload(validFiles);
+    }
+  };
+
+  const handleFileUpload = async (files) => {
+    setUploading(true);
+    setUploadProgress(0);
+    
+    try {
+      const formData = new FormData();
+      
+      // Add all files to FormData
+      files.forEach(file => {
+        formData.append('media', file);
+      });
+      
+      // Add product data (you can make this dynamic with a form)
+      formData.append('name', 'New Product');
+      formData.append('description', 'Product description');
+      formData.append('price', '0.00');
+      formData.append('category', 'uncategorized');
+      
+      // Simulate upload progress
+      const interval = setInterval(() => {
+        setUploadProgress(prev => {
+          if (prev >= 90) {
+            clearInterval(interval);
+            return 90;
+          }
+          return prev + 10;
+        });
+      }, 200);
+
+      const response = await fetch('http://localhost:5000/api/seller/products', {
+        method: 'POST',
+        body: formData,
+      });
+      
+      clearInterval(interval);
+      
+      if (!response.ok) {
+        throw new Error(`Upload failed: ${response.statusText}`);
+      }
+      
+      const result = await response.json();
+      setUploadProgress(100);
+      
+      // Show success message
+      alert(`✅ Successfully uploaded ${files.length} file(s)!`);
+      
+      // Refresh products data
+      fetchDashboardData();
+      
+      // Clear selected files
+      setSelectedFiles([]);
+      
+      // Reset progress after delay
+      setTimeout(() => {
+        setUploadProgress(0);
+      }, 2000);
+      
+    } catch (error) {
+      console.error('Upload error:', error);
+      alert('❌ Upload failed: ' + error.message);
+      setUploadProgress(0);
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleDragOver = (event) => {
+    event.preventDefault();
+    event.currentTarget.classList.add('drag-over');
+  };
+
+  const handleDragLeave = (event) => {
+    event.preventDefault();
+    event.currentTarget.classList.remove('drag-over');
+  };
+
+  const handleDrop = (event) => {
+    event.preventDefault();
+    event.currentTarget.classList.remove('drag-over');
+    const files = Array.from(event.dataTransfer.files);
+    handleFileSelect({ target: { files } });
   };
 
   // Fallback to mock data
@@ -166,7 +284,8 @@ const SellerDashboard = () => {
         salesCount: 25, 
         revenue: 2499.75,
         growth: '+12%',
-        rating: 4.8
+        rating: 4.8,
+        image: '/images/headphones.jpg'
       },
       { 
         id: 2, 
@@ -174,7 +293,8 @@ const SellerDashboard = () => {
         salesCount: 15, 
         revenue: 899.85,
         growth: '+8%',
-        rating: 4.5
+        rating: 4.5,
+        image: '/images/speaker.jpg'
       },
       { 
         id: 3, 
@@ -182,15 +302,9 @@ const SellerDashboard = () => {
         salesCount: 5, 
         revenue: 999.95,
         growth: '+25%',
-        rating: 4.9
+        rating: 4.9,
+        image: '/images/watch.jpg'
       }
-    ]);
-
-    setPerformanceData([
-      { month: 'Jan', sales: 45, revenue: 2850, orders: 12 },
-      { month: 'Feb', sales: 52, revenue: 3200, orders: 15 },
-      { month: 'Mar', sales: 48, revenue: 2950, orders: 13 },
-      { month: 'Apr', sales: 61, revenue: 3800, orders: 18 }
     ]);
 
     setNotifications([
@@ -276,6 +390,9 @@ const SellerDashboard = () => {
       case 'add_product':
         navigate('/seller/products/add');
         break;
+      case 'upload_media':
+        document.getElementById('media-upload').click();
+        break;
       case 'process_orders':
         navigate('/seller/orders');
         break;
@@ -326,6 +443,16 @@ const SellerDashboard = () => {
   return (
     <div className="seller-dashboard">
       <div className="container">
+        {/* Hidden file input for media upload */}
+        <input
+          type="file"
+          id="media-upload"
+          multiple
+          accept="image/*,video/*"
+          onChange={handleFileSelect}
+          style={{ display: 'none' }}
+        />
+
         {/* Header with Data Status */}
         <div className="dashboard-header">
           <div className="header-content">
@@ -498,6 +625,18 @@ const SellerDashboard = () => {
             </button>
             
             <button 
+              className="action-btn success"
+              onClick={() => handleQuickAction('upload_media')}
+              disabled={uploading}
+            >
+              <div className="action-icon">
+                <i className="fas fa-upload"></i>
+              </div>
+              <span>Upload Media</span>
+              <small>Images & Videos</small>
+            </button>
+            
+            <button 
               className="action-btn warning"
               onClick={() => handleQuickAction('process_orders')}
             >
@@ -518,17 +657,68 @@ const SellerDashboard = () => {
               <span>Update Inventory</span>
               <small>Stock management</small>
             </button>
-            
-            <button 
-              className="action-btn success"
-              onClick={() => handleQuickAction('view_analytics')}
-            >
-              <div className="action-icon">
-                <i className="fas fa-chart-line"></i>
+          </div>
+
+          {/* Upload Progress */}
+          {uploading && (
+            <div className="upload-progress-section">
+              <div className="upload-progress-header">
+                <i className="fas fa-upload"></i>
+                <span>Uploading {selectedFiles.length} file(s)...</span>
               </div>
-              <span>View Analytics</span>
-              <small>Detailed reports</small>
-            </button>
+              <div className="progress">
+                <div 
+                  className="progress-bar progress-bar-striped progress-bar-animated" 
+                  style={{ width: `${uploadProgress}%` }}
+                >
+                  {uploadProgress}%
+                </div>
+              </div>
+              <div className="upload-files-list">
+                {selectedFiles.map((file, index) => (
+                  <div key={index} className="upload-file-item">
+                    <i className={`fas ${file.type.startsWith('image/') ? 'fa-image' : 'fa-video'}`}></i>
+                    <span>{file.name}</span>
+                    <small>({(file.size / (1024 * 1024)).toFixed(2)} MB)</small>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Media Upload Section */}
+        <div className="main-card">
+          <div className="d-flex justify-content-between align-items-center mb-4">
+            <h4>
+              <i className="fas fa-upload"></i>
+              Quick Media Upload
+            </h4>
+            <span className="badge bg-info">Drag & Drop</span>
+          </div>
+          
+          <div 
+            className="upload-drop-zone"
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
+            onClick={() => document.getElementById('media-upload').click()}
+          >
+            <div className="drop-zone-content">
+              <i className="fas fa-cloud-upload-alt fa-3x"></i>
+              <h5>Drop your files here or click to browse</h5>
+              <p className="text-muted">
+                Supports images (JPEG, PNG, GIF) and videos (MP4, MOV, AVI) up to 50MB
+              </p>
+              <div className="file-types">
+                <span className="file-type-badge">
+                  <i className="fas fa-image"></i> Images
+                </span>
+                <span className="file-type-badge">
+                  <i className="fas fa-video"></i> Videos
+                </span>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -756,6 +946,15 @@ const SellerDashboard = () => {
               {topProducts.map(product => (
                 <div key={product.id} className="product-item">
                   <div className="product-header">
+                    <div className="product-image">
+                      {product.image ? (
+                        <img src={product.image} alt={product.name} />
+                      ) : (
+                        <div className="image-placeholder">
+                          <i className="fas fa-cube"></i>
+                        </div>
+                      )}
+                    </div>
                     <div className="product-info">
                       <h6 className="product-name">{product.name}</h6>
                       <div className="product-meta">
@@ -825,69 +1024,6 @@ const SellerDashboard = () => {
                   </div>
                 </div>
               </div>
-            </div>
-
-            {/* Commission Calculator */}
-            <div className="main-card">
-              <h5>
-                <i className="fas fa-calculator"></i>
-                Commission Calculator
-              </h5>
-              <div className="commission-calculator">
-                <div className="calculator-input">
-                  <label>Sale Amount</label>
-                  <div className="input-group">
-                    <span className="input-group-text">$</span>
-                    <input 
-                      type="number" 
-                      className="form-control" 
-                      placeholder="100.00" 
-                      defaultValue="100"
-                    />
-                  </div>
-                </div>
-                <div className="calculator-result">
-                  <div className="result-item">
-                    <span>Platform Commission (5%)</span>
-                    <strong>$5.00</strong>
-                  </div>
-                  <div className="result-item total">
-                    <span>Your Earnings</span>
-                    <strong>$95.00</strong>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Performance Chart Placeholder */}
-        <div className="main-card">
-          <div className="d-flex justify-content-between align-items-center mb-4">
-            <h4>
-              <i className="fas fa-chart-line"></i>
-              Sales Performance
-            </h4>
-            <div className="chart-legend">
-              <span className="legend-item">
-                <i className="fas fa-circle text-primary"></i>
-                Revenue
-              </span>
-              <span className="legend-item">
-                <i className="fas fa-circle text-success"></i>
-                Orders
-              </span>
-            </div>
-          </div>
-          <div className="chart-placeholder">
-            <div className="chart-container">
-              <p className="text-center text-muted">
-                <i className="fas fa-chart-bar fa-2x mb-2"></i>
-                <br />
-                Interactive chart would appear here
-                <br />
-                <small>Showing {timeRange} performance data</small>
-              </p>
             </div>
           </div>
         </div>
