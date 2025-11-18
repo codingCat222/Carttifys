@@ -1,5 +1,5 @@
 // services/api.js - COMPLETE FIXED VERSION
-const API_BASE = 'https://carttifys.onrender.com';
+const API_BASE = 'https://carttifys-1.onrender.com';
 
 // Main API call function - FIXED VERSION
 export const apiCall = async (endpoint, options = {}) => {
