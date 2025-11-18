@@ -15,10 +15,7 @@ app.use(cors({
     'http://localhost:5173', 
     'http://localhost:5174',
     'https://carttifys-oous.vercel.app',
-    'https://*.vercel.app',
-
-    'https://www.cartifymarket.com.ng',
-    'https://cartifymarket.com.ng'
+    'https://*.vercel.app'
   ],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
@@ -342,8 +339,6 @@ app.get('/api/seller/uploads', async (req, res) => {
 
 // ==================== PRODUCT ROUTES ====================
 
-
-// ✅ ADDED: PRODUCT ROUTES - Right after middleware, before database connection
 app.get('/api/products', async (req, res) => {
   try {
     const Product = require('./models/Product');
@@ -408,7 +403,6 @@ app.get('/api/products/:id', async (req, res) => {
 
 // ==================== DATABASE CONNECTION ====================
 
-// Database connection
 const connectDB = async () => {
   try {
     console.log('🔗 Attempting to connect to MongoDB...');
@@ -2066,7 +2060,6 @@ const server = app.listen(PORT, () => {
   console.log(`📍 Upload Single: POST http://localhost:${PORT}/api/upload/single`);
   console.log(`📍 Create Product with Media: POST http://localhost:${PORT}/api/seller/products/with-media`);
   console.log(`📍 Get Uploads: GET http://localhost:${PORT}/api/seller/uploads`);
-  console.log(`📍 Products: GET http://localhost:${PORT}/api/products`); // ✅ Now this will work!
   console.log(`\n📍 BUYER ENDPOINTS:`);
   console.log(`📍 Buyer Dashboard: GET http://localhost:${PORT}/api/buyer/dashboard`);
   console.log(`📍 Buyer Products: GET http://localhost:${PORT}/api/buyer/products`);
@@ -2082,5 +2075,4 @@ const server = app.listen(PORT, () => {
   console.log(`📍 FAQs: GET http://localhost:${PORT}/api/help/faqs`);
 });
 
-// Export for testing or serverless if needed
 module.exports = app;
