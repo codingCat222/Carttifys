@@ -8,14 +8,14 @@ require('dotenv').config();
 
 const app = express();
 
-// ✅ CORS Middleware
+// ✅ CORS Middleware - UPDATED
 app.use(cors({
   origin: [
     'http://localhost:3000',
     'http://localhost:5173', 
     'http://localhost:5174',
     'https://carttifys-oous.vercel.app',
- 
+    'https://*.vercel.app',
     'https://www.cartifymarket.com.ng'
   ],
   credentials: true,
@@ -26,7 +26,14 @@ app.use(cors({
 app.options('*', cors());
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
+// ✅ FIXED: Static file serving with proper CORS
+app.use('/uploads', express.static(path.join(__dirname, 'uploads'), {
+  setHeaders: (res, path) => {
+    res.set('Access-Control-Allow-Origin', '*');
+    res.set('Cross-Origin-Resource-Policy', 'cross-origin');
+  }
+}));
 
 // ==================== MULTER CONFIGURATION ====================
 
@@ -73,6 +80,45 @@ const upload = multer({
   }
 });
 
+// ==================== DATABASE CONNECTION ====================
+
+const connectDB = async () => {
+  try {
+    console.log('🔗 Attempting to connect to MongoDB...');
+    
+    const connectionString = process.env.MONGODB_URI;
+    if (!connectionString) {
+      throw new Error('MONGODB_URI is not defined in .env file');
+    }
+    
+    const conn = await mongoose.connect(connectionString, {
+      useNewUrlParser: true,
+      useUnifiedTopology: true,
+    });
+    
+    console.log('✅ MongoDB Connected Successfully to:', conn.connection.host);
+    console.log('✅ Database Name:', conn.connection.name);
+    
+  } catch (error) {
+    console.error('❌ MongoDB Connection Failed:', error.message);
+    process.exit(1);
+  }
+};
+
+connectDB();
+
+// ==================== HEALTH CHECK ====================
+
+app.get('/api/health', (req, res) => {
+  res.status(200).json({
+    success: true,
+    message: '🚀 E-commerce Backend is Running!',
+    timestamp: new Date().toISOString(),
+    database: mongoose.connection.readyState === 1 ? 'Connected' : 'Disconnected',
+    environment: process.env.NODE_ENV || 'development'
+  });
+});
+
 // ==================== UPLOAD ROUTES ====================
 
 // ✅ UPLOAD MEDIA FILES
@@ -85,7 +131,7 @@ app.post('/api/upload/media', upload.array('media', 10), async (req, res) => {
       });
     }
 
-    const PORT = process.env.PORT || 5000;
+    // ✅ FIXED: Use actual domain instead of localhost
     const uploadedFiles = req.files.map(file => ({
       filename: file.filename,
       originalName: file.originalname,
@@ -93,7 +139,7 @@ app.post('/api/upload/media', upload.array('media', 10), async (req, res) => {
       size: file.size,
       path: `/uploads/${file.filename}`,
       type: file.mimetype.startsWith('image/') ? 'image' : 'video',
-      url: `http://localhost:${PORT}/uploads/${file.filename}`
+      url: `https://carttifys-1.onrender.com/uploads/${file.filename}`
     }));
 
     res.json({
@@ -122,7 +168,7 @@ app.post('/api/upload/single', upload.single('file'), async (req, res) => {
       });
     }
 
-    const PORT = process.env.PORT || 5000;
+    // ✅ FIXED: Use actual domain instead of localhost
     const fileInfo = {
       filename: req.file.filename,
       originalName: req.file.originalname,
@@ -130,7 +176,7 @@ app.post('/api/upload/single', upload.single('file'), async (req, res) => {
       size: req.file.size,
       path: `/uploads/${req.file.filename}`,
       type: req.file.mimetype.startsWith('image/') ? 'image' : 'video',
-      url: `http://localhost:${PORT}/uploads/${req.file.filename}`
+      url: `https://carttifys-1.onrender.com/uploads/${req.file.filename}`
     };
 
     res.json({
@@ -149,7 +195,7 @@ app.post('/api/upload/single', upload.single('file'), async (req, res) => {
   }
 });
 
-// ✅ CREATE PRODUCT WITH MEDIA UPLOAD
+// ✅ CREATE PRODUCT WITH MEDIA UPLOAD - COMPATIBILITY ENDPOINT
 app.post('/api/seller/products/with-media', upload.array('media', 10), async (req, res) => {
   try {
     const User = require('./models/User');
@@ -180,7 +226,7 @@ app.post('/api/seller/products/with-media', upload.array('media', 10), async (re
       });
     }
 
-    const PORT = process.env.PORT || 5000;
+    // ✅ FIXED: Use actual domain instead of localhost
     const images = [];
     const videos = [];
 
@@ -192,7 +238,106 @@ app.post('/api/seller/products/with-media', upload.array('media', 10), async (re
           contentType: file.mimetype,
           size: file.size,
           path: `/uploads/${file.filename}`,
-          url: `http://localhost:${PORT}/uploads/${file.filename}`,
+          url: `https://carttifys-1.onrender.com/uploads/${file.filename}`,
+          uploadedAt: new Date()
+        };
+
+        if (file.mimetype.startsWith('image/')) {
+          images.push(fileData);
+        } else if (file.mimetype.startsWith('video/')) {
+          videos.push(fileData);
+        }
+      });
+    }
+
+    const product = await Product.create({
+      name,
+      description,
+      price: parseFloat(price),
+      category,
+      stock: parseInt(stock),
+      features: features ? (Array.isArray(features) ? features : [features]).filter(feature => feature.trim() !== '') : [],
+      images,
+      videos,
+      seller: seller._id,
+      status: 'active',
+      featured: false,
+      salesCount: 0,
+      averageRating: 0
+    });
+
+    res.status(201).json({
+      success: true,
+      message: 'Product created successfully with media files',
+      data: {
+        id: product._id,
+        name: product.name,
+        price: product.price,
+        category: product.category,
+        stock: product.stock,
+        status: product.status,
+        featured: product.featured,
+        images: product.images,
+        videos: product.videos,
+        createdAt: product.createdAt
+      }
+    });
+
+  } catch (error) {
+    console.error('Create product with media error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error creating product with media',
+      error: error.message
+    });
+  }
+});
+
+// ✅ FIXED: ADDED MISSING ENDPOINT - Seller creates product with file upload
+app.post('/api/seller/products', upload.array('media', 10), async (req, res) => {
+  try {
+    const User = require('./models/User');
+    const Product = require('./models/Product');
+
+    const seller = await User.findOne({ role: 'seller' });
+    
+    if (!seller) {
+      return res.status(404).json({
+        success: false,
+        message: 'Seller not found'
+      });
+    }
+
+    const {
+      name,
+      description,
+      price,
+      category,
+      stock,
+      features
+    } = req.body;
+
+    if (!name || !description || !price || !category || stock === undefined) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please provide all required fields: name, description, price, category, stock'
+      });
+    }
+
+    // ✅ FIXED: Use actual domain instead of localhost
+    const images = [];
+    const videos = [];
+
+    // Handle uploaded files
+    if (req.files && req.files.length > 0) {
+      req.files.forEach(file => {
+        const fileData = {
+          filename: file.filename,
+          originalName: file.originalname,
+          contentType: file.mimetype,
+          size: file.size,
+          path: `/uploads/${file.filename}`,
+          url: `https://carttifys-1.onrender.com/uploads/${file.filename}`,
           uploadedAt: new Date()
         };
 
@@ -310,7 +455,7 @@ app.get('/api/seller/uploads', async (req, res) => {
       });
     }
 
-    const PORT = process.env.PORT || 5000;
+    // ✅ FIXED: Use actual domain instead of localhost
     const files = fs.readdirSync(uploadDir).map(filename => {
       const filePath = path.join(uploadDir, filename);
       const stats = fs.statSync(filePath);
@@ -318,7 +463,7 @@ app.get('/api/seller/uploads', async (req, res) => {
       return {
         filename,
         path: `/uploads/${filename}`,
-        url: `http://localhost:${PORT}/uploads/${filename}`,
+        url: `https://carttifys-1.onrender.com/uploads/${filename}`,
         size: stats.size,
         uploadedAt: stats.birthtime,
         type: path.extname(filename).toLowerCase().substring(1)
@@ -400,44 +545,6 @@ app.get('/api/products/:id', async (req, res) => {
       message: 'Error fetching product details'
     });
   }
-});
-
-// ==================== DATABASE CONNECTION ====================
-
-const connectDB = async () => {
-  try {
-    console.log('🔗 Attempting to connect to MongoDB...');
-    
-    const connectionString = process.env.MONGODB_URI;
-    if (!connectionString) {
-      throw new Error('MONGODB_URI is not defined in .env file');
-    }
-    
-    const conn = await mongoose.connect(connectionString, {
-      useNewUrlParser: true,
-      useUnifiedTopology: true,
-    });
-    
-    console.log('✅ MongoDB Connected Successfully to:', conn.connection.host);
-    console.log('✅ Database Name:', conn.connection.name);
-    
-  } catch (error) {
-    console.error('❌ MongoDB Connection Failed:', error.message);
-    process.exit(1);
-  }
-};
-
-connectDB();
-
-// ==================== HEALTH CHECK ====================
-
-app.get('/api/health', (req, res) => {
-  res.status(200).json({
-    success: true,
-    message: '🚀 E-commerce Backend is Running!',
-    timestamp: new Date().toISOString(),
-    database: mongoose.connection.readyState === 1 ? 'Connected' : 'Disconnected'
-  });
 });
 
 // ==================== AUTH ROUTES ====================
@@ -1453,69 +1560,179 @@ app.get('/api/seller/products', async (req, res) => {
   }
 });
 
+// ✅ FIXED: This endpoint now handles both JSON and FormData
 app.post('/api/seller/products', async (req, res) => {
   try {
-    const User = require('./models/User');
-    const Product = require('./models/Product');
+    // Check if request is multipart/form-data (file upload)
+    if (req.headers['content-type'] && req.headers['content-type'].includes('multipart/form-data')) {
+      // Handle file upload with multer
+      upload.array('media', 10)(req, res, async (err) => {
+        if (err) {
+          return res.status(400).json({
+            success: false,
+            message: `File upload error: ${err.message}`
+          });
+        }
 
-    const seller = await User.findOne({ role: 'seller' });
-    
-    if (!seller) {
-      return res.status(404).json({
-        success: false,
-        message: 'Seller not found'
+        try {
+          const User = require('./models/User');
+          const Product = require('./models/Product');
+
+          const seller = await User.findOne({ role: 'seller' });
+          
+          if (!seller) {
+            return res.status(404).json({
+              success: false,
+              message: 'Seller not found'
+            });
+          }
+
+          const {
+            name,
+            description,
+            price,
+            category,
+            stock,
+            features
+          } = req.body;
+
+          if (!name || !description || !price || !category || stock === undefined) {
+            return res.status(400).json({
+              success: false,
+              message: 'Please provide all required fields: name, description, price, category, stock'
+            });
+          }
+
+          // ✅ FIXED: Use actual domain instead of localhost
+          const images = [];
+          const videos = [];
+
+          // Handle uploaded files
+          if (req.files && req.files.length > 0) {
+            req.files.forEach(file => {
+              const fileData = {
+                filename: file.filename,
+                originalName: file.originalname,
+                contentType: file.mimetype,
+                size: file.size,
+                path: `/uploads/${file.filename}`,
+                url: `https://carttifys-1.onrender.com/uploads/${file.filename}`,
+                uploadedAt: new Date()
+              };
+
+              if (file.mimetype.startsWith('image/')) {
+                images.push(fileData);
+              } else if (file.mimetype.startsWith('video/')) {
+                videos.push(fileData);
+              }
+            });
+          }
+
+          const product = await Product.create({
+            name,
+            description,
+            price: parseFloat(price),
+            category,
+            stock: parseInt(stock),
+            features: features ? (Array.isArray(features) ? features : [features]).filter(feature => feature.trim() !== '') : [],
+            images,
+            videos,
+            seller: seller._id,
+            status: 'active',
+            featured: false,
+            salesCount: 0,
+            averageRating: 0
+          });
+
+          res.status(201).json({
+            success: true,
+            message: 'Product created successfully with media files',
+            data: {
+              id: product._id,
+              name: product.name,
+              price: product.price,
+              category: product.category,
+              stock: product.stock,
+              status: product.status,
+              featured: product.featured,
+              images: product.images,
+              videos: product.videos,
+              createdAt: product.createdAt
+            }
+          });
+
+        } catch (error) {
+          console.error('Create product with media error:', error);
+          res.status(500).json({
+            success: false,
+            message: 'Error creating product with media',
+            error: error.message
+          });
+        }
       });
-    }
+    } else {
+      // Handle JSON request (without files)
+      const User = require('./models/User');
+      const Product = require('./models/Product');
 
-    const {
-      name,
-      description,
-      price,
-      category,
-      stock,
-      features,
-      images,
-      videos
-    } = req.body;
-
-    if (!name || !description || !price || !category || stock === undefined) {
-      return res.status(400).json({
-        success: false,
-        message: 'Please provide all required fields'
-      });
-    }
-
-    const product = await Product.create({
-      name,
-      description,
-      price: parseFloat(price),
-      category,
-      stock: parseInt(stock),
-      features: features ? features.filter(feature => feature.trim() !== '') : [],
-      images: images || [],
-      videos: videos || [],
-      seller: seller._id,
-      status: 'active',
-      featured: false,
-      salesCount: 0,
-      averageRating: 0
-    });
-
-    res.status(201).json({
-      success: true,
-      message: 'Product created successfully',
-      data: {
-        id: product._id,
-        name: product.name,
-        price: product.price,
-        category: product.category,
-        stock: product.stock,
-        status: product.status,
-        featured: product.featured,
-        createdAt: product.createdAt
+      const seller = await User.findOne({ role: 'seller' });
+      
+      if (!seller) {
+        return res.status(404).json({
+          success: false,
+          message: 'Seller not found'
+        });
       }
-    });
 
+      const {
+        name,
+        description,
+        price,
+        category,
+        stock,
+        features,
+        images,
+        videos
+      } = req.body;
+
+      if (!name || !description || !price || !category || stock === undefined) {
+        return res.status(400).json({
+          success: false,
+          message: 'Please provide all required fields'
+        });
+      }
+
+      const product = await Product.create({
+        name,
+        description,
+        price: parseFloat(price),
+        category,
+        stock: parseInt(stock),
+        features: features ? features.filter(feature => feature.trim() !== '') : [],
+        images: images || [],
+        videos: videos || [],
+        seller: seller._id,
+        status: 'active',
+        featured: false,
+        salesCount: 0,
+        averageRating: 0
+      });
+
+      res.status(201).json({
+        success: true,
+        message: 'Product created successfully',
+        data: {
+          id: product._id,
+          name: product.name,
+          price: product.price,
+          category: product.category,
+          stock: product.stock,
+          status: product.status,
+          featured: product.featured,
+          createdAt: product.createdAt
+        }
+      });
+    }
   } catch (error) {
     console.error('Create product error:', error);
     res.status(500).json({
@@ -2053,27 +2270,28 @@ const server = app.listen(PORT, () => {
   console.log(`🛒 E-commerce Backend Server Running on PORT ${PORT}`);
   console.log(`🌐 Environment: ${process.env.NODE_ENV || 'development'}`);
   console.log(`\n📍 HEALTH & AUTH:`);
-  console.log(`📍 Health Check: http://localhost:${PORT}/api/health`);
-  console.log(`📍 Register: POST http://localhost:${PORT}/api/auth/register`);
-  console.log(`📍 Login: POST http://localhost:${PORT}/api/auth/login`);
+  console.log(`📍 Health Check: https://carttifys-1.onrender.com/api/health`);
+  console.log(`📍 Register: POST https://carttifys-1.onrender.com/api/auth/register`);
+  console.log(`📍 Login: POST https://carttifys-1.onrender.com/api/auth/login`);
   console.log(`\n📍 UPLOAD ENDPOINTS:`);
-  console.log(`📍 Upload Media: POST http://localhost:${PORT}/api/upload/media`);
-  console.log(`📍 Upload Single: POST http://localhost:${PORT}/api/upload/single`);
-  console.log(`📍 Create Product with Media: POST http://localhost:${PORT}/api/seller/products/with-media`);
-  console.log(`📍 Get Uploads: GET http://localhost:${PORT}/api/seller/uploads`);
+  console.log(`📍 Upload Media: POST https://carttifys-1.onrender.com/api/upload/media`);
+  console.log(`📍 Upload Single: POST https://carttifys-1.onrender.com/api/upload/single`);
+  console.log(`📍 Create Product with Media: POST https://carttifys-1.onrender.com/api/seller/products/with-media`);
+  console.log(`📍 Seller Create Product: POST https://carttifys-1.onrender.com/api/seller/products`);
+  console.log(`📍 Get Uploads: GET https://carttifys-1.onrender.com/api/seller/uploads`);
   console.log(`\n📍 BUYER ENDPOINTS:`);
-  console.log(`📍 Buyer Dashboard: GET http://localhost:${PORT}/api/buyer/dashboard`);
-  console.log(`📍 Buyer Products: GET http://localhost:${PORT}/api/buyer/products`);
-  console.log(`📍 Buyer Orders: GET http://localhost:${PORT}/api/buyer/orders`);
-  console.log(`📍 Buyer Categories: GET http://localhost:${PORT}/api/buyer/categories`);
+  console.log(`📍 Buyer Dashboard: GET https://carttifys-1.onrender.com/api/buyer/dashboard`);
+  console.log(`📍 Buyer Products: GET https://carttifys-1.onrender.com/api/buyer/products`);
+  console.log(`📍 Buyer Orders: GET https://carttifys-1.onrender.com/api/buyer/orders`);
+  console.log(`📍 Buyer Categories: GET https://carttifys-1.onrender.com/api/buyer/categories`);
   console.log(`\n📍 SELLER ENDPOINTS:`);
-  console.log(`📍 Seller Dashboard: GET http://localhost:${PORT}/api/seller/dashboard`);
-  console.log(`📍 Seller Earnings: GET http://localhost:${PORT}/api/seller/earnings`);
-  console.log(`📍 Seller Products: GET http://localhost:${PORT}/api/seller/products`);
+  console.log(`📍 Seller Dashboard: GET https://carttifys-1.onrender.com/api/seller/dashboard`);
+  console.log(`📍 Seller Earnings: GET https://carttifys-1.onrender.com/api/seller/earnings`);
+  console.log(`📍 Seller Products: GET https://carttifys-1.onrender.com/api/seller/products`);
   console.log(`\n📍 USER & HELP ENDPOINTS:`);
-  console.log(`📍 User Profile: GET http://localhost:${PORT}/api/user/profile`);
-  console.log(`📍 Help Sections: GET http://localhost:${PORT}/api/help/sections`);
-  console.log(`📍 FAQs: GET http://localhost:${PORT}/api/help/faqs`);
+  console.log(`📍 User Profile: GET https://carttifys-1.onrender.com/api/user/profile`);
+  console.log(`📍 Help Sections: GET https://carttifys-1.onrender.com/api/help/sections`);
+  console.log(`📍 FAQs: GET https://carttifys-1.onrender.com/api/help/faqs`);
 });
 
 module.exports = app;
