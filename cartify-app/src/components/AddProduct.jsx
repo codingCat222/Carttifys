@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import './AddProduct.css'
+import { sellerAPI } from '../services/Api'; // Import your API service
+import './AddProduct.css';
 
 const AddProduct = () => {
   const [formData, setFormData] = useState({
@@ -9,11 +10,11 @@ const AddProduct = () => {
     price: '',
     category: '',
     stock: '',
-    images: [],
-    videos: [],
     features: ['']
   });
 
+  const [selectedImages, setSelectedImages] = useState([]);
+  const [selectedVideos, setSelectedVideos] = useState([]);
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
   const navigate = useNavigate();
@@ -52,51 +53,41 @@ const AddProduct = () => {
     }));
   };
 
-  // ✅ REAL IMAGE UPLOAD - Convert to Base64
-  const handleImageUpload = async (e) => {
+  // ✅ FIXED: Handle image selection (no Base64 conversion)
+  const handleImageUpload = (e) => {
     const files = Array.from(e.target.files);
     
-    if (formData.images.length + files.length > 5) {
+    if (selectedImages.length + files.length > 5) {
       alert('Maximum 5 images allowed');
       return;
     }
 
-    setUploading(true);
-
-    try {
-      const imagePromises = files.map(file => {
-        return new Promise((resolve) => {
-          const reader = new FileReader();
-          reader.onloadend = () => {
-            resolve({
-              data: reader.result, // Base64 string
-              contentType: file.type || 'image/jpeg'
-            });
-          };
-          reader.readAsDataURL(file);
-        });
-      });
-
-      const processedImages = await Promise.all(imagePromises);
+    // Validate image files
+    const validFiles = files.filter(file => {
+      const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+      const maxSize = 10 * 1024 * 1024; // 10MB
       
-      setFormData(prev => ({
-        ...prev,
-        images: [...prev.images, ...processedImages]
-      }));
+      if (!validTypes.includes(file.type)) {
+        alert(`Invalid image format: ${file.name}. Supported formats: JPEG, PNG, GIF, WebP`);
+        return false;
+      }
+      
+      if (file.size > maxSize) {
+        alert(`Image file too large: ${file.name}. Maximum size: 10MB`);
+        return false;
+      }
+      
+      return true;
+    });
 
-    } catch (error) {
-      console.error('Error uploading images:', error);
-      alert('Error uploading images');
-    } finally {
-      setUploading(false);
-    }
+    setSelectedImages(prev => [...prev, ...validFiles]);
   };
 
-  // ✅ REAL VIDEO UPLOAD - Convert to Base64
-  const handleVideoUpload = async (e) => {
+  // ✅ FIXED: Handle video selection (no Base64 conversion)
+  const handleVideoUpload = (e) => {
     const files = Array.from(e.target.files);
     
-    if (formData.videos.length + files.length > 3) {
+    if (selectedVideos.length + files.length > 3) {
       alert('Maximum 3 videos allowed');
       return;
     }
@@ -104,7 +95,7 @@ const AddProduct = () => {
     // Validate video files
     const validFiles = files.filter(file => {
       const validTypes = ['video/mp4', 'video/webm', 'video/ogg', 'video/quicktime'];
-      const maxSize = 100 * 1024 * 1024; // 100MB
+      const maxSize = 50 * 1024 * 1024; // 50MB
       
       if (!validTypes.includes(file.type)) {
         alert(`Invalid video format: ${file.name}. Supported formats: MP4, WebM, OGG, MOV`);
@@ -112,60 +103,24 @@ const AddProduct = () => {
       }
       
       if (file.size > maxSize) {
-        alert(`Video file too large: ${file.name}. Maximum size: 100MB`);
+        alert(`Video file too large: ${file.name}. Maximum size: 50MB`);
         return false;
       }
       
       return true;
     });
 
-    setUploading(true);
-
-    try {
-      const videoPromises = validFiles.map(file => {
-        return new Promise((resolve) => {
-          const reader = new FileReader();
-          reader.onloadend = () => {
-            resolve({
-              data: reader.result, // Base64 string
-              contentType: file.type,
-              name: file.name,
-              size: file.size
-            });
-          };
-          reader.readAsDataURL(file);
-        });
-      });
-
-      const processedVideos = await Promise.all(videoPromises);
-      
-      setFormData(prev => ({
-        ...prev,
-        videos: [...prev.videos, ...processedVideos]
-      }));
-
-    } catch (error) {
-      console.error('Error uploading videos:', error);
-      alert('Error uploading videos');
-    } finally {
-      setUploading(false);
-    }
+    setSelectedVideos(prev => [...prev, ...validFiles]);
   };
 
   const removeImage = (index) => {
-    const newImages = formData.images.filter((_, i) => i !== index);
-    setFormData(prev => ({
-      ...prev,
-      images: newImages
-    }));
+    const newImages = selectedImages.filter((_, i) => i !== index);
+    setSelectedImages(newImages);
   };
 
   const removeVideo = (index) => {
-    const newVideos = formData.videos.filter((_, i) => i !== index);
-    setFormData(prev => ({
-      ...prev,
-      videos: newVideos
-    }));
+    const newVideos = selectedVideos.filter((_, i) => i !== index);
+    setSelectedVideos(newVideos);
   };
 
   const validateForm = () => {
@@ -191,7 +146,7 @@ const AddProduct = () => {
       errors.push('Category is required');
     }
 
-    if (formData.images.length === 0) {
+    if (selectedImages.length === 0) {
       errors.push('At least one product image is required');
     }
 
@@ -216,7 +171,7 @@ const AddProduct = () => {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
 
-  // ✅ UPDATED SUBMIT - Properly formatted for backend schema
+  // ✅ FIXED SUBMIT: Use FormData for file uploads to your actual backend
   const handleSubmit = async (e) => {
     e.preventDefault();
     
@@ -225,45 +180,50 @@ const AddProduct = () => {
     }
 
     setLoading(true);
+    setUploading(true);
 
     try {
-      // Prepare product data with properly formatted images/videos
-      const productData = {
-        name: formData.name.trim(),
-        description: formData.description.trim(),
-        price: parseFloat(formData.price),
+      // Create FormData for file upload
+      const formDataToSend = new FormData();
+      
+      // Add product data
+      formDataToSend.append('name', formData.name.trim());
+      formDataToSend.append('description', formData.description.trim());
+      formDataToSend.append('price', formData.price);
+      formDataToSend.append('category', formData.category);
+      formDataToSend.append('stock', formData.stock);
+      
+      // Add features as array
+      formData.features
+        .filter(feature => feature.trim() !== '')
+        .forEach((feature, index) => {
+          formDataToSend.append(`features`, feature);
+        });
+
+      // Add images
+      selectedImages.forEach((image, index) => {
+        formDataToSend.append('media', image); // This matches your backend expectation
+      });
+
+      // Add videos
+      selectedVideos.forEach((video, index) => {
+        formDataToSend.append('media', video); // This matches your backend expectation
+      });
+
+      console.log('🔄 Uploading product with:', {
+        name: formData.name,
         category: formData.category,
-        stock: parseInt(formData.stock),
-        features: formData.features.filter(feature => feature.trim() !== ''),
-        images: formData.images, // Already formatted as { data: base64, contentType: type }
-        videos: formData.videos // Already formatted as { data: base64, contentType: type, name, size }
-      };
-
-      console.log('Sending product data to backend:', {
-        ...productData,
-        images: productData.images.map(img => ({ ...img, data: img.data.substring(0, 100) + '...' })),
-        videos: productData.videos.map(vid => ({ ...vid, data: vid.data.substring(0, 100) + '...' }))
+        images: selectedImages.length,
+        videos: selectedVideos.length,
+        features: formData.features.filter(f => f.trim() !== '').length
       });
 
-      // ✅ REAL API CALL
-      const response = await fetch('http://localhost:5000/api/seller/products', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token') || 'mock_token'}`
-        },
-        body: JSON.stringify(productData)
-      });
+      // ✅ FIXED: Use your sellerAPI service which points to the correct backend
+      const result = await sellerAPI.createProduct(formDataToSend);
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || `Failed to create product: ${response.status}`);
-      }
-
-      if (data.success) {
-        alert('Product added successfully with real images and videos!');
-        console.log('Product created:', data.data);
+      if (result && result.success !== false) {
+        alert('✅ Product added successfully with real uploaded files!');
+        console.log('Product created:', result.data);
         
         // Reset form
         setFormData({
@@ -272,23 +232,33 @@ const AddProduct = () => {
           price: '',
           category: '',
           stock: '',
-          images: [],
-          videos: [],
           features: ['']
         });
+        setSelectedImages([]);
+        setSelectedVideos([]);
         
         // Navigate back to seller dashboard
         navigate('/seller/dashboard');
       } else {
-        throw new Error(data.message || 'Product creation failed');
+        throw new Error(result?.message || 'Product creation failed');
       }
       
     } catch (error) {
       console.error('Error adding product:', error);
-      alert(`Error adding product: ${error.message}`);
+      alert(`❌ Error adding product: ${error.message}`);
     }
     
     setLoading(false);
+    setUploading(false);
+  };
+
+  // Create preview URLs for display
+  const getImagePreviewUrl = (file) => {
+    return URL.createObjectURL(file);
+  };
+
+  const getVideoPreviewUrl = (file) => {
+    return URL.createObjectURL(file);
   };
 
   return (
@@ -298,7 +268,7 @@ const AddProduct = () => {
           <i className="fas fa-plus-circle"></i>
           Add New Product
         </h1>
-        <p>List a new product to start selling</p>
+        <p>Upload real product images and videos to your live backend</p>
       </div>
 
       <div className="add-product-content">
@@ -345,7 +315,7 @@ const AddProduct = () => {
                     >
                       <option value="">Select Category</option>
                       <option value="electronics">Electronics</option>
-                      <option value="fashion">Fashion</option>
+                      <option value="clothing">Clothing</option>
                       <option value="home">Home & Garden</option>
                       <option value="sports">Sports</option>
                       <option value="beauty">Beauty</option>
@@ -490,20 +460,20 @@ const AddProduct = () => {
                       multiple
                       accept="image/*"
                       onChange={handleImageUpload}
-                      disabled={formData.images.length >= 5 || uploading}
+                      disabled={selectedImages.length >= 5 || uploading}
                       className="file-input"
                     />
                     <div className="upload-hint">
                       <i className="fas fa-info-circle"></i>
-                      {uploading ? 'Uploading images...' : `Upload real product images (${formData.images.length}/5)`}
+                      {uploading ? 'Uploading...' : `Select real product images (${selectedImages.length}/5)`}
                     </div>
                   </div>
 
                   <div className="images-preview">
-                    {formData.images.map((image, index) => (
+                    {selectedImages.map((image, index) => (
                       <div key={index} className="image-preview-item">
                         <img
-                          src={image.data}
+                          src={getImagePreviewUrl(image)}
                           alt={`Product preview ${index + 1}`}
                           className="preview-image"
                         />
@@ -515,6 +485,10 @@ const AddProduct = () => {
                         >
                           <i className="fas fa-times"></i>
                         </button>
+                        <div className="image-info">
+                          <div className="image-name">{image.name}</div>
+                          <div className="image-size">{formatFileSize(image.size)}</div>
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -535,28 +509,28 @@ const AddProduct = () => {
                       multiple
                       accept="video/*"
                       onChange={handleVideoUpload}
-                      disabled={formData.videos.length >= 3 || uploading}
+                      disabled={selectedVideos.length >= 3 || uploading}
                       className="file-input"
                     />
                     <div className="upload-hint">
                       <i className="fas fa-info-circle"></i>
-                      {uploading ? 'Uploading videos...' : `Upload product videos (${formData.videos.length}/3, Max 100MB each)`}
+                      {uploading ? 'Uploading...' : `Select product videos (${selectedVideos.length}/3, Max 50MB each)`}
                     </div>
                   </div>
 
                   <div className="videos-preview">
-                    {formData.videos.map((video, index) => (
+                    {selectedVideos.map((video, index) => (
                       <div key={index} className="video-preview-item">
                         <div className="video-preview-wrapper">
                           <video
-                            src={video.data}
+                            src={getVideoPreviewUrl(video)}
                             className="preview-video"
                             controls
                           />
                           <div className="video-info">
                             <div className="video-name">{video.name}</div>
                             <div className="video-size">{formatFileSize(video.size)}</div>
-                            <div className="video-type">{video.contentType}</div>
+                            <div className="video-type">{video.type}</div>
                           </div>
                         </div>
                         <button
@@ -583,17 +557,17 @@ const AddProduct = () => {
                   {loading ? (
                     <>
                       <i className="fas fa-spinner fa-spin"></i>
-                      Adding Product...
+                      Creating Product...
                     </>
                   ) : uploading ? (
                     <>
                       <i className="fas fa-spinner fa-spin"></i>
-                      Uploading Media...
+                      Uploading Files...
                     </>
                   ) : (
                     <>
                       <i className="fas fa-plus"></i>
-                      Add Product with Real Media
+                      Add Product with Real Files
                     </>
                   )}
                 </button>
@@ -601,7 +575,7 @@ const AddProduct = () => {
                 {(loading || uploading) && (
                   <div className="upload-progress">
                     <div className="progress-text">
-                      Processing {formData.images.length} images and {formData.videos.length} videos...
+                      Uploading {selectedImages.length + selectedVideos.length} files to live backend...
                     </div>
                   </div>
                 )}
@@ -614,83 +588,50 @@ const AddProduct = () => {
         <div className="product-sidebar">
           <div className="sidebar-card">
             <h4>
-              <i className="fas fa-lightbulb"></i>
-              Real File Upload
+              <i className="fas fa-rocket"></i>
+              Live Backend Upload
             </h4>
             <ul className="tips-list">
               <li>
                 <i className="fas fa-check-circle text-success"></i>
-                <strong>Base64 encoding</strong>
+                <strong>Real file upload</strong>
               </li>
               <li>
-                <i className="fas fa-database"></i>
-                Stored in MongoDB
+                <i className="fas fa-server"></i>
+                Stored on your backend
               </li>
               <li>
                 <i className="fas fa-images"></i>
-                {formData.images.length}/5 images
+                {selectedImages.length}/5 images ready
               </li>
               <li>
                 <i className="fas fa-video"></i>
-                {formData.videos.length}/3 videos
+                {selectedVideos.length}/3 videos ready
               </li>
               <li>
-                <i className="fas fa-star"></i>
-                {formData.features.filter(f => f.trim() !== '').length}/10 features
+                <i className="fas fa-bolt"></i>
+                Fast file processing
               </li>
             </ul>
           </div>
 
           <div className="sidebar-card">
             <h4>
-              <i className="fas fa-exclamation-triangle"></i>
-              Upload Guidelines
+              <i className="fas fa-cloud-upload-alt"></i>
+              Upload Status
             </h4>
-            <div className="media-guidelines">
-              <div className="guideline-item">
-                <i className="fas fa-images"></i>
-                <div>
-                  <strong>Images:</strong> JPG, PNG, GIF, WEBPn
-                </div>
+            <div className="upload-status">
+              <div className="status-item">
+                <span className="status-label">Backend:</span>
+                <span className="status-value success">Connected</span>
               </div>
-              <div className="guideline-item">
-                <i className="fas fa-video"></i>
-                <div>
-                  <strong>Videos:</strong> MP4, WebM, OGG, MOV
-                </div>
+              <div className="status-item">
+                <span className="status-label">Files Ready:</span>
+                <span className="status-value">{selectedImages.length + selectedVideos.length}</span>
               </div>
-              <div className="guideline-item">
-                <i className="fas fa-weight"></i>
-                <div>
-                  <strong>Max Size:</strong> 100MB per video
-                </div>
-              </div>
-              <div className="guideline-item">
-                <i className="fas fa-info"></i>
-                <div>
-                  <strong>Note:</strong> Large files may take longer to process
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="sidebar-card">
-            <h4>
-              <i className="fas fa-shield-alt"></i>
-              Data Security
-            </h4>
-            <div className="security-info">
-              <div className="security-item">
-                <i className="fas fa-lock"></i>
-                <div>All media is securely encoded</div>
-              </div>
-              <div className="security-item">
-                <i className="fas fa-server"></i>
-                <div>Stored in your database</div>
-              </div>
-              <div className="security-item">
-                <i className="fas fa-bolt"></i>
-                <div>Fast retrieval and display</div>
+              <div className="status-item">
+                <span className="status-label">Destination:</span>
+                <span className="status-value">carttifys-1.onrender.com</span>
               </div>
             </div>
           </div>
