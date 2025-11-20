@@ -15,8 +15,9 @@ app.use(cors({
     'http://localhost:5173', 
     'http://localhost:5174',
     'https://carttifys-oous.vercel.app',
-    'https://*.vercel.app',
-    'https://www.cartifymarket.com.ng'
+    'https://www.cartifymarket.com.ng',
+    'https://cartifymarket.com.ng', // Add both www and non-www
+    'https://carttifys.onrender.com'
   ],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
