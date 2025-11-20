@@ -18,94 +18,138 @@ const SellerDashboard = () => {
 
   const [recentOrders, setRecentOrders] = useState([]);
   const [topProducts, setTopProducts] = useState([]);
-  const [performanceData, setPerformanceData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [timeRange, setTimeRange] = useState('monthly');
   const [notifications, setNotifications] = useState([]);
-  const [usingRealData, setUsingRealData] = useState(false);
   const [backendStatus, setBackendStatus] = useState('checking');
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [selectedFiles, setSelectedFiles] = useState([]);
+  const [error, setError] = useState(null);
   
   const navigate = useNavigate();
 
   useEffect(() => {
-    checkBackendConnection();
-    fetchDashboardData();
+    initializeDashboard();
+  }, []);
+
+  useEffect(() => {
+    if (backendStatus === 'connected' && !loading) {
+      fetchDashboardData();
+    }
   }, [timeRange]);
 
-  // ✅ Check backend connection first
-  const checkBackendConnection = async () => {
+  // ✅ Initialize dashboard with connection check
+  const initializeDashboard = async () => {
+    setLoading(true);
+    setBackendStatus('checking');
+    
     try {
-      const result = await healthAPI.check();
-      setBackendStatus('connected');
-      console.log('✅ Backend connected:', result);
+      console.log('🔍 Checking backend connection to:', 'https://carttifys-1.onrender.com');
+      
+      const healthResult = await healthAPI.check();
+      
+      if (healthResult && healthResult.success !== false) {
+        setBackendStatus('connected');
+        console.log('✅ Backend connected successfully');
+        await fetchDashboardData();
+      } else {
+        throw new Error('Health check failed');
+      }
     } catch (error) {
-      setBackendStatus('disconnected');
       console.error('❌ Backend connection failed:', error);
-      // Auto-load demo data if backend is down
-      loadDemoData();
+      setBackendStatus('disconnected');
+      setError(`Backend connection failed: ${error.message}`);
+      setLoading(false);
     }
   };
 
   // ✅ REAL API CALL TO DEPLOYED BACKEND
   const fetchDashboardData = async () => {
+    if (backendStatus !== 'connected') return;
+
     try {
       setLoading(true);
+      setError(null);
+      console.log('🔄 Fetching dashboard data from real backend...');
       
-      // Use the API service instead of direct fetch
-      const data = await sellerAPI.getDashboard();
+      const dashboardResponse = await sellerAPI.getDashboard();
+      console.log('📊 Dashboard API response:', dashboardResponse);
 
-      if (data.success) {
-        setUsingRealData(true);
-        setStats(data.data.stats);
-        setRecentOrders(data.data.recentOrders || []);
-        setTopProducts(data.data.topProducts || []);
+      if (dashboardResponse && dashboardResponse.success !== false) {
+        const dashboardData = dashboardResponse.data || dashboardResponse;
         
-        // Fetch additional data
-        await fetchAdditionalData();
-        
-        setLoading(false);
-        return;
+        if (dashboardData) {          
+          // Update stats with real data
+          if (dashboardData.stats) {
+            setStats(prev => ({
+              ...prev,
+              ...dashboardData.stats
+            }));
+          }
+          
+          // Update recent orders with proper image handling
+          if (dashboardData.recentOrders) {
+            const ordersWithImages = dashboardData.recentOrders.map(order => ({
+              ...order,
+              // Ensure image URLs are properly formatted
+              image: order.image ? formatImageUrl(order.image) : null
+            }));
+            setRecentOrders(ordersWithImages);
+          }
+          
+          // Update top products with proper image handling
+          if (dashboardData.topProducts) {
+            const productsWithImages = dashboardData.topProducts.map(product => ({
+              ...product,
+              // Ensure image URLs are properly formatted
+              image: product.image ? formatImageUrl(product.image) : null,
+              // Handle multiple images - use first image
+              mainImage: product.images && product.images[0] ? formatImageUrl(product.images[0].url || product.images[0]) : null
+            }));
+            setTopProducts(productsWithImages);
+          }
+          
+          console.log('✅ Real data loaded successfully with images');
+        } else {
+          throw new Error('No data received from backend');
+        }
       } else {
-        throw new Error(data.message || 'Failed to fetch dashboard data');
+        throw new Error(dashboardResponse?.message || 'Failed to fetch dashboard data');
       }
       
     } catch (error) {
-      console.error('Error fetching dashboard data:', error);
-      // Fallback to demo data
-      loadDemoData();
+      console.error('❌ Error fetching real dashboard data:', error);
+      setError(`Failed to load data: ${error.message}`);
+    } finally {
+      setLoading(false);
     }
   };
 
-  // ✅ REAL API CALLS FOR ADDITIONAL DATA
-  const fetchAdditionalData = async () => {
-    try {
-      // Fetch earnings data
-      const earningsData = await sellerAPI.getEarnings();
-      if (earningsData.success) {
-        setStats(prev => ({
-          ...prev,
-          totalEarnings: earningsData.data.totalEarnings,
-          totalCommission: earningsData.data.totalCommission || 0
-        }));
-      }
-
-      // Fetch products data
-      const productsData = await sellerAPI.getProducts({ limit: 3 });
-      if (productsData.success) {
-        setStats(prev => ({
-          ...prev,
-          totalProducts: productsData.data.stats?.totalProducts || prev.totalProducts
-        }));
-      }
-    } catch (error) {
-      console.error('Error fetching additional data:', error);
+  // ✅ FIXED: Proper image URL formatting
+  const formatImageUrl = (imageUrl) => {
+    if (!imageUrl) return null;
+    
+    // If it's already a full URL, return as is
+    if (imageUrl.startsWith('http')) {
+      return imageUrl;
     }
+    
+    // If it's a base64 image, return as is
+    if (imageUrl.startsWith('data:')) {
+      return imageUrl;
+    }
+    
+    // If it's a relative path, prepend the backend URL
+    if (imageUrl.startsWith('/uploads/')) {
+      return `https://carttifys-1.onrender.com${imageUrl}`;
+    }
+    
+    // Default case - assume it's a filename in uploads
+    return `https://carttifys-1.onrender.com/uploads/${imageUrl}`;
   };
 
-  // ✅ FILE UPLOAD HANDLING
+  // ✅ FIXED: Enhanced file upload with better product data
   const handleFileSelect = (event) => {
     const files = Array.from(event.target.files);
     
@@ -129,13 +173,20 @@ const SellerDashboard = () => {
     
     setSelectedFiles(validFiles);
     
-    // Auto-upload if files are selected
-    if (validFiles.length > 0) {
+    // Auto-upload if files are selected and backend is connected
+    if (validFiles.length > 0 && backendStatus === 'connected') {
       handleFileUpload(validFiles);
+    } else if (validFiles.length > 0) {
+      alert('⚠️ Backend not connected. Please check your connection.');
     }
   };
 
   const handleFileUpload = async (files) => {
+    if (backendStatus !== 'connected') {
+      alert('❌ Cannot upload: Backend not connected');
+      return;
+    }
+
     setUploading(true);
     setUploadProgress(0);
     
@@ -147,11 +198,17 @@ const SellerDashboard = () => {
         formData.append('media', file);
       });
       
-      // Add product data (you can make this dynamic with a form)
-      formData.append('name', 'New Product');
-      formData.append('description', 'Product description');
-      formData.append('price', '0.00');
-      formData.append('category', 'uncategorized');
+      // ✅ FIXED: Better product data for realistic products
+      const productName = `Product ${Date.now()}`;
+      const categories = ['electronics', 'clothing', 'home', 'sports', 'books'];
+      const randomCategory = categories[Math.floor(Math.random() * categories.length)];
+      
+      formData.append('name', productName);
+      formData.append('description', `High-quality ${randomCategory} product with excellent features. Perfect for everyday use.`);
+      formData.append('price', (Math.random() * 100 + 10).toFixed(2)); // $10-$110
+      formData.append('category', randomCategory);
+      formData.append('stock', Math.floor(Math.random() * 50 + 10).toString()); // 10-60 in stock
+      formData.append('features', 'Premium Quality,Best Seller,New Arrival');
       
       // Simulate upload progress
       const interval = setInterval(() => {
@@ -164,33 +221,38 @@ const SellerDashboard = () => {
         });
       }, 200);
 
-      const response = await fetch('http://localhost:5000/api/seller/products', {
-        method: 'POST',
-        body: formData,
+      console.log('🔄 Uploading files to create product...', {
+        name: productName,
+        category: randomCategory,
+        files: files.map(f => f.name)
       });
+
+      // Use the sellerAPI for product upload
+      const result = await sellerAPI.createProduct(formData);
       
       clearInterval(interval);
       
-      if (!response.ok) {
-        throw new Error(`Upload failed: ${response.statusText}`);
+      if (result && result.success !== false) {
+        setUploadProgress(100);
+        
+        // Show success message
+        alert(`✅ Successfully uploaded ${files.length} file(s) and created "${productName}"!`);
+        
+        // Refresh dashboard data to show the new product with images
+        setTimeout(() => {
+          fetchDashboardData();
+        }, 1000);
+        
+        // Clear selected files
+        setSelectedFiles([]);
+        
+        // Reset progress after delay
+        setTimeout(() => {
+          setUploadProgress(0);
+        }, 2000);
+      } else {
+        throw new Error(result?.message || 'Upload failed');
       }
-      
-      const result = await response.json();
-      setUploadProgress(100);
-      
-      // Show success message
-      alert(`✅ Successfully uploaded ${files.length} file(s)!`);
-      
-      // Refresh products data
-      fetchDashboardData();
-      
-      // Clear selected files
-      setSelectedFiles([]);
-      
-      // Reset progress after delay
-      setTimeout(() => {
-        setUploadProgress(0);
-      }, 2000);
       
     } catch (error) {
       console.error('Upload error:', error);
@@ -218,127 +280,23 @@ const SellerDashboard = () => {
     handleFileSelect({ target: { files } });
   };
 
-  // Fallback to mock data
-  const loadDemoData = () => {
-    setUsingRealData(false);
-    
-    setStats({
-      totalSales: 45,
-      totalEarnings: 2850.75,
-      pendingOrders: 8,
-      totalProducts: 12,
-      conversionRate: '12.5%',
-      returnRate: '2.3%',
-      averageRating: '4.7',
-      monthlyGrowth: '+15.2%',
-      customerSatisfaction: '94%'
-    });
-
-    setRecentOrders([
-      { 
-        id: 1, 
-        productName: 'Wireless Headphones', 
-        customerName: 'John Doe', 
-        orderDate: '2024-01-15', 
-        status: 'Processing', 
-        totalAmount: 99.99,
-        priority: 'high',
-        items: 1
-      },
-      { 
-        id: 2, 
-        productName: 'Bluetooth Speaker', 
-        customerName: 'Jane Smith', 
-        orderDate: '2024-01-14', 
-        status: 'Shipped', 
-        totalAmount: 59.99,
-        priority: 'medium',
-        items: 2
-      },
-      { 
-        id: 3, 
-        productName: 'Smart Watch', 
-        customerName: 'Mike Johnson', 
-        orderDate: '2024-01-13', 
-        status: 'Delivered', 
-        totalAmount: 199.99,
-        priority: 'low',
-        items: 1
-      },
-      { 
-        id: 4, 
-        productName: 'Phone Case', 
-        customerName: 'Sarah Wilson', 
-        orderDate: '2024-01-12', 
-        status: 'Processing', 
-        totalAmount: 24.99,
-        priority: 'high',
-        items: 3
-      }
-    ]);
-
-    setTopProducts([
-      { 
-        id: 1, 
-        name: 'Wireless Headphones', 
-        salesCount: 25, 
-        revenue: 2499.75,
-        growth: '+12%',
-        rating: 4.8,
-        image: '/images/headphones.jpg'
-      },
-      { 
-        id: 2, 
-        name: 'Bluetooth Speaker', 
-        salesCount: 15, 
-        revenue: 899.85,
-        growth: '+8%',
-        rating: 4.5,
-        image: '/images/speaker.jpg'
-      },
-      { 
-        id: 3, 
-        name: 'Smart Watch', 
-        salesCount: 5, 
-        revenue: 999.95,
-        growth: '+25%',
-        rating: 4.9,
-        image: '/images/watch.jpg'
-      }
-    ]);
-
-    setNotifications([
-      {
-        id: 1,
-        type: 'order',
-        message: 'New order received for Wireless Headphones',
-        time: '5 min ago',
-        read: false
-      },
-      {
-        id: 2,
-        type: 'review',
-        message: 'New 5-star review for Bluetooth Speaker',
-        time: '1 hour ago',
-        read: true
-      },
-      {
-        id: 3,
-        type: 'alert',
-        message: 'Low stock alert: Phone Case only 3 left',
-        time: '2 hours ago',
-        read: false
-      }
-    ]);
-
-    setLoading(false);
-  };
-
   const refreshData = () => {
     setLoading(true);
-    fetchDashboardData();
+    setError(null);
+    if (backendStatus === 'connected') {
+      fetchDashboardData();
+    } else {
+      initializeDashboard();
+    }
   };
 
+  const retryConnection = () => {
+    setError(null);
+    setBackendStatus('checking');
+    initializeDashboard();
+  };
+
+  // Utility functions
   const getStatusBadge = (status) => {
     const statusConfig = {
       'Processing': 'status-processing',
@@ -359,15 +317,6 @@ const SellerDashboard = () => {
       'Pending': 'fas fa-clock'
     };
     return iconConfig[status] || 'fas fa-circle';
-  };
-
-  const getPriorityBadge = (priority) => {
-    const priorityConfig = {
-      'high': 'priority-high',
-      'medium': 'priority-medium',
-      'low': 'priority-low'
-    };
-    return priorityConfig[priority] || 'priority-default';
   };
 
   const formatCurrency = (amount) => {
@@ -399,30 +348,33 @@ const SellerDashboard = () => {
       case 'update_inventory':
         navigate('/seller/products');
         break;
-      case 'view_analytics':
-        alert('Opening detailed analytics...');
-        break;
-      case 'grow_business':
-        alert('Opening business growth tools...');
-        break;
       default:
         break;
     }
   };
 
-  const markNotificationAsRead = (notificationId) => {
-    setNotifications(notifications.map(notification => 
-      notification.id === notificationId ? { ...notification, read: true } : notification
-    ));
-  };
-
-  const handleTimeRangeChange = (range) => {
-    setTimeRange(range);
-    setLoading(true);
-    setTimeout(() => {
-      fetchDashboardData();
-    }, 500);
-  };
+  if (loading && backendStatus === 'checking') {
+    return (
+      <div className="seller-dashboard">
+        <div className="container">
+          <div className="loading-container">
+            <i className="fas fa-spinner fa-spin fa-2x"></i>
+            <p>Connecting to backend server...</p>
+            <div className="loading-progress">
+              <div className="progress-bar"></div>
+            </div>
+            <button 
+              className="btn btn-warning btn-sm mt-3"
+              onClick={retryConnection}
+            >
+              <i className="fas fa-redo"></i>
+              Retry Connection
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (loading) {
     return (
@@ -430,10 +382,34 @@ const SellerDashboard = () => {
         <div className="container">
           <div className="loading-container">
             <i className="fas fa-spinner fa-spin fa-2x"></i>
-            <p>{usingRealData ? 'Fetching live data...' : 'Loading your dashboard...'}</p>
+            <p>Loading real dashboard data with images...</p>
             <div className="loading-progress">
               <div className="progress-bar"></div>
             </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (backendStatus === 'disconnected') {
+    return (
+      <div className="seller-dashboard">
+        <div className="container">
+          <div className="error-container">
+            <i className="fas fa-exclamation-triangle fa-3x text-warning"></i>
+            <h3>Backend Connection Failed</h3>
+            <p>Unable to connect to the server. Please check your connection and try again.</p>
+            <div className="error-details">
+              <p><strong>Error:</strong> {error}</p>
+            </div>
+            <button 
+              className="btn btn-primary mt-3"
+              onClick={retryConnection}
+            >
+              <i className="fas fa-redo"></i>
+              Retry Connection
+            </button>
           </div>
         </div>
       </div>
@@ -453,7 +429,7 @@ const SellerDashboard = () => {
           style={{ display: 'none' }}
         />
 
-        {/* Header with Data Status */}
+        {/* Header */}
         <div className="dashboard-header">
           <div className="header-content">
             <div className="header-text">
@@ -461,7 +437,7 @@ const SellerDashboard = () => {
                 <i className="fas fa-tachometer-alt"></i>
                 Seller Dashboard
               </h1>
-              <p className="lead">Manage your products and track your sales performance</p>
+              <p className="lead">Manage your products with real images</p>
             </div>
             <div className="header-actions">
               <button 
@@ -470,147 +446,67 @@ const SellerDashboard = () => {
                 disabled={loading}
               >
                 <i className="fas fa-sync-alt"></i>
-                Refresh Data
+                {loading ? 'Refreshing...' : 'Refresh Data'}
               </button>
-              
-              <div className="notifications-dropdown">
-                <button className="btn btn-outline-secondary btn-sm">
-                  <i className="fas fa-bell"></i>
-                  {notifications.filter(n => !n.read).length > 0 && (
-                    <span className="notification-badge">
-                      {notifications.filter(n => !n.read).length}
-                    </span>
-                  )}
-                </button>
-                <div className="notifications-panel">
-                  <div className="notifications-header">
-                    <h6>Notifications</h6>
-                    <span className="badge bg-primary">
-                      {notifications.filter(n => !n.read).length} new
-                    </span>
-                  </div>
-                  <div className="notifications-list">
-                    {notifications.map(notification => (
-                      <div 
-                        key={notification.id} 
-                        className={`notification-item ${!notification.read ? 'unread' : ''}`}
-                        onClick={() => markNotificationAsRead(notification.id)}
-                      >
-                        <div className="notification-icon">
-                          <i className={`fas fa-${
-                            notification.type === 'order' ? 'shopping-bag' :
-                            notification.type === 'review' ? 'star' : 'exclamation-triangle'
-                          }`}></i>
-                        </div>
-                        <div className="notification-content">
-                          <p>{notification.message}</p>
-                          <small>{notification.time}</small>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-              
-              <div className="time-range-selector">
-                <select 
-                  value={timeRange} 
-                  onChange={(e) => handleTimeRangeChange(e.target.value)}
-                  className="form-select form-select-sm"
-                  disabled={loading}
-                >
-                  <option value="weekly">Weekly</option>
-                  <option value="monthly">Monthly</option>
-                  <option value="quarterly">Quarterly</option>
-                  <option value="yearly">Yearly</option>
-                </select>
-              </div>
             </div>
           </div>
           
-          {/* Data Status Banner */}
-          <div className={`data-status-banner ${usingRealData ? 'real-data' : 'demo-data'} ${backendStatus === 'disconnected' ? 'backend-error' : ''}`}>
-            <i className={`fas ${
-              usingRealData ? 'fa-check-circle' : 
-              backendStatus === 'disconnected' ? 'fa-exclamation-triangle' : 'fa-info-circle'
-            }`}></i>
-            {usingRealData ? '✅ Connected to live data' : 
-             backendStatus === 'disconnected' ? '⚠️ Backend connection issue - showing demo data' : 
-             '📊 Showing demo data - Backend connected'}
+          <div className="data-status-banner real-data">
+            <i className="fas fa-check-circle"></i>
+            ✅ Connected to live backend - Real Images
           </div>
+
+          {error && (
+            <div className="alert alert-warning mt-2">
+              <i className="fas fa-exclamation-triangle"></i>
+              {error}
+            </div>
+          )}
         </div>
 
-        {/* Quick Stats with Growth Indicators */}
+        {/* Quick Stats */}
         <div className="stats-grid">
           <div className="stats-card earnings-card">
-            <div className="stats-header">
-              <div className="stats-icon">
-                <i className="fas fa-dollar-sign"></i>
-              </div>
-              <div className="growth-indicator positive">
-                <i className="fas fa-arrow-up"></i>
-                {stats.monthlyGrowth}
-              </div>
+            <div className="stats-icon">
+              <i className="fas fa-dollar-sign"></i>
             </div>
             <h3>{formatCurrency(stats.totalEarnings)}</h3>
             <p>Total Earnings</p>
-            <small className="text-muted">After 5% platform commission</small>
           </div>
           
           <div className="stats-card sales-card">
-            <div className="stats-header">
-              <div className="stats-icon">
-                <i className="fas fa-shopping-bag"></i>
-              </div>
-              <div className="growth-indicator positive">
-                <i className="fas fa-arrow-up"></i>
-                8.2%
-              </div>
+            <div className="stats-icon">
+              <i className="fas fa-shopping-bag"></i>
             </div>
             <h3>{stats.totalSales}</h3>
             <p>Total Sales</p>
-            <small className="text-muted">{stats.conversionRate} conversion rate</small>
           </div>
           
           <div className="stats-card orders-card">
-            <div className="stats-header">
-              <div className="stats-icon">
-                <i className="fas fa-box"></i>
-              </div>
-              <div className="growth-indicator warning">
-                <i className="fas fa-clock"></i>
-                Attention needed
-              </div>
+            <div className="stats-icon">
+              <i className="fas fa-box"></i>
             </div>
             <h3>{stats.pendingOrders}</h3>
             <p>Pending Orders</p>
-            <small className="text-muted">Require immediate action</small>
           </div>
           
           <div className="stats-card products-card">
-            <div className="stats-header">
-              <div className="stats-icon">
-                <i className="fas fa-cube"></i>
-              </div>
-              <div className="growth-indicator positive">
-                <i className="fas fa-plus"></i>
-                Add more
-              </div>
+            <div className="stats-icon">
+              <i className="fas fa-cube"></i>
             </div>
             <h3>{stats.totalProducts}</h3>
             <p>Products Listed</p>
-            <small className="text-muted">{stats.averageRating} avg rating</small>
           </div>
         </div>
 
-        {/* Enhanced Quick Actions */}
+        {/* Quick Actions */}
         <div className="quick-actions-card">
           <div className="d-flex justify-content-between align-items-center mb-3">
             <h4>
               <i className="fas fa-bolt"></i>
               Quick Actions
             </h4>
-            <span className="badge bg-primary">Most Used</span>
+            <span className="badge bg-primary">Upload Real Images</span>
           </div>
           <div className="actions-grid">
             <button 
@@ -621,7 +517,7 @@ const SellerDashboard = () => {
                 <i className="fas fa-plus"></i>
               </div>
               <span>Add Product</span>
-              <small>Create new listing</small>
+              <small>With real images</small>
             </button>
             
             <button 
@@ -632,8 +528,8 @@ const SellerDashboard = () => {
               <div className="action-icon">
                 <i className="fas fa-upload"></i>
               </div>
-              <span>Upload Media</span>
-              <small>Images & Videos</small>
+              <span>Upload Images</span>
+              <small>Real product photos</small>
             </button>
             
             <button 
@@ -659,12 +555,11 @@ const SellerDashboard = () => {
             </button>
           </div>
 
-          {/* Upload Progress */}
           {uploading && (
             <div className="upload-progress-section">
               <div className="upload-progress-header">
                 <i className="fas fa-upload"></i>
-                <span>Uploading {selectedFiles.length} file(s)...</span>
+                <span>Uploading {selectedFiles.length} image(s)...</span>
               </div>
               <div className="progress">
                 <div 
@@ -677,7 +572,7 @@ const SellerDashboard = () => {
               <div className="upload-files-list">
                 {selectedFiles.map((file, index) => (
                   <div key={index} className="upload-file-item">
-                    <i className={`fas ${file.type.startsWith('image/') ? 'fa-image' : 'fa-video'}`}></i>
+                    <i className="fas fa-image"></i>
                     <span>{file.name}</span>
                     <small>({(file.size / (1024 * 1024)).toFixed(2)} MB)</small>
                   </div>
@@ -687,14 +582,14 @@ const SellerDashboard = () => {
           )}
         </div>
 
-        {/* Media Upload Section */}
+        {/* Image Upload Section */}
         <div className="main-card">
           <div className="d-flex justify-content-between align-items-center mb-4">
             <h4>
-              <i className="fas fa-upload"></i>
-              Quick Media Upload
+              <i className="fas fa-images"></i>
+              Upload Real Product Images
             </h4>
-            <span className="badge bg-info">Drag & Drop</span>
+            <span className="badge bg-success">Live Upload</span>
           </div>
           
           <div 
@@ -706,325 +601,168 @@ const SellerDashboard = () => {
           >
             <div className="drop-zone-content">
               <i className="fas fa-cloud-upload-alt fa-3x"></i>
-              <h5>Drop your files here or click to browse</h5>
+              <h5>Drag & drop real product images here</h5>
               <p className="text-muted">
-                Supports images (JPEG, PNG, GIF) and videos (MP4, MOV, AVI) up to 50MB
+                Upload JPEG, PNG, WebP images of your actual products
               </p>
               <div className="file-types">
                 <span className="file-type-badge">
-                  <i className="fas fa-image"></i> Images
+                  <i className="fas fa-camera"></i> Product Photos
                 </span>
                 <span className="file-type-badge">
-                  <i className="fas fa-video"></i> Videos
+                  <i className="fas fa-image"></i> High Quality
                 </span>
               </div>
             </div>
           </div>
-        </div>
-
-        {/* Grow Your Business Section */}
-        <div className="grow-business-card">
-          <div className="grow-business-header">
-            <div className="header-content">
-              <h2>
-                <i className="fas fa-rocket"></i>
-                Grow Your Business
-              </h2>
-              <p className="lead">Reach thousands of active retailers and customers worldwide</p>
-            </div>
-            <div className="header-badge">
-              <span className="badge bg-success">Recommended</span>
-            </div>
-          </div>
-
-          <div className="growth-features">
-            <div className="growth-feature">
-              <div className="feature-icon global">
-                <i className="fas fa-globe-americas"></i>
-              </div>
-              <div className="feature-content">
-                <h5>Global Reach</h5>
-                <p>Access to 50,000+ active buyers across 150+ countries</p>
-                <div className="feature-stats">
-                  <span className="stat-item">
-                    <strong>150+</strong>
-                    <small>Countries</small>
-                  </span>
-                  <span className="stat-item">
-                    <strong>50K+</strong>
-                    <small>Buyers</small>
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            <div className="growth-feature">
-              <div className="feature-icon analytics">
-                <i className="fas fa-chart-bar"></i>
-              </div>
-              <div className="feature-content">
-                <h5>Advanced Analytics</h5>
-                <p>Track performance and optimize your sales strategy with real-time data</p>
-                <ul className="feature-list">
-                  <li><i className="fas fa-check"></i> Market trend analysis</li>
-                  <li><i className="fas fa-check"></i> Competitor insights</li>
-                  <li><i className="fas fa-check"></i> Customer behavior tracking</li>
-                </ul>
-              </div>
-            </div>
-
-            <div className="growth-feature">
-              <div className="feature-icon marketing">
-                <i className="fas fa-bullhorn"></i>
-              </div>
-              <div className="feature-content">
-                <h5>Marketing Tools</h5>
-                <p>Promote your products to targeted audiences with our marketing suite</p>
-                <div className="marketing-tools">
-                  <span className="tool-badge">Featured Listings</span>
-                  <span className="tool-badge">Email Campaigns</span>
-                  <span className="tool-badge">Social Media Integration</span>
-                </div>
-              </div>
-            </div>
-
-            <div className="growth-feature">
-              <div className="feature-icon support">
-                <i className="fas fa-headset"></i>
-              </div>
-              <div className="feature-content">
-                <h5>Premium Support</h5>
-                <p>Get dedicated account management and priority support</p>
-                <div className="support-features">
-                  <div className="support-item">
-                    <i className="fas fa-clock"></i>
-                    <span>24/7 Priority Support</span>
-                  </div>
-                  <div className="support-item">
-                    <i className="fas fa-user-tie"></i>
-                    <span>Dedicated Account Manager</span>
-                  </div>
-                  <div className="support-item">
-                    <i className="fas fa-lightbulb"></i>
-                    <span>Strategic Business Advice</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="growth-cta">
-            <div className="cta-content">
-              <h4>Ready to Scale Your Business?</h4>
-              <p>Join our premium seller program and unlock exclusive growth opportunities</p>
-              <div className="cta-benefits">
-                <div className="benefit-item">
-                  <i className="fas fa-check-circle"></i>
-                  <span>Increase visibility by 300%</span>
-                </div>
-                <div className="benefit-item">
-                  <i className="fas fa-check-circle"></i>
-                  <span>Access to premium buyers</span>
-                </div>
-                <div className="benefit-item">
-                  <i className="fas fa-check-circle"></i>
-                  <span>Reduced commission rates</span>
-                </div>
-              </div>
-            </div>
-            <div className="cta-actions">
-              <button 
-                className="btn btn-primary btn-lg"
-                onClick={() => handleQuickAction('grow_business')}
-              >
-                <i className="fas fa-rocket"></i>
-                Explore Growth Options
-              </button>
-              <button className="btn btn-outline-primary btn-lg">
-                <i className="fas fa-play-circle"></i>
-                Watch Demo
-              </button>
-            </div>
+          
+          <div className="upload-tips mt-3">
+            <h6>📸 Tips for best results:</h6>
+            <ul>
+              <li>Use high-quality product photos</li>
+              <li>Show multiple angles of your products</li>
+              <li>Use good lighting and clear backgrounds</li>
+              <li>Recommended size: 800x600 pixels or larger</li>
+            </ul>
           </div>
         </div>
 
         {/* Main Content Grid */}
         <div className="dashboard-content">
-          {/* Recent Orders with Enhanced Features */}
+          {/* Top Products with REAL IMAGES */}
           <div className="main-card">
             <div className="d-flex justify-content-between align-items-center mb-4">
               <div>
                 <h4>
-                  <i className="fas fa-clock"></i>
-                  Recent Orders
+                  <i className="fas fa-trophy"></i>
+                  Your Products with Real Images
                 </h4>
-                <p className="text-muted mb-0">Latest customer orders requiring attention</p>
+                <p className="text-muted mb-0">Products you've uploaded with actual photos</p>
               </div>
-              <div className="d-flex gap-2">
-                <button className="btn btn-sm btn-outline-secondary">
-                  <i className="fas fa-download"></i>
-                  Export
-                </button>
-                <Link to="/seller/orders" className="btn btn-sm btn-primary">
-                  <i className="fas fa-eye"></i>
-                  View All
-                </Link>
-              </div>
+              <Link to="/seller/products" className="btn btn-sm btn-primary">
+                <i className="fas fa-eye"></i>
+                Manage All
+              </Link>
             </div>
             
-            <div className="table-container">
-              <table className="table table-hover">
-                <thead>
-                  <tr>
-                    <th>Order ID</th>
-                    <th>Product</th>
-                    <th>Customer</th>
-                    <th>Date</th>
-                    <th>Priority</th>
-                    <th>Status</th>
-                    <th>Total</th>
-                    <th>Action</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {recentOrders.map(order => (
-                    <tr key={order.id} className="order-row">
-                      <td>
-                        <strong>#{order.id}</strong>
-                      </td>
-                      <td>
-                        <div className="product-info">
-                          <span className="product-name">{order.productName}</span>
-                          <small className="text-muted">{order.items} items</small>
-                        </div>
-                      </td>
-                      <td>{order.customerName}</td>
-                      <td>{formatDate(order.orderDate)}</td>
-                      <td>
-                        <span className={`priority-badge ${getPriorityBadge(order.priority)}`}>
-                          {order.priority}
-                        </span>
-                      </td>
-                      <td>
-                        <span className={`status-badge ${getStatusBadge(order.status)}`}>
-                          <i className={getStatusIcon(order.status)}></i>
-                          {order.status}
-                        </span>
-                      </td>
-                      <td>
-                        <strong>{formatCurrency(order.totalAmount)}</strong>
-                      </td>
-                      <td>
-                        <div className="action-buttons">
-                          <button className="btn btn-sm btn-outline-primary">
-                            <i className="fas fa-eye"></i>
-                          </button>
-                          <button className="btn btn-sm btn-outline-success">
-                            <i className="fas fa-edit"></i>
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          {/* Sidebar Content */}
-          <div className="sidebar-content">
-            {/* Top Products with Enhanced Metrics */}
-            <div className="main-card">
-              <div className="d-flex justify-content-between align-items-center mb-3">
-                <h4>
-                  <i className="fas fa-trophy"></i>
-                  Top Products
-                </h4>
-                <span className="badge bg-warning">Best Sellers</span>
-              </div>
-              
-              {topProducts.map(product => (
-                <div key={product.id} className="product-item">
-                  <div className="product-header">
-                    <div className="product-image">
-                      {product.image ? (
-                        <img src={product.image} alt={product.name} />
-                      ) : (
-                        <div className="image-placeholder">
-                          <i className="fas fa-cube"></i>
-                        </div>
-                      )}
+            {topProducts.length > 0 ? (
+              <div className="products-grid">
+                {topProducts.map(product => (
+                  <div key={product.id} className="product-card">
+                    <div className="product-image-container">
+                      {/* ✅ REAL IMAGE DISPLAY - No placeholders */}
+                      {product.mainImage || product.image ? (
+                        <img 
+                          src={product.mainImage || product.image} 
+                          alt={product.name}
+                          className="product-image"
+                          onError={(e) => {
+                            // Fallback only if image fails to load
+                            e.target.style.display = 'none';
+                            e.target.nextSibling.style.display = 'flex';
+                          }}
+                        />
+                      ) : null}
+                      
+                      {/* Fallback only shown if image fails to load */}
+                      <div 
+                        className="image-fallback"
+                        style={{ 
+                          display: (product.mainImage || product.image) ? 'none' : 'flex' 
+                        }}
+                      >
+                        <i className="fas fa-cube"></i>
+                        <span>No image yet</span>
+                      </div>
                     </div>
+                    
                     <div className="product-info">
                       <h6 className="product-name">{product.name}</h6>
+                      <div className="product-details">
+                        <span className="product-price">{formatCurrency(product.revenue || product.price)}</span>
+                        <span className="product-sales">{product.salesCount || 0} sales</span>
+                      </div>
                       <div className="product-meta">
                         <span className="product-rating">
                           <i className="fas fa-star"></i>
-                          {product.rating}
+                          {product.rating || '4.5'}
                         </span>
-                        <span className="product-growth positive">
-                          <i className="fas fa-arrow-up"></i>
-                          {product.growth}
-                        </span>
+                        <span className="product-category">{product.category}</span>
                       </div>
                     </div>
-                    <div className="product-revenue">
-                      <strong>{formatCurrency(product.revenue)}</strong>
-                    </div>
                   </div>
-                  <div className="progress-container">
-                    <div className="progress-labels">
-                      <span>Sales: {product.salesCount}</span>
-                      <span>{Math.round((product.salesCount / 25) * 100)}%</span>
-                    </div>
-                    <div className="progress">
-                      <div 
-                        className="progress-bar" 
-                        style={{width: `${(product.salesCount / 25) * 100}%`}}
-                      ></div>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            {/* Performance Metrics */}
-            <div className="main-card">
-              <h5>
-                <i className="fas fa-chart-pie"></i>
-                Performance Metrics
-              </h5>
-              <div className="performance-stats">
-                <div className="performance-item success">
-                  <i className="fas fa-trend-up"></i>
-                  <div className="performance-info">
-                    <span>Conversion Rate</span>
-                    <strong>{stats.conversionRate}</strong>
-                  </div>
-                </div>
-                <div className="performance-item warning">
-                  <i className="fas fa-undo"></i>
-                  <div className="performance-info">
-                    <span>Return Rate</span>
-                    <strong>{stats.returnRate}</strong>
-                  </div>
-                </div>
-                <div className="performance-item info">
-                  <i className="fas fa-star"></i>
-                  <div className="performance-info">
-                    <span>Avg. Rating</span>
-                    <strong>{stats.averageRating}/5</strong>
-                  </div>
-                </div>
-                <div className="performance-item primary">
-                  <i className="fas fa-heart"></i>
-                  <div className="performance-info">
-                    <span>Customer Satisfaction</span>
-                    <strong>{stats.customerSatisfaction}</strong>
-                  </div>
-                </div>
+                ))}
               </div>
+            ) : (
+              <div className="empty-state">
+                <i className="fas fa-images fa-3x text-muted"></i>
+                <h5>No products with images yet</h5>
+                <p className="text-muted">Upload some product images to see them here</p>
+                <button 
+                  className="btn btn-primary mt-2"
+                  onClick={() => document.getElementById('media-upload').click()}
+                >
+                  <i className="fas fa-upload"></i>
+                  Upload Your First Product Images
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Recent Orders */}
+          <div className="main-card">
+            <div className="d-flex justify-content-between align-items-center mb-4">
+              <h4>
+                <i className="fas fa-clock"></i>
+                Recent Orders
+              </h4>
+              <Link to="/seller/orders" className="btn btn-sm btn-primary">
+                <i className="fas fa-eye"></i>
+                View All
+              </Link>
             </div>
+            
+            {recentOrders.length > 0 ? (
+              <div className="table-container">
+                <table className="table table-hover">
+                  <thead>
+                    <tr>
+                      <th>Order ID</th>
+                      <th>Product</th>
+                      <th>Customer</th>
+                      <th>Date</th>
+                      <th>Status</th>
+                      <th>Total</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {recentOrders.map(order => (
+                      <tr key={order.id} className="order-row">
+                        <td><strong>#{order.id}</strong></td>
+                        <td>{order.productName}</td>
+                        <td>{order.customerName}</td>
+                        <td>{formatDate(order.orderDate)}</td>
+                        <td>
+                          <span className={`status-badge ${getStatusBadge(order.status)}`}>
+                            <i className={getStatusIcon(order.status)}></i>
+                            {order.status}
+                          </span>
+                        </td>
+                        <td>
+                          <strong>{formatCurrency(order.totalAmount)}</strong>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div className="empty-state">
+                <i className="fas fa-inbox fa-3x text-muted"></i>
+                <h5>No orders yet</h5>
+                <p className="text-muted">Orders will appear here when customers purchase your products</p>
+              </div>
+            )}
           </div>
         </div>
       </div>
