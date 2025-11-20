@@ -1,12 +1,54 @@
-// services/api.js - COMPLETE FIXED VERSION
+// services/api.js - COMPLETE OPTIMIZED VERSION
 const API_BASE = 'https://carttifys-1.onrender.com';
+const IS_DEVELOPMENT = process.env.NODE_ENV === 'development';
+const API_TIMEOUT = 10000; // 10 seconds
 
-// Main API call function - FIXED VERSION
+// Performance optimizations
+const requestCache = new Map();
+const pendingRequests = new Map();
+
+// Enhanced fetch with timeout and retry
+const fetchWithRetry = async (url, config, retries = 2) => {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), API_TIMEOUT);
+  
+  const fetchConfig = {
+    ...config,
+    signal: controller.signal
+  };
+
+  try {
+    const response = await fetch(url, fetchConfig);
+    clearTimeout(timeoutId);
+    
+    // Retry on server errors (5xx)
+    if (response.status >= 500 && retries > 0) {
+      IS_DEVELOPMENT && console.log(`🔄 Retrying due to server error ${response.status}... ${retries} attempts left`);
+      await new Promise(resolve => setTimeout(resolve, 1000 * (3 - retries))); // Exponential backoff
+      return fetchWithRetry(url, config, retries - 1);
+    }
+    
+    return response;
+  } catch (error) {
+    clearTimeout(timeoutId);
+    
+    // Retry on network errors
+    if (retries > 0 && error.name !== 'AbortError') {
+      IS_DEVELOPMENT && console.log(`🔄 Retrying due to network error... ${retries} attempts left`);
+      await new Promise(resolve => setTimeout(resolve, 1000 * (3 - retries)));
+      return fetchWithRetry(url, config, retries - 1);
+    }
+    
+    throw error;
+  }
+};
+
+// Main API call function - OPTIMIZED VERSION
 export const apiCall = async (endpoint, options = {}) => {
   const url = `${API_BASE}${endpoint}`;
   
   const config = {
-    credentials: 'include', // ✅ ADDED: Fixes CORS issues
+    credentials: 'include',
     headers: {
       'Content-Type': 'application/json',
       ...options.headers
@@ -18,65 +60,109 @@ export const apiCall = async (endpoint, options = {}) => {
   const token = localStorage.getItem('token');
   if (token) {
     config.headers['Authorization'] = `Bearer ${token}`;
-    console.log('🔑 Token found and added to request');
+    IS_DEVELOPMENT && console.log('🔑 Token found and added to request');
   } else {
-    console.warn('⚠️ No authentication token found');
+    IS_DEVELOPMENT && console.warn('⚠️ No authentication token found');
   }
 
   // Handle request body
   if (options.body && typeof options.body === 'object') {
     config.body = JSON.stringify(options.body);
   }
+
+  // Request deduplication - prevent simultaneous identical requests
+  const requestKey = endpoint + JSON.stringify(options);
+  if (pendingRequests.has(requestKey)) {
+    IS_DEVELOPMENT && console.log('⚡ Returning pending request');
+    return pendingRequests.get(requestKey);
+  }
+
+  // Cache GET requests for 10 seconds
+  const isGetRequest = !options.method || options.method === 'GET';
+  if (isGetRequest) {
+    const cacheKey = url + JSON.stringify(options);
+    const cached = requestCache.get(cacheKey);
+    
+    if (cached && Date.now() - cached.timestamp < 10000) {
+      IS_DEVELOPMENT && console.log('📦 Returning cached response');
+      return Promise.resolve(cached.data);
+    }
+  }
   
   try {
-    console.log(`🔄 API Call: ${config.method || 'GET'} ${url}`);
-    console.log('📦 Request config:', {
-      method: config.method,
-      headers: config.headers,
-      hasBody: !!config.body
-    });
+    IS_DEVELOPMENT && console.log(`🔄 API Call: ${config.method || 'GET'} ${url}`);
     
-    const response = await fetch(url, config);
-    
-    console.log(`📨 Response status: ${response.status} ${response.statusText}`);
-    
-    // ✅ IMPROVED: Handle specific HTTP status codes
-    if (response.status === 401) {
-      localStorage.removeItem('token');
-      throw new Error('Authentication failed. Please login again.');
-    }
-    
-    if (response.status === 404) {
-      throw new Error(`Endpoint not found: ${url}. Check if the route exists on the server.`);
-    }
-    
-    if (response.status === 500) {
-      throw new Error('Server error. Please try again later.');
-    }
+    const requestPromise = (async () => {
+      const response = await fetchWithRetry(url, config);
+      
+      IS_DEVELOPMENT && console.log(`📨 Response status: ${response.status} ${response.statusText}`);
+      
+      // Handle specific HTTP status codes
+      if (response.status === 401) {
+        localStorage.removeItem('token');
+        throw new Error('Authentication failed. Please login again.');
+      }
+      
+      if (response.status === 404) {
+        throw new Error(`Endpoint not found: ${url}. Check if the route exists on the server.`);
+      }
+      
+      if (response.status === 500) {
+        throw new Error('Server error. Please try again later.');
+      }
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error(`❌ API Error ${response.status}:`, errorText);
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-    }
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`❌ API Error ${response.status}:`, errorText);
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
 
-    const contentType = response.headers.get('content-type');
-    if (contentType && contentType.includes('application/json')) {
-      const data = await response.json();
-      console.log(`✅ API Success: ${url}`, data);
+      const contentType = response.headers.get('content-type');
+      let data;
+      
+      if (contentType && contentType.includes('application/json')) {
+        data = await response.json();
+      } else {
+        data = await response.text();
+      }
+      
+      IS_DEVELOPMENT && console.log(`✅ API Success: ${url}`, data);
+
+      // Cache successful GET responses
+      if (isGetRequest) {
+        const cacheKey = url + JSON.stringify(options);
+        requestCache.set(cacheKey, {
+          data,
+          timestamp: Date.now()
+        });
+      }
+      
       return data;
-    }
+    })();
+
+    // Store the pending request
+    pendingRequests.set(requestKey, requestPromise);
     
-    const textData = await response.text();
-    console.log(`✅ API Success (text): ${url}`, textData);
-    return textData;
+    // Clean up pending request when done
+    requestPromise.finally(() => {
+      pendingRequests.delete(requestKey);
+    });
+
+    return requestPromise;
     
   } catch (error) {
+    // Clean up on error
+    pendingRequests.delete(requestKey);
+    
     console.error(`🔥 API Call failed for ${url}:`, error);
     
-    // ✅ IMPROVED: Better error messages
+    // Enhanced error messages
     if (error.name === 'TypeError' && error.message.includes('Failed to fetch')) {
       throw new Error('Network error: Cannot connect to server. Check:\n• Internet connection\n• CORS settings\n• Server status');
+    }
+    
+    if (error.name === 'AbortError') {
+      throw new Error('Request timeout. The server is taking too long to respond.');
     }
     
     if (error.message.includes('NetworkError')) {
@@ -84,6 +170,30 @@ export const apiCall = async (endpoint, options = {}) => {
     }
     
     throw error;
+  }
+};
+
+// Cache management utilities
+export const cacheManager = {
+  clear: () => {
+    requestCache.clear();
+    IS_DEVELOPMENT && console.log('🧹 All API cache cleared');
+  },
+  
+  clearEndpoint: (endpointPattern) => {
+    for (const [key] of requestCache) {
+      if (key.includes(endpointPattern)) {
+        requestCache.delete(key);
+      }
+    }
+    IS_DEVELOPMENT && console.log(`🧹 Cache cleared for: ${endpointPattern}`);
+  },
+  
+  getStats: () => {
+    return {
+      cacheSize: requestCache.size,
+      pendingRequests: pendingRequests.size
+    };
   }
 };
 
@@ -99,12 +209,14 @@ export const authAPI = {
     body: credentials
   }),
   
-  // ✅ ADDED: Missing method for AuthContext
   getCurrentUser: () => apiCall('/api/auth/me'),
   
   logout: () => {
     localStorage.removeItem('token');
-    console.log('🔒 User logged out');
+    // Clear auth-related cache
+    cacheManager.clearEndpoint('/api/auth');
+    cacheManager.clearEndpoint('/api/user');
+    IS_DEVELOPMENT && console.log('🔒 User logged out and cache cleared');
   }
 };
 
@@ -152,6 +264,11 @@ export const sellerAPI = {
   
   createProduct: (productData) => apiCall('/api/seller/products', {
     method: 'POST',
+    body: productData
+  }),
+  
+  updateProduct: (productId, productData) => apiCall(`/api/seller/products/${productId}`, {
+    method: 'PUT',
     body: productData
   }),
   
@@ -220,9 +337,9 @@ export const productAPI = {
   
   getProductDetails: (productId) => buyerAPI.getProductDetails(productId),
   
-  addToCart: (productId) => apiCall('/api/cart/add', { 
+  addToCart: (productId, quantity = 1) => apiCall('/api/cart/add', { 
     method: 'POST',
-    body: { productId, quantity: 1 }
+    body: { productId, quantity }
   }),
   
   searchProducts: (searchParams) => buyerAPI.searchProducts(searchParams)
@@ -233,10 +350,51 @@ export const healthAPI = {
   check: () => apiCall('/api/health')
 };
 
-// ==================== TEST UTILITIES ====================
+// ==================== PERFORMANCE MONITORING ====================
+export const performanceAPI = {
+  // Measure API response times
+  measure: async (endpoint, options = {}) => {
+    const startTime = performance.now();
+    try {
+      const result = await apiCall(endpoint, options);
+      const endTime = performance.now();
+      return {
+        success: true,
+        data: result,
+        duration: Math.round(endTime - startTime),
+        timestamp: new Date().toISOString()
+      };
+    } catch (error) {
+      const endTime = performance.now();
+      return {
+        success: false,
+        error: error.message,
+        duration: Math.round(endTime - startTime),
+        timestamp: new Date().toISOString()
+      };
+    }
+  },
+
+  // Test multiple endpoints
+  benchmark: async (endpoints = ['/api/health', '/api/buyer/products?limit=1']) => {
+    const results = {};
+    
+    for (const endpoint of endpoints) {
+      results[endpoint] = await performanceAPI.measure(endpoint);
+    }
+    
+    return results;
+  }
+};
+
+// ==================== TEST UTILITIES (Development Only) ====================
 export const testAPI = {
-  // Test all endpoints
   testAll: async () => {
+    if (!IS_DEVELOPMENT) {
+      console.warn('🚫 Test utilities are only available in development mode');
+      return;
+    }
+
     const results = {};
     
     try {
@@ -246,15 +404,21 @@ export const testAPI = {
       results.health = await healthAPI.check();
       console.log('✅ Health check passed');
       
-      // Test seller endpoints
-      results.sellerDashboard = await sellerAPI.getDashboard();
-      console.log('✅ Seller dashboard passed');
+      // Test with performance monitoring
+      results.performance = await performanceAPI.benchmark();
       
       return results;
     } catch (error) {
       console.error('❌ API test failed:', error);
       throw error;
     }
+  },
+
+  // Clear all cache and tokens
+  reset: () => {
+    cacheManager.clear();
+    localStorage.removeItem('token');
+    console.log('🔄 All cache and tokens reset');
   }
 };
 
