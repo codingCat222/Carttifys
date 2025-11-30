@@ -50,6 +50,17 @@ import { buyerAPI, userAPI, helpAPI } from '../services/Api';
 import ProductList from './ProductList';
 import BuyerOrders from './BuyerOrders';
 
+// Add this image helper function
+const getProductImage = (product) => {
+  if (product.image && product.image.startsWith('http')) {
+    return product.image;
+  }
+  if (product.images && product.images.length > 0) {
+    return `https://carttifys-1.onrender.com/uploads/${product.images[0]._id}`;
+  }
+  return 'https://via.placeholder.com/300?text=No+Image';
+};
+
 const BuyerDashboard = memo(() => {
   const [dashboardData, setDashboardData] = useState({
     stats: {
@@ -464,10 +475,10 @@ const BuyerDashboard = memo(() => {
                   {dashboardData.recommendedProducts.map(product => (
                     <div key={product.id} className="recommended-item">
                       <img 
-                        src={product.image || 'https://via.placeholder.com/150?text=No+Image'} 
+                        src={getProductImage(product)}
                         alt={product.name}
                         onError={(e) => {
-                          e.target.src = 'https://via.placeholder.com/150?text=No+Image';
+                          e.target.src = 'https://via.placeholder.com/300?text=No+Image';
                         }}
                       />
                       <div className="product-info">
@@ -585,7 +596,7 @@ const ProfileSection = ({ userProfile, onNotificationToggle }) => {
             <label>Email</label>
             <p>{userProfile.email || 'Not provided'}</p>
           </div>
-          <div className="setting-item">
+          <div className="settingItem">
             <label>Phone</label>
             <p>{userProfile.phone || 'Not provided'}</p>
           </div>
@@ -922,73 +933,86 @@ const CategoriesSection = ({ categories, onCategorySelect }) => (
 );
 
 // Search Section Component - UPDATED with real backend data
-const SearchSection = ({ searchQuery, searchResults, isSearching, onSearchChange, onQuickAction }) => (
-  <div className="search-results-section">
-    <div className="section-header">
-      <h3 className="section-title">
-        <FontAwesomeIcon icon={faSearch} className="me-2" />
-        Search Results
-        {searchQuery && <span className="search-query"> for "{searchQuery}"</span>}
-      </h3>
-    </div>
+const SearchSection = ({ searchQuery, searchResults, isSearching, onSearchChange, onQuickAction }) => {
+  // Add the getProductImage function here too for search results
+  const getProductImage = (product) => {
+    if (product.image && product.image.startsWith('http')) {
+      return product.image;
+    }
+    if (product.images && product.images.length > 0) {
+      return `https://carttifys-1.onrender.com/uploads/${product.images[0]._id}`;
+    }
+    return 'https://via.placeholder.com/300?text=No+Image';
+  };
 
-    {isSearching ? (
-      <div className="search-loading">
-        <FontAwesomeIcon icon={faSpinner} spin className="me-2" />
-        Searching...
+  return (
+    <div className="search-results-section">
+      <div className="section-header">
+        <h3 className="section-title">
+          <FontAwesomeIcon icon={faSearch} className="me-2" />
+          Search Results
+          {searchQuery && <span className="search-query"> for "{searchQuery}"</span>}
+        </h3>
       </div>
-    ) : searchQuery && searchResults.length === 0 ? (
-      <div className="no-results">
-        <FontAwesomeIcon icon={faSearch} size="2x" className="empty-icon" />
-        <h4>No results found</h4>
-        <p>Try different keywords or browse categories</p>
-      </div>
-    ) : searchResults.length > 0 ? (
-      <div className="search-results-grid">
-        {searchResults.map(product => (
-          <div key={product.id} className="marketplace-item">
-            <div className="item-image">
-              <img 
-                src={product.image || 'https://via.placeholder.com/150?text=No+Image'} 
-                alt={product.name}
-                onError={(e) => {
-                  e.target.src = 'https://via.placeholder.com/150?text=No+Image';
-                }}
-              />
-            </div>
-            <div className="item-info">
-              <h4 className="item-price">${product.price}</h4>
-              <h3 className="item-name">{product.name}</h3>
-              <p className="item-seller">Sold by: {product.seller}</p>
-              <p className="item-stock">{product.stock > 0 ? `${product.stock} in stock` : 'Out of stock'}</p>
-              <div className="item-actions">
-                <button 
-                  className="action-btn message-btn"
-                  onClick={() => onQuickAction('contact_seller', { seller: product.seller })}
-                >
-                  <FontAwesomeIcon icon={faMessage} />
-                  Message
-                </button>
-                <button 
-                  className="action-btn cart-btn"
-                  onClick={() => onQuickAction('add_to_cart', { productId: product.id })}
-                >
-                  <FontAwesomeIcon icon={faShoppingCart} />
-                  Cart
-                </button>
+
+      {isSearching ? (
+        <div className="search-loading">
+          <FontAwesomeIcon icon={faSpinner} spin className="me-2" />
+          Searching...
+        </div>
+      ) : searchQuery && searchResults.length === 0 ? (
+        <div className="no-results">
+          <FontAwesomeIcon icon={faSearch} size="2x" className="empty-icon" />
+          <h4>No results found</h4>
+          <p>Try different keywords or browse categories</p>
+        </div>
+      ) : searchResults.length > 0 ? (
+        <div className="search-results-grid">
+          {searchResults.map(product => (
+            <div key={product.id} className="marketplace-item">
+              <div className="item-image">
+                <img 
+                  src={getProductImage(product)}
+                  alt={product.name}
+                  onError={(e) => {
+                    e.target.src = 'https://via.placeholder.com/300?text=No+Image';
+                  }}
+                />
+              </div>
+              <div className="item-info">
+                <h4 className="item-price">${product.price}</h4>
+                <h3 className="item-name">{product.name}</h3>
+                <p className="item-seller">Sold by: {product.seller}</p>
+                <p className="item-stock">{product.stock > 0 ? `${product.stock} in stock` : 'Out of stock'}</p>
+                <div className="item-actions">
+                  <button 
+                    className="action-btn message-btn"
+                    onClick={() => onQuickAction('contact_seller', { seller: product.seller })}
+                  >
+                    <FontAwesomeIcon icon={faMessage} />
+                    Message
+                  </button>
+                  <button 
+                    className="action-btn cart-btn"
+                    onClick={() => onQuickAction('add_to_cart', { productId: product.id })}
+                  >
+                    <FontAwesomeIcon icon={faShoppingCart} />
+                    Cart
+                  </button>
+                </div>
               </div>
             </div>
-          </div>
-        ))}
-      </div>
-    ) : (
-      <div className="search-prompt">
-        <FontAwesomeIcon icon={faSearch} size="2x" className="empty-icon" />
-        <h4>Search Marketplace</h4>
-        <p>Enter keywords to find items near you</p>
-      </div>
-    )}
-  </div>
-);
+          ))}
+        </div>
+      ) : (
+        <div className="search-prompt">
+          <FontAwesomeIcon icon={faSearch} size="2x" className="empty-icon" />
+          <h4>Search Marketplace</h4>
+          <p>Enter keywords to find items near you</p>
+        </div>
+      )}
+    </div>
+  );
+};
 
 export default BuyerDashboard;
