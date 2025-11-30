@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { authAPI } from '../services/api'; // ✅ FIXED: Changed 'Api' to 'api'
+import { authAPI } from '../services/Api'; // ✅ FIXED: Changed 'Api' to 'api'
 import './Signup.css';
 
 const Signup = () => {
