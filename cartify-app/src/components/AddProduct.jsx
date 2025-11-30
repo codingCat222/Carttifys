@@ -1,644 +1,233 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { sellerAPI } from '../services/Api'; // Import your API service
-import './AddProduct.css';
+// controllers/productController.js
+const Product = require('../models/Product');
 
-const AddProduct = () => {
-  const [formData, setFormData] = useState({
-    name: '',
-    description: '',
-    price: '',
-    category: '',
-    stock: '',
-    features: ['']
-  });
+// ✅ FIXED: Create product with base64 images
+const createProduct = async (req, res) => {
+  try {
+    const {
+      name,
+      description,
+      price,
+      category,
+      stock,
+      features,
+      images,
+      videos
+    } = req.body;
 
-  const [selectedImages, setSelectedImages] = useState([]);
-  const [selectedVideos, setSelectedVideos] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [uploading, setUploading] = useState(false);
-  const navigate = useNavigate();
-
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
-  };
-
-  const handleFeatureChange = (index, value) => {
-    const newFeatures = [...formData.features];
-    newFeatures[index] = value;
-    setFormData(prev => ({
-      ...prev,
-      features: newFeatures.filter(feature => feature.trim() !== '')
-    }));
-  };
-
-  const addFeature = () => {
-    if (formData.features.length < 10) {
-      setFormData(prev => ({
-        ...prev,
-        features: [...prev.features, '']
-      }));
-    }
-  };
-
-  const removeFeature = (index) => {
-    const newFeatures = formData.features.filter((_, i) => i !== index);
-    setFormData(prev => ({
-      ...prev,
-      features: newFeatures
-    }));
-  };
-
-  // ✅ FIXED: Handle image selection (no Base64 conversion)
-  const handleImageUpload = (e) => {
-    const files = Array.from(e.target.files);
-    
-    if (selectedImages.length + files.length > 5) {
-      alert('Maximum 5 images allowed');
-      return;
-    }
-
-    // Validate image files
-    const validFiles = files.filter(file => {
-      const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
-      const maxSize = 10 * 1024 * 1024; // 10MB
-      
-      if (!validTypes.includes(file.type)) {
-        alert(`Invalid image format: ${file.name}. Supported formats: JPEG, PNG, GIF, WebP`);
-        return false;
-      }
-      
-      if (file.size > maxSize) {
-        alert(`Image file too large: ${file.name}. Maximum size: 10MB`);
-        return false;
-      }
-      
-      return true;
+    console.log('📦 Creating product with data:', {
+      name,
+      category,
+      price,
+      stock,
+      imagesCount: images ? images.length : 0,
+      videosCount: videos ? videos.length : 0
     });
 
-    setSelectedImages(prev => [...prev, ...validFiles]);
-  };
-
-  // ✅ FIXED: Handle video selection (no Base64 conversion)
-  const handleVideoUpload = (e) => {
-    const files = Array.from(e.target.files);
-    
-    if (selectedVideos.length + files.length > 3) {
-      alert('Maximum 3 videos allowed');
-      return;
+    // Validate required fields
+    if (!name || !description || !price || !category || !stock) {
+      return res.status(400).json({
+        success: false,
+        message: 'All required fields must be provided'
+      });
     }
 
-    // Validate video files
-    const validFiles = files.filter(file => {
-      const validTypes = ['video/mp4', 'video/webm', 'video/ogg', 'video/quicktime'];
-      const maxSize = 50 * 1024 * 1024; // 50MB
-      
-      if (!validTypes.includes(file.type)) {
-        alert(`Invalid video format: ${file.name}. Supported formats: MP4, WebM, OGG, MOV`);
-        return false;
+    // Validate images
+    if (!images || images.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'At least one product image is required'
+      });
+    }
+
+    // Process images - ensure they're properly formatted
+    const processedImages = images.map((image, index) => {
+      // If image is already in correct format { data, contentType }
+      if (image.data && image.contentType) {
+        return {
+          data: image.data.replace(/^data:image\/[a-zA-Z]+;base64,/, ''), // Remove data URL prefix if present
+          contentType: image.contentType,
+          _id: new require('mongoose').Types.ObjectId() // Generate unique ID
+        };
       }
       
-      if (file.size > maxSize) {
-        alert(`Video file too large: ${file.name}. Maximum size: 50MB`);
-        return false;
+      // If image is just a base64 string
+      if (typeof image === 'string') {
+        return {
+          data: image.replace(/^data:image\/[a-zA-Z]+;base64,/, ''),
+          contentType: 'image/jpeg', // Default contentType
+          _id: new require('mongoose').Types.ObjectId()
+        };
       }
       
-      return true;
+      return null;
+    }).filter(img => img !== null);
+
+    // Process videos if provided
+    const processedVideos = videos ? videos.map((video, index) => {
+      if (video.data && video.contentType) {
+        return {
+          data: video.data.replace(/^data:video\/[a-zA-Z]+;base64,/, ''),
+          contentType: video.contentType,
+          name: video.name || `video_${index + 1}`,
+          size: video.size || 0,
+          _id: new require('mongoose').Types.ObjectId()
+        };
+      }
+      return null;
+    }).filter(vid => vid !== null) : [];
+
+    // Create product with processed data
+    const product = new Product({
+      name: name.trim(),
+      description: description.trim(),
+      price: parseFloat(price),
+      category: category.toLowerCase(),
+      stock: parseInt(stock),
+      features: Array.isArray(features) ? features.filter(f => f.trim() !== '') : [],
+      images: processedImages,
+      videos: processedVideos,
+      seller: req.user.id, // From auth middleware
+      sellerId: req.user.id
     });
 
-    setSelectedVideos(prev => [...prev, ...validFiles]);
-  };
+    // Save to database
+    await product.save();
 
-  const removeImage = (index) => {
-    const newImages = selectedImages.filter((_, i) => i !== index);
-    setSelectedImages(newImages);
-  };
+    console.log('✅ Product created successfully:', product._id);
 
-  const removeVideo = (index) => {
-    const newVideos = selectedVideos.filter((_, i) => i !== index);
-    setSelectedVideos(newVideos);
-  };
+    res.status(201).json({
+      success: true,
+      message: 'Product created successfully',
+      data: product
+    });
 
-  const validateForm = () => {
-    const errors = [];
-
-    if (!formData.name.trim()) {
-      errors.push('Product name is required');
-    }
-
-    if (!formData.description.trim() || formData.description.length < 10) {
-      errors.push('Description must be at least 10 characters long');
-    }
-
-    if (!formData.price || parseFloat(formData.price) <= 0) {
-      errors.push('Valid price is required');
-    }
-
-    if (!formData.stock || parseInt(formData.stock) < 0) {
-      errors.push('Valid stock quantity is required');
-    }
-
-    if (!formData.category) {
-      errors.push('Category is required');
-    }
-
-    if (selectedImages.length === 0) {
-      errors.push('At least one product image is required');
-    }
-
-    const validFeatures = formData.features.filter(feature => feature.trim() !== '');
-    if (validFeatures.length === 0) {
-      errors.push('At least one product feature is required');
-    }
-
-    if (errors.length > 0) {
-      alert(errors.join('\n'));
-      return false;
-    }
-
-    return true;
-  };
-
-  const formatFileSize = (bytes) => {
-    if (bytes === 0) return '0 Bytes';
-    const k = 1024;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-  };
-
-  // ✅ FIXED SUBMIT: Use FormData for file uploads to your actual backend
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    
-    if (!validateForm()) {
-      return;
-    }
-
-    setLoading(true);
-    setUploading(true);
-
-    try {
-      // Create FormData for file upload
-      const formDataToSend = new FormData();
-      
-      // Add product data
-      formDataToSend.append('name', formData.name.trim());
-      formDataToSend.append('description', formData.description.trim());
-      formDataToSend.append('price', formData.price);
-      formDataToSend.append('category', formData.category);
-      formDataToSend.append('stock', formData.stock);
-      
-      // Add features as array
-      formData.features
-        .filter(feature => feature.trim() !== '')
-        .forEach((feature, index) => {
-          formDataToSend.append(`features`, feature);
-        });
-
-      // Add images
-      selectedImages.forEach((image, index) => {
-        formDataToSend.append('media', image); // This matches your backend expectation
-      });
-
-      // Add videos
-      selectedVideos.forEach((video, index) => {
-        formDataToSend.append('media', video); // This matches your backend expectation
-      });
-
-      console.log('🔄 Uploading product with:', {
-        name: formData.name,
-        category: formData.category,
-        images: selectedImages.length,
-        videos: selectedVideos.length,
-        features: formData.features.filter(f => f.trim() !== '').length
-      });
-
-      // ✅ FIXED: Use your sellerAPI service which points to the correct backend
-      const result = await sellerAPI.createProduct(formDataToSend);
-
-      if (result && result.success !== false) {
-        alert('✅ Product added successfully with real uploaded files!');
-        console.log('Product created:', result.data);
-        
-        // Reset form
-        setFormData({
-          name: '',
-          description: '',
-          price: '',
-          category: '',
-          stock: '',
-          features: ['']
-        });
-        setSelectedImages([]);
-        setSelectedVideos([]);
-        
-        // Navigate back to seller dashboard
-        navigate('/seller/dashboard');
-      } else {
-        throw new Error(result?.message || 'Product creation failed');
-      }
-      
-    } catch (error) {
-      console.error('Error adding product:', error);
-      alert(`❌ Error adding product: ${error.message}`);
-    }
-    
-    setLoading(false);
-    setUploading(false);
-  };
-
-  // Create preview URLs for display
-  const getImagePreviewUrl = (file) => {
-    return URL.createObjectURL(file);
-  };
-
-  const getVideoPreviewUrl = (file) => {
-    return URL.createObjectURL(file);
-  };
-
-  return (
-    <div className="add-product-container">
-      <div className="add-product-header">
-        <h1>
-          <i className="fas fa-plus-circle"></i>
-          Add New Product
-        </h1>
-        <p>Upload real product images and videos to your live backend</p>
-      </div>
-
-      <div className="add-product-content">
-        <div className="product-form-section">
-          <form onSubmit={handleSubmit} className="product-form">
-            <div className="form-card">
-              {/* Basic Information */}
-              <div className="form-section">
-                <h3 className="section-title">
-                  <i className="fas fa-info-circle"></i>
-                  Basic Information
-                </h3>
-                
-                <div className="form-row">
-                  <div className="form-group">
-                    <label htmlFor="name" className="form-label">
-                      <i className="fas fa-tag"></i>
-                      Product Name *
-                    </label>
-                    <input
-                      type="text"
-                      id="name"
-                      name="name"
-                      value={formData.name}
-                      onChange={handleChange}
-                      placeholder="Enter product name"
-                      required
-                      className="form-input"
-                    />
-                  </div>
-                  
-                  <div className="form-group">
-                    <label htmlFor="category" className="form-label">
-                      <i className="fas fa-folder"></i>
-                      Category *
-                    </label>
-                    <select
-                      id="category"
-                      name="category"
-                      value={formData.category}
-                      onChange={handleChange}
-                      required
-                      className="form-select"
-                    >
-                      <option value="">Select Category</option>
-                      <option value="electronics">Electronics</option>
-                      <option value="clothing">Clothing</option>
-                      <option value="home">Home & Garden</option>
-                      <option value="sports">Sports</option>
-                      <option value="beauty">Beauty</option>
-                      <option value="books">Books</option>
-                      <option value="toys">Toys & Games</option>
-                      <option value="automotive">Automotive</option>
-                      <option value="other">Other</option>
-                    </select>
-                  </div>
-                </div>
-
-                <div className="form-group">
-                  <label htmlFor="description" className="form-label">
-                    <i className="fas fa-align-left"></i>
-                    Description *
-                  </label>
-                  <textarea
-                    id="description"
-                    name="description"
-                    rows="4"
-                    value={formData.description}
-                    onChange={handleChange}
-                    placeholder="Describe your product in detail..."
-                    required
-                    className="form-textarea"
-                    maxLength="500"
-                  ></textarea>
-                  <div className="form-hint">
-                    {formData.description.length}/500 characters
-                  </div>
-                </div>
-              </div>
-
-              {/* Pricing & Stock */}
-              <div className="form-section">
-                <h3 className="section-title">
-                  <i className="fas fa-dollar-sign"></i>
-                  Pricing & Stock
-                </h3>
-                
-                <div className="form-row">
-                  <div className="form-group">
-                    <label htmlFor="price" className="form-label">
-                      <i className="fas fa-tag"></i>
-                      Price ($) *
-                    </label>
-                    <input
-                      type="number"
-                      id="price"
-                      name="price"
-                      step="0.01"
-                      min="0"
-                      value={formData.price}
-                      onChange={handleChange}
-                      placeholder="0.00"
-                      required
-                      className="form-input"
-                    />
-                  </div>
-                  
-                  <div className="form-group">
-                    <label htmlFor="stock" className="form-label">
-                      <i className="fas fa-boxes"></i>
-                      Stock Quantity *
-                    </label>
-                    <input
-                      type="number"
-                      id="stock"
-                      name="stock"
-                      min="0"
-                      value={formData.stock}
-                      onChange={handleChange}
-                      placeholder="0"
-                      required
-                      className="form-input"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Features */}
-              <div className="form-section">
-                <h3 className="section-title">
-                  <i className="fas fa-star"></i>
-                  Product Features
-                </h3>
-                
-                <div className="features-list">
-                  {formData.features.map((feature, index) => (
-                    <div key={index} className="feature-input-group">
-                      <div className="feature-input-wrapper">
-                        <i className="fas fa-check feature-icon"></i>
-                        <input
-                          type="text"
-                          placeholder="Enter product feature"
-                          value={feature}
-                          onChange={(e) => handleFeatureChange(index, e.target.value)}
-                          className="feature-input"
-                          maxLength="100"
-                        />
-                        {formData.features.length > 1 && (
-                          <button
-                            type="button"
-                            className="remove-feature-btn"
-                            onClick={() => removeFeature(index)}
-                            title="Remove feature"
-                          >
-                            <i className="fas fa-times"></i>
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-                
-                {formData.features.length < 10 && (
-                  <button
-                    type="button"
-                    className="add-feature-btn"
-                    onClick={addFeature}
-                  >
-                    <i className="fas fa-plus"></i>
-                    Add Feature
-                  </button>
-                )}
-                <div className="form-hint">
-                  {formData.features.filter(f => f.trim() !== '').length}/10 features added
-                </div>
-              </div>
-
-              {/* Image Upload */}
-              <div className="form-section">
-                <h3 className="section-title">
-                  <i className="fas fa-images"></i>
-                  Product Images *
-                </h3>
-                
-                <div className="image-upload-section">
-                  <div className="file-upload-wrapper">
-                    <input
-                      type="file"
-                      multiple
-                      accept="image/*"
-                      onChange={handleImageUpload}
-                      disabled={selectedImages.length >= 5 || uploading}
-                      className="file-input"
-                    />
-                    <div className="upload-hint">
-                      <i className="fas fa-info-circle"></i>
-                      {uploading ? 'Uploading...' : `Select real product images (${selectedImages.length}/5)`}
-                    </div>
-                  </div>
-
-                  <div className="images-preview">
-                    {selectedImages.map((image, index) => (
-                      <div key={index} className="image-preview-item">
-                        <img
-                          src={getImagePreviewUrl(image)}
-                          alt={`Product preview ${index + 1}`}
-                          className="preview-image"
-                        />
-                        <button
-                          type="button"
-                          className="remove-image-btn"
-                          onClick={() => removeImage(index)}
-                          title="Remove image"
-                        >
-                          <i className="fas fa-times"></i>
-                        </button>
-                        <div className="image-info">
-                          <div className="image-name">{image.name}</div>
-                          <div className="image-size">{formatFileSize(image.size)}</div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-
-              {/* Video Upload */}
-              <div className="form-section">
-                <h3 className="section-title">
-                  <i className="fas fa-video"></i>
-                  Product Videos
-                </h3>
-                
-                <div className="video-upload-section">
-                  <div className="file-upload-wrapper">
-                    <input
-                      type="file"
-                      multiple
-                      accept="video/*"
-                      onChange={handleVideoUpload}
-                      disabled={selectedVideos.length >= 3 || uploading}
-                      className="file-input"
-                    />
-                    <div className="upload-hint">
-                      <i className="fas fa-info-circle"></i>
-                      {uploading ? 'Uploading...' : `Select product videos (${selectedVideos.length}/3, Max 50MB each)`}
-                    </div>
-                  </div>
-
-                  <div className="videos-preview">
-                    {selectedVideos.map((video, index) => (
-                      <div key={index} className="video-preview-item">
-                        <div className="video-preview-wrapper">
-                          <video
-                            src={getVideoPreviewUrl(video)}
-                            className="preview-video"
-                            controls
-                          />
-                          <div className="video-info">
-                            <div className="video-name">{video.name}</div>
-                            <div className="video-size">{formatFileSize(video.size)}</div>
-                            <div className="video-type">{video.type}</div>
-                          </div>
-                        </div>
-                        <button
-                          type="button"
-                          className="remove-video-btn"
-                          onClick={() => removeVideo(index)}
-                          title="Remove video"
-                        >
-                          <i className="fas fa-times"></i>
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-
-              {/* Submit Button */}
-              <div className="form-submit-section">
-                <button
-                  type="submit"
-                  className="submit-btn"
-                  disabled={loading || uploading}
-                >
-                  {loading ? (
-                    <>
-                      <i className="fas fa-spinner fa-spin"></i>
-                      Creating Product...
-                    </>
-                  ) : uploading ? (
-                    <>
-                      <i className="fas fa-spinner fa-spin"></i>
-                      Uploading Files...
-                    </>
-                  ) : (
-                    <>
-                      <i className="fas fa-plus"></i>
-                      Add Product with Real Files
-                    </>
-                  )}
-                </button>
-                
-                {(loading || uploading) && (
-                  <div className="upload-progress">
-                    <div className="progress-text">
-                      Uploading {selectedImages.length + selectedVideos.length} files to live backend...
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-          </form>
-        </div>
-
-        {/* Sidebar */}
-        <div className="product-sidebar">
-          <div className="sidebar-card">
-            <h4>
-              <i className="fas fa-rocket"></i>
-              Live Backend Upload
-            </h4>
-            <ul className="tips-list">
-              <li>
-                <i className="fas fa-check-circle text-success"></i>
-                <strong>Real file upload</strong>
-              </li>
-              <li>
-                <i className="fas fa-server"></i>
-                Stored on your backend
-              </li>
-              <li>
-                <i className="fas fa-images"></i>
-                {selectedImages.length}/5 images ready
-              </li>
-              <li>
-                <i className="fas fa-video"></i>
-                {selectedVideos.length}/3 videos ready
-              </li>
-              <li>
-                <i className="fas fa-bolt"></i>
-                Fast file processing
-              </li>
-            </ul>
-          </div>
-
-          <div className="sidebar-card">
-            <h4>
-              <i className="fas fa-cloud-upload-alt"></i>
-              Upload Status
-            </h4>
-            <div className="upload-status">
-              <div className="status-item">
-                <span className="status-label">Backend:</span>
-                <span className="status-value success">Connected</span>
-              </div>
-              <div className="status-item">
-                <span className="status-label">Files Ready:</span>
-                <span className="status-value">{selectedImages.length + selectedVideos.length}</span>
-              </div>
-              <div className="status-item">
-                <span className="status-label">Destination:</span>
-                <span className="status-value">carttifys-1.onrender.com</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
+  } catch (error) {
+    console.error('❌ Error creating product:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error while creating product',
+      error: error.message
+    });
+  }
 };
 
-export default AddProduct;
+// ✅ FIXED: Get all products with image serving URLs
+const getProducts = async (req, res) => {
+  try {
+    const {
+      category,
+      minPrice,
+      maxPrice,
+      sortBy = 'createdAt',
+      sortOrder = 'desc',
+      page = 1,
+      limit = 20
+    } = req.query;
+
+    // Build filter object
+    const filter = {};
+    
+    if (category && category !== 'all') {
+      filter.category = category.toLowerCase();
+    }
+    
+    if (minPrice || maxPrice) {
+      filter.price = {};
+      if (minPrice) filter.price.$gte = parseFloat(minPrice);
+      if (maxPrice) filter.price.$lte = parseFloat(maxPrice);
+    }
+
+    // Calculate pagination
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+
+    // Get products with pagination
+    const products = await Product.find(filter)
+      .sort({ [sortBy]: sortOrder === 'asc' ? 1 : -1 })
+      .skip(skip)
+      .limit(parseInt(limit))
+      .populate('seller', 'name email');
+
+    // Get total count for pagination
+    const totalProducts = await Product.countDocuments(filter);
+
+    // Process products to include image URLs
+    const processedProducts = products.map(product => {
+      const productObj = product.toObject();
+      
+      // Add image URL for the first image
+      if (product.images && product.images.length > 0) {
+        productObj.image = `https://carttifys-1.onrender.com/api/products/${product._id}/image/${product.images[0]._id}`;
+      } else {
+        productObj.image = 'https://via.placeholder.com/300?text=No+Image';
+      }
+
+      return productObj;
+    });
+
+    res.json({
+      success: true,
+      data: processedProducts,
+      pagination: {
+        currentPage: parseInt(page),
+        totalPages: Math.ceil(totalProducts / parseInt(limit)),
+        totalProducts,
+        hasNext: skip + products.length < totalProducts,
+        hasPrev: parseInt(page) > 1
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ Error fetching products:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error while fetching products',
+      error: error.message
+    });
+  }
+};
+
+// ✅ FIXED: Get single product by ID
+const getProductById = async (req, res) => {
+  try {
+    const product = await Product.findById(req.params.id)
+      .populate('seller', 'name email rating');
+
+    if (!product) {
+      return res.status(404).json({
+        success: false,
+        message: 'Product not found'
+      });
+    }
+
+    // Process product to include image URLs
+    const productObj = product.toObject();
+    
+    // Add image URLs for all images
+    if (product.images && product.images.length > 0) {
+      productObj.images = product.images.map(img => ({
+        ...img.toObject(),
+        url: `https://carttifys-1.onrender.com/api/products/${product._id}/image/${img._id}`
+      }));
+    }
+
+    res.json({
+      success: true,
+      data: productObj
+    });
+
+  } catch (error) {
+    console.error('❌ Error fetching product:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error while fetching product',
+      error: error.message
+    });
+  }
+};
+
+module.exports = {
+  createProduct,
+  getProducts,
+  getProductById
+};
