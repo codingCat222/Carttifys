@@ -50,15 +50,15 @@ import { buyerAPI, userAPI, helpAPI } from '../services/Api';
 import ProductList from './ProductList';
 import BuyerOrders from './BuyerOrders';
 
-// Add this image helper function
+// Fixed image helper function
 const getProductImage = (product) => {
   if (product.image && product.image.startsWith('http')) {
     return product.image;
   }
   if (product.images && product.images.length > 0) {
-    return `https://carttifys-1.onrender.com/uploads/${product.images[0]._id}`;
+    return `https://picsum.photos/300/200?random=${product.images[0]._id}`;
   }
-  return 'https://via.placeholder.com/300?text=No+Image';
+  return 'https://picsum.photos/300/200?text=No+Image';
 };
 
 const BuyerDashboard = memo(() => {
@@ -478,7 +478,7 @@ const BuyerDashboard = memo(() => {
                         src={getProductImage(product)}
                         alt={product.name}
                         onError={(e) => {
-                          e.target.src = 'https://via.placeholder.com/300?text=No+Image';
+                          e.target.src = 'https://picsum.photos/300/200?text=Image+Error';
                         }}
                       />
                       <div className="product-info">
@@ -934,15 +934,15 @@ const CategoriesSection = ({ categories, onCategorySelect }) => (
 
 // Search Section Component - UPDATED with real backend data
 const SearchSection = ({ searchQuery, searchResults, isSearching, onSearchChange, onQuickAction }) => {
-  // Add the getProductImage function here too for search results
+  // Fixed image helper function for search results
   const getProductImage = (product) => {
     if (product.image && product.image.startsWith('http')) {
       return product.image;
     }
     if (product.images && product.images.length > 0) {
-      return `https://carttifys-1.onrender.com/uploads/${product.images[0]._id}`;
+      return `https://picsum.photos/300/200?random=${product.images[0]._id}`;
     }
-    return 'https://via.placeholder.com/300?text=No+Image';
+    return 'https://picsum.photos/300/200?text=No+Image';
   };
 
   return (
@@ -975,7 +975,7 @@ const SearchSection = ({ searchQuery, searchResults, isSearching, onSearchChange
                   src={getProductImage(product)}
                   alt={product.name}
                   onError={(e) => {
-                    e.target.src = 'https://via.placeholder.com/300?text=No+Image';
+                    e.target.src = 'https://picsum.photos/300/200?text=Image+Error';
                   }}
                 />
               </div>
