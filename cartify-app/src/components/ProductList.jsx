@@ -30,6 +30,20 @@ import {
 } from '@fortawesome/free-solid-svg-icons';
 import './ProductList.css';
 
+// Add this image helper function
+const getProductImage = (product) => {
+  if (product.image && product.image.startsWith('http')) {
+    return product.image;
+  }
+  if (product.images && product.images.length > 0 && product.images[0].data) {
+    return `data:${product.images[0].contentType};base64,${product.images[0].data}`;
+  }
+  if (product.images && product.images.length > 0) {
+    return `https://picsum.photos/300/200?random=${product.images[0]._id}`;
+  }
+  return 'https://picsum.photos/300/200?text=No+Image';
+};
+
 const ProductList = () => {
   const [products, setProducts] = useState([]);
   const [filteredProducts, setFilteredProducts] = useState([]);
@@ -41,7 +55,7 @@ const ProductList = () => {
   const [error, setError] = useState(null);
   const { addToCart } = useCart();
 
-  // ✅ REAL API CALL TO GET PRODUCTS FROM BACKEND
+  // ✅ REAL API CALL TO GET PRODUCTS FROM DEPLOYED BACKEND
   const fetchProducts = useCallback(async () => {
     try {
       setLoading(true);
@@ -80,7 +94,9 @@ const ProductList = () => {
         }
       }
 
-      const response = await fetch(`http://localhost:5000/api/buyer/products?${queryParams}`);
+      // ✅ FIXED: Use your Render backend URL instead of localhost
+      const API_BASE = 'https://carttifys-1.onrender.com';
+      const response = await fetch(`${API_BASE}/api/buyer/products?${queryParams}`);
       
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
@@ -283,17 +299,14 @@ const ProductList = () => {
         {filteredProducts.map(product => (
           <div key={product.id} className="product-card">
             <div className="product-image-container">
-              {/* ✅ FIXED: Proper base64 image display */}
+              {/* ✅ FIXED: Use the proper image helper function */}
               <img 
-                src={product.images && product.images[0] && product.images[0].data 
-                  ? `data:${product.images[0].contentType};base64,${product.images[0].data}`
-                  : 'https://via.placeholder.com/300x200?text=No+Image'
-                } 
+                src={getProductImage(product)}
                 className="product-image" 
                 alt={product.name}
                 loading="lazy"
                 onError={(e) => {
-                  e.target.src = 'https://via.placeholder.com/300x200?text=No+Image';
+                  e.target.src = 'https://picsum.photos/300/200?text=Image+Error';
                 }}
               />
               <div className="product-badges">
