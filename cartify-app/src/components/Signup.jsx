@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { authAPI } from '../services/Api'; // ✅ FIXED: Changed 'Api' to 'api'
+import { authAPI } from '../services/api';
 import './Signup.css';
 
 const Signup = () => {
@@ -27,9 +27,45 @@ const Signup = () => {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [acceptedTerms, setAcceptedTerms] = useState(false);
+  const [serverStatus, setServerStatus] = useState('checking'); // 'checking', 'awake', 'sleeping', 'error'
   
   const { login } = useAuth();
   const navigate = useNavigate();
+
+  // Check server status on component mount
+  useEffect(() => {
+    const checkServer = async () => {
+      try {
+        setServerStatus('checking');
+        console.log('🔍 Checking server status...');
+        
+        // Simple health check
+        const response = await fetch('https://carttifys-1.onrender.com/health', {
+          method: 'GET',
+          headers: { 'Content-Type': 'application/json' },
+          signal: AbortSignal.timeout(5000) // 5 second timeout for health check
+        });
+        
+        if (response.ok) {
+          setServerStatus('awake');
+          console.log('✅ Server is awake and ready');
+        } else {
+          setServerStatus('error');
+          console.warn('⚠️ Server responded with error:', response.status);
+        }
+      } catch (err) {
+        if (err.name === 'AbortError') {
+          setServerStatus('sleeping');
+          console.log('😴 Server is sleeping (Render free tier) - first request will be slow');
+        } else {
+          setServerStatus('error');
+          console.error('❌ Server check failed:', err.message);
+        }
+      }
+    };
+    
+    checkServer();
+  }, []);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -124,16 +160,49 @@ const Signup = () => {
         userData.businessName = formData.businessName;
         userData.businessType = formData.businessType;
         userData.businessAddress = formData.businessAddress;
-        // ✅ ADDED: Include name field for seller too (some backends require it)
+        // Include name field for seller too
         userData.name = formData.businessName;
       }
 
-      console.log('🔄 Sending registration data:', userData);
+      console.log('🔄 Attempting registration...');
+      console.log('📤 Data:', userData);
 
-      // ✅ FIXED: Use the API service instead of direct fetch
-      const data = await authAPI.register(userData);
+      // Show warning if server is sleeping
+      if (serverStatus === 'sleeping') {
+        setError('Server is waking up... This may take 20-30 seconds. Please wait.');
+      }
 
-      console.log('✅ Registration response:', data);
+      // Use DIRECT FETCH instead of authAPI to avoid timeout issues
+      const response = await fetch('https://carttifys-1.onrender.com/api/auth/register', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify(userData),
+        // NO abort signal - let it take as long as needed
+      });
+
+      console.log('📥 Response status:', response.status);
+      
+      // Handle HTTP errors
+      if (!response.ok) {
+        let errorMessage = `HTTP ${response.status}: `;
+        
+        try {
+          const errorData = await response.json();
+          errorMessage += errorData.message || errorData.error || response.statusText;
+        } catch {
+          const errorText = await response.text();
+          errorMessage += errorText || response.statusText;
+        }
+        
+        throw new Error(errorMessage);
+      }
+
+      // Parse successful response
+      const data = await response.json();
+      console.log('✅ Registration successful:', data);
 
       if (data.success) {
         // Store token in localStorage
@@ -144,9 +213,8 @@ const Signup = () => {
           console.warn('⚠️ No token received in response');
         }
         
-        // ✅ IMPROVED: Better error handling for login context
+        // Update auth context
         try {
-          // Update auth context with both user data AND token
           if (login) {
             await login(data.user || data.data, data.token);
           } else {
@@ -161,7 +229,6 @@ const Signup = () => {
         if (data.redirectTo) {
           navigate(data.redirectTo);
         } else {
-          // Fallback navigation based on role
           const redirectPath = formData.role === 'buyer' ? '/buyer/dashboard' : '/seller/dashboard';
           console.log(`📍 Navigating to: ${redirectPath}`);
           navigate(redirectPath);
@@ -171,27 +238,37 @@ const Signup = () => {
       }
 
     } catch (err) {
-      console.error('❌ Registration error:', err);
+      console.error('❌ Registration error details:', {
+        name: err.name,
+        message: err.message,
+        stack: err.stack
+      });
       
-      // ✅ IMPROVED: Better error messages
+      // Better error messages
       let errorMessage = err.message || 'Failed to create account. Please try again.';
       
       // Handle specific error cases
-      if (err.message.includes('Network Error') || err.message.includes('Failed to fetch')) {
-        errorMessage = 'Cannot connect to server. Please check your internet connection.';
-      } else if (err.message.includes('409') || err.message.includes('already exists')) {
+      if (err.name === 'AbortError') {
+        errorMessage = 'Request was cancelled or timed out. This usually happens when the server is waking up. Please try again in 30 seconds.';
+      } else if (err.message.includes('Network Error') || err.message.includes('Failed to fetch')) {
+        errorMessage = 'Cannot connect to server. Please check your internet connection and try again.';
+      } else if (err.message.includes('409') || err.message.toLowerCase().includes('already exists')) {
         errorMessage = 'An account with this email already exists. Please use a different email or login.';
-      } else if (err.message.includes('400') || err.message.includes('validation')) {
+      } else if (err.message.includes('400') || err.message.toLowerCase().includes('validation')) {
         errorMessage = 'Invalid data provided. Please check your information and try again.';
+      } else if (err.message.includes('404')) {
+        errorMessage = 'Registration endpoint not found. Please contact support.';
+      } else if (err.message.includes('500')) {
+        errorMessage = 'Server error. Please try again in a few minutes.';
       }
       
       setError(errorMessage);
+    } finally {
+      setLoading(false);
     }
-    
-    setLoading(false);
   };
 
-  // ✅ ADDED: Form validation state
+  // Form validation state
   const isFormValid = () => {
     const basicFields = formData.email && formData.password && formData.confirmPassword;
     
@@ -199,6 +276,30 @@ const Signup = () => {
       return basicFields && formData.name && formData.address && formData.phone && formData.phone.length === 11;
     } else {
       return basicFields && formData.businessName && formData.businessType && formData.businessAddress;
+    }
+  };
+
+  // Server status indicators
+  const renderServerStatus = () => {
+    switch (serverStatus) {
+      case 'checking':
+        return <div className="server-status checking">
+          <i className="fas fa-spinner fa-spin"></i> Checking server status...
+        </div>;
+      case 'awake':
+        return <div className="server-status awake">
+          <i className="fas fa-check-circle"></i> Server is ready
+        </div>;
+      case 'sleeping':
+        return <div className="server-status sleeping">
+          <i className="fas fa-bed"></i> Server is sleeping (first request will be slow)
+        </div>;
+      case 'error':
+        return <div className="server-status error">
+          <i className="fas fa-exclamation-triangle"></i> Cannot reach server
+        </div>;
+      default:
+        return null;
     }
   };
 
@@ -212,17 +313,46 @@ const Signup = () => {
           </h1>
           <p>Create your {formData.role === 'seller' ? 'Seller' : 'Buyer'} account</p>
           
-          {/* ✅ ADDED: Role indicator */}
+          {/* Server status indicator */}
+          {renderServerStatus()}
+          
+          {/* Role indicator */}
           <div className={`role-badge ${formData.role}`}>
             <i className={`fas ${formData.role === 'seller' ? 'fa-store' : 'fa-shopping-cart'}`}></i>
             {formData.role === 'seller' ? 'Seller Account' : 'Buyer Account'}
           </div>
         </div>
 
+        {/* Error display */}
         {error && (
           <div className="alert alert-error">
             <i className="fas fa-exclamation-circle"></i>
-            {error}
+            <div className="error-message">
+              {error}
+              {serverStatus === 'sleeping' && (
+                <div className="server-warning">
+                  <small>
+                    <i className="fas fa-info-circle"></i> 
+                    Using free hosting - server takes 20-30 seconds to wake up on first request.
+                  </small>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Loading overlay for server wakeup */}
+        {loading && serverStatus === 'sleeping' && (
+          <div className="server-wakeup-overlay">
+            <div className="wakeup-message">
+              <i className="fas fa-coffee fa-spin"></i>
+              <h3>Waking up server...</h3>
+              <p>This may take 20-30 seconds on first request</p>
+              <p>Please don't close this window</p>
+              <div className="progress-bar">
+                <div className="progress-fill"></div>
+              </div>
+            </div>
           </div>
         )}
 
@@ -457,7 +587,7 @@ const Signup = () => {
             {loading ? (
               <>
                 <i className="fas fa-spinner fa-spin"></i>
-                Creating Account...
+                {serverStatus === 'sleeping' ? 'Waking Server...' : 'Creating Account...'}
               </>
             ) : (
               <>
