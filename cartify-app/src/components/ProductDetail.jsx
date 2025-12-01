@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useCart } from '../contexts/CartContext';
 import './ProductDetail.css';
+import { productAPI, buyerAPI } from '../services/Api';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
   faStar,
@@ -24,183 +25,96 @@ import {
 const ProductDetail = () => {
   const { id } = useParams();
   const [product, setProduct] = useState(null);
+  const [images, setImages] = useState([]);
   const [reviews, setReviews] = useState([]);
   const [relatedProducts, setRelatedProducts] = useState([]);
   const [quantity, setQuantity] = useState(1);
   const [selectedImage, setSelectedImage] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [addingToCart, setAddingToCart] = useState(false);
   const { addToCart } = useCart();
 
-  useEffect(() => {
-    fetchProductData();
-  }, [id]);
-
-  const fetchProductData = async () => {
+  const fetchProductData = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
 
-      // Mock data for demonstration - Replace with actual API calls
-      const mockProduct = {
-        id: parseInt(id),
-        name: 'Wireless Bluetooth Headphones',
-        description: 'High-quality wireless headphones with noise cancellation and premium sound quality.',
-        fullDescription: 'Experience premium audio quality with our latest wireless headphones. Featuring advanced noise cancellation technology, 30-hour battery life, and comfortable over-ear design. Perfect for music lovers, gamers, and professionals who demand the best audio experience.',
-        price: 199.99,
-        originalPrice: 249.99,
-        discount: 20,
-        category: 'electronics',
-        seller: 'TechStore Pro',
-        sellerId: 'seller-123',
-        sellerRating: 4.7,
-        sellerReviews: 1250,
-        rating: 4.5,
-        reviews: 89,
-        stock: 15,
-        inStock: true,
-        isNew: true,
-        images: [
-          'https://via.placeholder.com/600x600/667eea/ffffff?text=Headphones+Front',
-          'https://via.placeholder.com/600x600/764ba2/ffffff?text=Headphones+Side',
-          'https://via.placeholder.com/600x600/f093fb/ffffff?text=Headphones+Back',
-          'https://via.placeholder.com/600x600/4facfe/ffffff?text=Headphones+Case'
-        ],
-        features: [
-          'Active Noise Cancellation',
-          '30-hour battery life',
-          'Bluetooth 5.2',
-          'Quick charge (3 hours)',
-          'Comfortable over-ear design',
-          'Built-in microphone'
-        ],
-        specifications: {
-          'Brand': 'AudioPro',
-          'Model': 'WH-2024',
-          'Connectivity': 'Bluetooth 5.2',
-          'Battery Life': '30 hours',
-          'Charging Time': '3 hours',
-          'Weight': '265g',
-          'Color': 'Matte Black',
-          'Warranty': '2 years'
-        }
-      };
+      try {
+        const [productData, relatedData] = await Promise.all([
+          productAPI.getProductDetails(id),
+          buyerAPI.getProducts({ 
+            category: product?.category, 
+            limit: 4, 
+            excludeId: id 
+          })
+        ]);
 
-      const mockReviews = [
-        {
-          id: 1,
-          userName: 'John D.',
-          rating: 5,
-          title: 'Amazing sound quality!',
-          comment: 'These headphones exceeded my expectations. The noise cancellation is incredible and the battery life is as advertised.',
-          date: '2024-01-15'
-        },
-        {
-          id: 2,
-          userName: 'Sarah M.',
-          rating: 4,
-          title: 'Great value for money',
-          comment: 'Very comfortable for long listening sessions. Sound quality is excellent, though the bass could be slightly better.',
-          date: '2024-01-12'
-        },
-        {
-          id: 3,
-          userName: 'Mike R.',
-          rating: 5,
-          title: 'Best headphones I have owned',
-          comment: 'Worth every penny. The build quality is premium and the sound is crystal clear.',
-          date: '2024-01-10'
-        }
-      ];
-
-      const mockRelatedProducts = [
-        {
-          id: 2,
-          name: 'Wireless Earbuds',
-          price: 129.99,
-          image: 'https://via.placeholder.com/300x300/667eea/ffffff?text=Wireless+Earbuds',
-          category: 'electronics'
-        },
-        {
-          id: 3,
-          name: 'Portable Speaker',
-          price: 79.99,
-          image: 'https://via.placeholder.com/300x300/764ba2/ffffff?text=Portable+Speaker',
-          category: 'electronics'
-        },
-        {
-          id: 4,
-          name: 'Gaming Headset',
-          price: 159.99,
-          image: 'https://via.placeholder.com/300x300/f093fb/ffffff?text=Gaming+Headset',
-          category: 'electronics'
-        },
-        {
-          id: 5,
-          name: 'Smart Watch',
-          price: 299.99,
-          image: 'https://via.placeholder.com/300x300/4facfe/ffffff?text=Smart+Watch',
-          category: 'electronics'
-        }
-      ];
-
-      // Simulate API delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
-
-      // Uncomment below for actual API calls and comment out mock data
-      /*
-      const [productResponse, reviewsResponse, relatedResponse] = await Promise.all([
-        fetch(`/api/products/${id}`, {
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('token')}`,
-            'Content-Type': 'application/json'
+        setProduct(productData);
+        
+        if (productData.data) {
+          const product = productData.data;
+          
+          const productImages = [];
+          if (product.images && product.images.length > 0) {
+            product.images.forEach(image => {
+              if (image.data) {
+                productImages.push(`/api/products/${id}/image/${image._id}`);
+              } else if (image.url) {
+                productImages.push(image.url);
+              } else if (image.path) {
+                productImages.push(`https://carttifys-1.onrender.com${image.path}`);
+              }
+            });
           }
-        }),
-        fetch(`/api/products/${id}/reviews`, {
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('token')}`,
-            'Content-Type': 'application/json'
+          
+          if (productImages.length === 0 && product.image) {
+            productImages.push(product.image);
           }
-        }),
-        fetch(`/api/products/${id}/related`, {
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('token')}`,
-            'Content-Type': 'application/json'
+          
+          setImages(productImages);
+          
+          const relatedProductsData = relatedData.data || relatedData || [];
+          setRelatedProducts(relatedProductsData);
+          
+          if (product.reviews && product.reviews.length > 0) {
+            setReviews(product.reviews);
+          } else {
+            try {
+              const reviewsResponse = await productAPI.getProductReviews(id);
+              if (reviewsResponse.data) {
+                setReviews(reviewsResponse.data);
+              } else {
+                setReviews([]);
+              }
+            } catch (reviewsError) {
+              console.warn('Could not fetch reviews:', reviewsError);
+              setReviews([]);
+            }
           }
-        })
-      ]);
+        }
 
-      // Check responses
-      if (!productResponse.ok) {
-        throw new Error('Failed to fetch product details');
+      } catch (apiError) {
+        console.error('API Error:', apiError);
+        setError(apiError.message || 'Failed to load product details from the server.');
+        
+        try {
+          const fallbackProduct = await buyerAPI.getProductById(id);
+          if (fallbackProduct.data) {
+            setProduct(fallbackProduct.data);
+            
+            const productImages = [];
+            if (fallbackProduct.data.images && fallbackProduct.data.images.length > 0) {
+              fallbackProduct.data.images.forEach(img => {
+                if (img.url) productImages.push(img.url);
+              });
+            }
+            setImages(productImages.length > 0 ? productImages : [fallbackProduct.data.image]);
+          }
+        } catch (fallbackError) {
+          console.error('Fallback API also failed:', fallbackError);
+        }
       }
-
-      // Check content type before parsing JSON
-      const productContentType = productResponse.headers.get('content-type');
-      const reviewsContentType = reviewsResponse.headers.get('content-type');
-      const relatedContentType = relatedResponse.headers.get('content-type');
-
-      if (!productContentType || !productContentType.includes('application/json')) {
-        throw new Error('Server returned non-JSON response for product');
-      }
-
-      const productData = await productResponse.json();
-      const reviewsData = reviewsResponse.ok && reviewsContentType?.includes('application/json') 
-        ? await reviewsResponse.json() 
-        : { reviews: [] };
-      const relatedData = relatedResponse.ok && relatedContentType?.includes('application/json')
-        ? await relatedResponse.json()
-        : { products: [] };
-
-      setProduct(productData.product);
-      setReviews(reviewsData.reviews || []);
-      setRelatedProducts(relatedData.products || []);
-      */
-
-      // Using mock data for now
-      setProduct(mockProduct);
-      setReviews(mockReviews);
-      setRelatedProducts(mockRelatedProducts);
 
     } catch (err) {
       console.error('Error fetching product data:', err);
@@ -208,92 +122,82 @@ const ProductDetail = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [id]);
+
+  useEffect(() => {
+    fetchProductData();
+  }, [fetchProductData]);
 
   const handleAddToCart = async () => {
+    if (addingToCart || !product) return;
+    
     try {
-      for (let i = 0; i < quantity; i++) {
-        addToCart(product);
-      }
+      setAddingToCart(true);
       
-      // Optional: Sync with backend
-      /*
-      await fetch('/api/cart/add', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          productId: product.id,
-          quantity: quantity
-        })
-      });
-      */
+      const cartItem = {
+        id: product._id || product.id,
+        name: product.name,
+        price: product.price,
+        image: images[0] || product.image,
+        seller: product.sellerName || product.seller?.businessName || product.seller,
+        quantity: quantity
+      };
+      
+      addToCart(cartItem);
+      
+      try {
+        await productAPI.addToCart(product._id || product.id, quantity);
+      } catch (syncError) {
+        console.warn('Failed to sync cart with backend:', syncError);
+      }
 
       alert(`${quantity} ${product.name} added to cart!`);
+      
     } catch (err) {
-      alert('Failed to add item to cart: ' + err.message);
+      console.error('Failed to add item to cart:', err);
+      alert('Failed to add item to cart');
+    } finally {
+      setAddingToCart(false);
     }
   };
 
   const handleBuyNow = async () => {
     try {
-      for (let i = 0; i < quantity; i++) {
-        addToCart(product);
-      }
-
-      /*
-      await fetch('/api/cart/add', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          productId: product.id,
-          quantity: quantity
-        })
-      });
-      */
-
+      if (!product) return;
+      
+      const cartItem = {
+        id: product._id || product.id,
+        name: product.name,
+        price: product.price,
+        image: images[0] || product.image,
+        seller: product.sellerName || product.seller?.businessName || product.seller,
+        quantity: quantity
+      };
+      
+      addToCart(cartItem);
+      
       window.location.href = '/buyer/checkout';
     } catch (err) {
-      alert('Failed to proceed to checkout: ' + err.message);
+      alert('Failed to proceed to checkout');
     }
   };
 
   const handleAddToWishlist = async () => {
     try {
-      /*
-      const response = await fetch('/api/wishlist/add', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ productId: product.id })
-      });
-
-      if (response.ok) {
-        alert('Product added to wishlist!');
-      } else {
-        throw new Error('Failed to add to wishlist');
-      }
-      */
-      
-      // Mock success for now
+      if (!product) return;
+      await productAPI.addToWishlist(product._id || product.id);
       alert('Product added to wishlist!');
     } catch (err) {
-      alert('Failed to add to wishlist: ' + err.message);
+      console.error('Failed to add to wishlist:', err);
+      alert('Failed to add to wishlist');
     }
   };
 
   const handleShareProduct = () => {
     if (navigator.share) {
       navigator.share({
-        title: product.name,
-        text: product.description,
+        title: product?.name,
+        text: product?.description,
         url: window.location.href,
       });
     } else {
@@ -303,13 +207,22 @@ const ProductDetail = () => {
   };
 
   const renderStars = (rating) => {
+    const numericRating = parseFloat(rating) || 0;
     return Array.from({ length: 5 }, (_, index) => (
       <FontAwesomeIcon
         key={index}
         icon={faStar}
-        className={index < Math.floor(rating) ? 'star-filled' : 'star-empty'}
+        className={index < Math.floor(numericRating) ? 'star-filled' : 'star-empty'}
       />
     ));
+  };
+
+  const handleImageError = (e) => {
+    e.target.src = 'https://via.placeholder.com/600x600/667eea/ffffff?text=Product+Image';
+  };
+
+  const handleThumbnailError = (e) => {
+    e.target.src = 'https://via.placeholder.com/100x100/667eea/ffffff?text=Thumb';
   };
 
   if (loading) {
@@ -317,6 +230,9 @@ const ProductDetail = () => {
       <div className="product-detail-loading">
         <FontAwesomeIcon icon={faSpinner} spin size="3x" className="loading-icon" />
         <h3>Loading product details...</h3>
+        <div className="loading-progress">
+          <div className="progress-bar"></div>
+        </div>
       </div>
     );
   }
@@ -327,12 +243,14 @@ const ProductDetail = () => {
         <FontAwesomeIcon icon={faExclamationTriangle} size="3x" className="error-icon" />
         <h3>Error Loading Product</h3>
         <p className="error-message">{error}</p>
-        <button className="retry-btn" onClick={fetchProductData}>
-          Try Again
-        </button>
-        <Link to="/buyer/products" className="back-to-products">
-          Back to Products
-        </Link>
+        <div className="error-actions">
+          <button className="btn btn-primary retry-btn" onClick={fetchProductData}>
+            Try Again
+          </button>
+          <Link to="/buyer/products" className="btn btn-outline-secondary">
+            Back to Products
+          </Link>
+        </div>
       </div>
     );
   }
@@ -340,8 +258,9 @@ const ProductDetail = () => {
   if (!product) {
     return (
       <div className="product-not-found">
+        <FontAwesomeIcon icon={faTimesCircle} size="4x" className="not-found-icon" />
         <h2>Product Not Found</h2>
-        <p>The product you're looking for doesn't exist.</p>
+        <p>The product you're looking for doesn't exist or has been removed.</p>
         <Link to="/buyer/products" className="btn btn-primary">
           Browse Products
         </Link>
@@ -349,9 +268,26 @@ const ProductDetail = () => {
     );
   }
 
+  const productData = product.data || product;
+  const productId = productData._id || productData.id;
+  const productName = productData.name;
+  const productDescription = productData.description;
+  const productPrice = productData.price;
+  const productCategory = productData.category;
+  const productSeller = productData.sellerName || productData.seller?.businessName || productData.seller?.name || 'Unknown Seller';
+  const productSellerId = productData.seller?._id || productData.sellerId;
+  const productRating = productData.averageRating || productData.rating || 0;
+  const productReviewsCount = productData.reviews?.length || productData.reviews || 0;
+  const productStock = productData.stock || 0;
+  const productFeatures = productData.features || [];
+  const productSpecifications = productData.specifications || {};
+  const productFullDescription = productData.fullDescription || productData.description;
+  const isInStock = productStock > 0;
+  const originalPrice = productData.originalPrice || productData.price * 1.2;
+  const discount = productData.discount || Math.round((1 - productPrice / originalPrice) * 100);
+
   return (
     <div className="product-detail">
-      {/* Breadcrumb */}
       <nav className="breadcrumb-nav">
         <div className="container">
           <ol className="breadcrumb">
@@ -362,48 +298,48 @@ const ProductDetail = () => {
               </Link>
             </li>
             <li className="breadcrumb-item">
-              <Link to={`/buyer/products?category=${product.category}`}>
-                {product.category}
+              <Link to={`/buyer/products?category=${productCategory}`}>
+                {productCategory?.charAt(0).toUpperCase() + productCategory?.slice(1) || 'Category'}
               </Link>
             </li>
-            <li className="breadcrumb-item active">{product.name}</li>
+            <li className="breadcrumb-item active">{productName}</li>
           </ol>
         </div>
       </nav>
 
       <div className="container">
         <div className="product-main">
-          {/* Product Images */}
           <div className="product-gallery">
             <div className="main-image">
               <img 
-                src={product.images?.[selectedImage] || product.image} 
-                alt={product.name}
+                src={images[selectedImage] || productData.image || 'https://via.placeholder.com/600x600/667eea/ffffff?text=Product+Image'} 
+                alt={productName}
                 className="product-image"
-                onError={(e) => {
-                  e.target.src = 'https://via.placeholder.com/600x600/667eea/ffffff?text=Product+Image';
-                }}
+                onError={handleImageError}
+                loading="lazy"
               />
-              {product.isNew && <span className="product-badge new">New</span>}
-              {product.discount > 0 && (
-                <span className="product-badge discount">-{product.discount}%</span>
+              {discount > 0 && (
+                <span className="product-badge discount">-{discount}%</span>
+              )}
+              {!isInStock && (
+                <span className="product-badge out-of-stock">Out of Stock</span>
               )}
             </div>
             
-            {product.images && product.images.length > 1 && (
+            {images.length > 1 && (
               <div className="image-thumbnails">
-                {product.images.map((image, index) => (
+                {images.map((image, index) => (
                   <button
                     key={index}
                     className={`thumbnail ${selectedImage === index ? 'active' : ''}`}
                     onClick={() => setSelectedImage(index)}
+                    aria-label={`View image ${index + 1}`}
                   >
                     <img 
                       src={image} 
-                      alt={`${product.name} ${index + 1}`}
-                      onError={(e) => {
-                        e.target.src = 'https://via.placeholder.com/100x100/667eea/ffffff?text=Thumb';
-                      }}
+                      alt={`${productName} ${index + 1}`}
+                      onError={handleThumbnailError}
+                      loading="lazy"
                     />
                   </button>
                 ))}
@@ -411,15 +347,22 @@ const ProductDetail = () => {
             )}
           </div>
 
-          {/* Product Info */}
           <div className="product-info">
             <div className="product-header">
-              <h1 className="product-title">{product.name}</h1>
+              <h1 className="product-title">{productName}</h1>
               <div className="product-actions">
-                <button className="action-btn wishlist-btn" onClick={handleAddToWishlist}>
+                <button 
+                  className="action-btn wishlist-btn" 
+                  onClick={handleAddToWishlist}
+                  aria-label="Add to wishlist"
+                >
                   <FontAwesomeIcon icon={faHeart} />
                 </button>
-                <button className="action-btn share-btn" onClick={handleShareProduct}>
+                <button 
+                  className="action-btn share-btn" 
+                  onClick={handleShareProduct}
+                  aria-label="Share product"
+                >
                   <FontAwesomeIcon icon={faShare} />
                 </button>
               </div>
@@ -428,43 +371,49 @@ const ProductDetail = () => {
             <div className="product-meta">
               <div className="seller-info">
                 <span className="seller-label">Sold by:</span>
-                <Link to={`/seller/${product.sellerId}`} className="seller-name">
-                  {product.seller}
-                </Link>
+                {productSellerId ? (
+                  <Link to={`/seller/${productSellerId}`} className="seller-name">
+                    {productSeller}
+                  </Link>
+                ) : (
+                  <span className="seller-name">{productSeller}</span>
+                )}
                 <div className="seller-rating">
-                  {renderStars(product.sellerRating)}
-                  <span>({product.sellerReviews} reviews)</span>
+                  {renderStars(productData.seller?.rating || 4.5)}
+                  <span>({productData.seller?.reviews || 0} reviews)</span>
                 </div>
               </div>
             </div>
 
             <div className="product-rating-overview">
               <div className="rating-score">
-                <span className="score">{product.rating}</span>
-                <div className="stars">{renderStars(product.rating)}</div>
-                <span className="reviews-count">({product.reviews} reviews)</span>
+                <span className="score">{productRating.toFixed(1)}</span>
+                <div className="stars">{renderStars(productRating)}</div>
+                <span className="reviews-count">({productReviewsCount} reviews)</span>
               </div>
             </div>
 
             <div className="product-pricing">
-              <div className="current-price">${product.price}</div>
-              {product.originalPrice && product.originalPrice > product.price && (
-                <div className="original-price">${product.originalPrice}</div>
+              <div className="current-price">${productPrice.toFixed(2)}</div>
+              {originalPrice > productPrice && (
+                <div className="original-price">${originalPrice.toFixed(2)}</div>
               )}
-              {product.discount > 0 && (
-                <div className="savings">Save ${(product.originalPrice - product.price).toFixed(2)}</div>
+              {discount > 0 && (
+                <div className="savings">
+                  Save ${(originalPrice - productPrice).toFixed(2)} ({discount}% off)
+                </div>
               )}
             </div>
 
             <div className="product-description">
-              <p>{product.description}</p>
+              <p>{productDescription}</p>
             </div>
 
-            {product.features && product.features.length > 0 && (
+            {productFeatures.length > 0 && (
               <div className="product-features">
                 <h4>Key Features</h4>
                 <ul>
-                  {product.features.map((feature, index) => (
+                  {productFeatures.map((feature, index) => (
                     <li key={index}>
                       <FontAwesomeIcon icon={faBolt} className="feature-icon" />
                       {feature}
@@ -474,7 +423,6 @@ const ProductDetail = () => {
               </div>
             )}
 
-            {/* Shipping & Returns */}
             <div className="product-benefits">
               <div className="benefit-item">
                 <FontAwesomeIcon icon={faTruck} className="benefit-icon" />
@@ -499,9 +447,8 @@ const ProductDetail = () => {
               </div>
             </div>
 
-            {/* Add to Cart Section */}
             <div className="purchase-section">
-              {product.inStock ? (
+              {isInStock ? (
                 <>
                   <div className="quantity-selector">
                     <label htmlFor="quantity">Quantity:</label>
@@ -510,25 +457,37 @@ const ProductDetail = () => {
                       value={quantity}
                       onChange={(e) => setQuantity(parseInt(e.target.value))}
                       className="quantity-dropdown"
+                      disabled={addingToCart}
                     >
-                      {Array.from({ length: Math.min(product.stock, 10) }, (_, i) => (
+                      {Array.from({ length: Math.min(productStock, 10) }, (_, i) => (
                         <option key={i + 1} value={i + 1}>{i + 1}</option>
                       ))}
                     </select>
-                    <span className="stock-info">{product.stock} in stock</span>
+                    <span className="stock-info">{productStock} in stock</span>
                   </div>
 
                   <div className="action-buttons">
                     <button 
-                      className="btn btn-primary add-to-cart-btn"
+                      className={`btn btn-primary add-to-cart-btn ${addingToCart ? 'loading' : ''}`}
                       onClick={handleAddToCart}
+                      disabled={addingToCart}
                     >
-                      <FontAwesomeIcon icon={faShoppingCart} className="me-2" />
-                      Add to Cart
+                      {addingToCart ? (
+                        <>
+                          <FontAwesomeIcon icon={faSpinner} spin className="me-2" />
+                          Adding...
+                        </>
+                      ) : (
+                        <>
+                          <FontAwesomeIcon icon={faShoppingCart} className="me-2" />
+                          Add to Cart
+                        </>
+                      )}
                     </button>
                     <button 
                       className="btn btn-success buy-now-btn"
                       onClick={handleBuyNow}
+                      disabled={addingToCart}
                     >
                       Buy Now
                     </button>
@@ -548,20 +507,19 @@ const ProductDetail = () => {
           </div>
         </div>
 
-        {/* Product Details Tabs */}
         <div className="product-tabs">
           <div className="tab-content">
             <div className="tab-panel active" id="description">
               <h3>Product Description</h3>
               <div className="description-content">
-                {product.fullDescription || product.description}
+                {productFullDescription}
               </div>
               
-              {product.specifications && (
+              {Object.keys(productSpecifications).length > 0 && (
                 <div className="specifications">
                   <h4>Specifications</h4>
                   <div className="specs-grid">
-                    {Object.entries(product.specifications).map(([key, value]) => (
+                    {Object.entries(productSpecifications).map(([key, value]) => (
                       <div key={key} className="spec-item">
                         <span className="spec-label">{key}:</span>
                         <span className="spec-value">{value}</span>
@@ -574,26 +532,25 @@ const ProductDetail = () => {
           </div>
         </div>
 
-        {/* Reviews Section */}
         {reviews.length > 0 && (
           <div className="reviews-section">
             <h2>Customer Reviews</h2>
             <div className="reviews-summary">
               <div className="overall-rating">
                 <div className="rating-score-large">
-                  <span className="score">{product.rating}</span>
-                  <div className="stars">{renderStars(product.rating)}</div>
-                  <span className="reviews-count">{product.reviews} reviews</span>
+                  <span className="score">{productRating.toFixed(1)}</span>
+                  <div className="stars">{renderStars(productRating)}</div>
+                  <span className="reviews-count">{productReviewsCount} reviews</span>
                 </div>
               </div>
               
               <div className="reviews-list">
-                {reviews.slice(0, 5).map(review => (
-                  <div key={review.id} className="review-item">
+                {reviews.slice(0, 5).map((review, index) => (
+                  <div key={review._id || index} className="review-item">
                     <div className="review-header">
                       <div className="reviewer-info">
                         <FontAwesomeIcon icon={faUser} className="user-icon" />
-                        <span className="reviewer-name">{review.userName}</span>
+                        <span className="reviewer-name">{review.user?.name || review.userName || 'Anonymous'}</span>
                       </div>
                       <div className="review-meta">
                         <div className="review-rating">
@@ -601,13 +558,13 @@ const ProductDetail = () => {
                         </div>
                         <span className="review-date">
                           <FontAwesomeIcon icon={faCalendar} className="me-1" />
-                          {new Date(review.date).toLocaleDateString()}
+                          {new Date(review.createdAt || review.date).toLocaleDateString()}
                         </span>
                       </div>
                     </div>
                     <div className="review-content">
-                      <h4>{review.title}</h4>
-                      <p>{review.comment}</p>
+                      <h4>{review.title || 'Customer Review'}</h4>
+                      <p>{review.comment || review.review || 'No review text provided.'}</p>
                     </div>
                   </div>
                 ))}
@@ -616,7 +573,7 @@ const ProductDetail = () => {
             
             {reviews.length > 5 && (
               <div className="text-center mt-4">
-                <Link to={`/buyer/products/${id}/reviews`} className="btn btn-outline-primary">
+                <Link to={`/buyer/products/${productId}/reviews`} className="btn btn-outline-primary">
                   View All Reviews
                 </Link>
               </div>
@@ -624,25 +581,23 @@ const ProductDetail = () => {
           </div>
         )}
 
-        {/* Related Products */}
         {relatedProducts.length > 0 && (
           <div className="related-products">
             <h2>Related Products</h2>
             <div className="related-products-grid">
               {relatedProducts.map(relatedProduct => (
-                <div key={relatedProduct.id} className="related-product-card">
-                  <Link to={`/buyer/products/${relatedProduct.id}`}>
+                <div key={relatedProduct._id || relatedProduct.id} className="related-product-card">
+                  <Link to={`/buyer/products/${relatedProduct._id || relatedProduct.id}`}>
                     <img 
-                      src={relatedProduct.image} 
+                      src={relatedProduct.images?.[0]?.url || relatedProduct.image || 'https://via.placeholder.com/300x300/667eea/ffffff?text=Product'} 
                       alt={relatedProduct.name}
                       className="related-product-image"
-                      onError={(e) => {
-                        e.target.src = 'https://via.placeholder.com/300x300/667eea/ffffff?text=Product+Image';
-                      }}
+                      onError={handleImageError}
+                      loading="lazy"
                     />
                     <div className="related-product-info">
                       <h4>{relatedProduct.name}</h4>
-                      <div className="related-product-price">${relatedProduct.price}</div>
+                      <div className="related-product-price">${relatedProduct.price?.toFixed(2)}</div>
                     </div>
                   </Link>
                 </div>
