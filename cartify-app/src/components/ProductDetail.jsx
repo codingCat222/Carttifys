@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useCart } from '../contexts/CartContext';
 import './ProductDetail.css';
-import { productAPI, buyerAPI } from '../services/Api';
+import { buyerAPI, productAPI, orderAPI } from '../services/Api';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
   faStar,
@@ -39,83 +39,66 @@ const ProductDetail = () => {
     try {
       setLoading(true);
       setError(null);
-
-      try {
-        const [productData, relatedData] = await Promise.all([
-          productAPI.getProductDetails(id),
-          buyerAPI.getProducts({ 
-            category: product?.category, 
-            limit: 4, 
-            excludeId: id 
-          })
-        ]);
-
-        setProduct(productData);
-        
-        if (productData.data) {
-          const product = productData.data;
-          
-          const productImages = [];
-          if (product.images && product.images.length > 0) {
-            product.images.forEach(image => {
-              if (image.data) {
-                productImages.push(`/api/products/${id}/image/${image._id}`);
-              } else if (image.url) {
-                productImages.push(image.url);
-              } else if (image.path) {
-                productImages.push(`https://carttifys-1.onrender.com${image.path}`);
-              }
-            });
-          }
-          
-          if (productImages.length === 0 && product.image) {
-            productImages.push(product.image);
-          }
-          
-          setImages(productImages);
-          
-          const relatedProductsData = relatedData.data || relatedData || [];
-          setRelatedProducts(relatedProductsData);
-          
-          if (product.reviews && product.reviews.length > 0) {
-            setReviews(product.reviews);
-          } else {
-            try {
-              const reviewsResponse = await productAPI.getProductReviews(id);
-              if (reviewsResponse.data) {
-                setReviews(reviewsResponse.data);
-              } else {
-                setReviews([]);
-              }
-            } catch (reviewsError) {
-              console.warn('Could not fetch reviews:', reviewsError);
-              setReviews([]);
-            }
-          }
-        }
-
-      } catch (apiError) {
-        console.error('API Error:', apiError);
-        setError(apiError.message || 'Failed to load product details from the server.');
-        
-        try {
-          const fallbackProduct = await buyerAPI.getProductById(id);
-          if (fallbackProduct.data) {
-            setProduct(fallbackProduct.data);
-            
-            const productImages = [];
-            if (fallbackProduct.data.images && fallbackProduct.data.images.length > 0) {
-              fallbackProduct.data.images.forEach(img => {
-                if (img.url) productImages.push(img.url);
-              });
-            }
-            setImages(productImages.length > 0 ? productImages : [fallbackProduct.data.image]);
-          }
-        } catch (fallbackError) {
-          console.error('Fallback API also failed:', fallbackError);
-        }
+      
+      const productResponse = await buyerAPI.getProductDetails(id);
+      
+      if (!productResponse.success) {
+        throw new Error(productResponse.message || 'Failed to load product');
       }
-
+      
+      const productData = productResponse.data;
+      setProduct(productData);
+      
+      const productImages = [];
+      if (productData.images && productData.images.length > 0) {
+        productData.images.forEach(image => {
+          if (image.data) {
+            productImages.push(`https://carttifys-1.onrender.com/api/products/${id}/image/${image._id}`);
+          } else if (image.url) {
+            productImages.push(image.url);
+          } else if (image.path) {
+            productImages.push(`https://carttifys-1.onrender.com${image.path}`);
+          } else if (typeof image === 'string') {
+            productImages.push(image);
+          }
+        });
+      }
+      
+      if (productImages.length === 0 && productData.image) {
+        productImages.push(productData.image);
+      }
+      
+      if (productImages.length === 0) {
+        productImages.push('https://via.placeholder.com/600x600/667eea/ffffff?text=Product+Image');
+      }
+      
+      setImages(productImages);
+      
+      if (productData.reviews && productData.reviews.length > 0) {
+        setReviews(productData.reviews);
+      } else {
+        setReviews([]);
+      }
+      
+      try {
+        const category = productData.category || 'all';
+        const relatedResponse = await buyerAPI.getProducts({
+          category: category,
+          limit: 4,
+          page: 1
+        });
+        
+        if (relatedResponse.success && relatedResponse.data) {
+          const filteredRelated = relatedResponse.data.filter(p => 
+            p.id !== id && p._id !== id
+          ).slice(0, 4);
+          setRelatedProducts(filteredRelated);
+        }
+      } catch (relatedError) {
+        console.warn('Could not fetch related products:', relatedError);
+        setRelatedProducts([]);
+      }
+      
     } catch (err) {
       console.error('Error fetching product data:', err);
       setError(err.message || 'Failed to load product details. Please try again.');
@@ -185,7 +168,24 @@ const ProductDetail = () => {
   const handleAddToWishlist = async () => {
     try {
       if (!product) return;
-      await productAPI.addToWishlist(product._id || product.id);
+      
+      const token = localStorage.getItem('token');
+      if (!token) {
+        window.location.href = '/auth/login';
+        return;
+      }
+      
+      await fetch('https://carttifys-1.onrender.com/api/buyer/wishlist', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          productId: product._id || product.id
+        })
+      });
+      
       alert('Product added to wishlist!');
     } catch (err) {
       console.error('Failed to add to wishlist:', err);
@@ -223,6 +223,14 @@ const ProductDetail = () => {
 
   const handleThumbnailError = (e) => {
     e.target.src = 'https://via.placeholder.com/100x100/667eea/ffffff?text=Thumb';
+  };
+
+  const handleQuantityChange = (value) => {
+    const numValue = parseInt(value);
+    if (!isNaN(numValue) && numValue > 0) {
+      const maxQuantity = product ? Math.min(product.stock || 10, 10) : 1;
+      setQuantity(Math.min(numValue, maxQuantity));
+    }
   };
 
   if (loading) {
@@ -268,23 +276,22 @@ const ProductDetail = () => {
     );
   }
 
-  const productData = product.data || product;
-  const productId = productData._id || productData.id;
-  const productName = productData.name;
-  const productDescription = productData.description;
-  const productPrice = productData.price;
-  const productCategory = productData.category;
-  const productSeller = productData.sellerName || productData.seller?.businessName || productData.seller?.name || 'Unknown Seller';
-  const productSellerId = productData.seller?._id || productData.sellerId;
-  const productRating = productData.averageRating || productData.rating || 0;
-  const productReviewsCount = productData.reviews?.length || productData.reviews || 0;
-  const productStock = productData.stock || 0;
-  const productFeatures = productData.features || [];
-  const productSpecifications = productData.specifications || {};
-  const productFullDescription = productData.fullDescription || productData.description;
+  const productId = product._id || product.id;
+  const productName = product.name || 'Unnamed Product';
+  const productDescription = product.description || 'No description available';
+  const productPrice = parseFloat(product.price) || 0;
+  const productCategory = product.category || 'uncategorized';
+  const productSeller = product.sellerName || product.seller?.businessName || product.seller?.name || 'Unknown Seller';
+  const productSellerId = product.seller?._id || product.sellerId;
+  const productRating = parseFloat(product.averageRating) || parseFloat(product.rating) || 0;
+  const productReviewsCount = product.reviews?.length || product.reviews || 0;
+  const productStock = parseInt(product.stock) || 0;
+  const productFeatures = Array.isArray(product.features) ? product.features : [];
+  const productSpecifications = product.specifications || {};
+  const productFullDescription = product.fullDescription || product.description || 'No detailed description available.';
   const isInStock = productStock > 0;
-  const originalPrice = productData.originalPrice || productData.price * 1.2;
-  const discount = productData.discount || Math.round((1 - productPrice / originalPrice) * 100);
+  const originalPrice = parseFloat(product.originalPrice) || productPrice * 1.2;
+  const discount = product.discount || (originalPrice > productPrice ? Math.round((1 - productPrice / originalPrice) * 100) : 0);
 
   return (
     <div className="product-detail">
@@ -299,7 +306,7 @@ const ProductDetail = () => {
             </li>
             <li className="breadcrumb-item">
               <Link to={`/buyer/products?category=${productCategory}`}>
-                {productCategory?.charAt(0).toUpperCase() + productCategory?.slice(1) || 'Category'}
+                {productCategory.charAt(0).toUpperCase() + productCategory.slice(1)}
               </Link>
             </li>
             <li className="breadcrumb-item active">{productName}</li>
@@ -312,7 +319,7 @@ const ProductDetail = () => {
           <div className="product-gallery">
             <div className="main-image">
               <img 
-                src={images[selectedImage] || productData.image || 'https://via.placeholder.com/600x600/667eea/ffffff?text=Product+Image'} 
+                src={images[selectedImage]} 
                 alt={productName}
                 className="product-image"
                 onError={handleImageError}
@@ -379,8 +386,8 @@ const ProductDetail = () => {
                   <span className="seller-name">{productSeller}</span>
                 )}
                 <div className="seller-rating">
-                  {renderStars(productData.seller?.rating || 4.5)}
-                  <span>({productData.seller?.reviews || 0} reviews)</span>
+                  {renderStars(product.seller?.rating || 4.5)}
+                  <span>({product.seller?.reviews || 0} reviews)</span>
                 </div>
               </div>
             </div>
@@ -452,17 +459,32 @@ const ProductDetail = () => {
                 <>
                   <div className="quantity-selector">
                     <label htmlFor="quantity">Quantity:</label>
-                    <select 
-                      id="quantity"
-                      value={quantity}
-                      onChange={(e) => setQuantity(parseInt(e.target.value))}
-                      className="quantity-dropdown"
-                      disabled={addingToCart}
-                    >
-                      {Array.from({ length: Math.min(productStock, 10) }, (_, i) => (
-                        <option key={i + 1} value={i + 1}>{i + 1}</option>
-                      ))}
-                    </select>
+                    <div className="quantity-controls">
+                      <button 
+                        className="quantity-btn minus"
+                        onClick={() => handleQuantityChange(quantity - 1)}
+                        disabled={quantity <= 1 || addingToCart}
+                      >
+                        -
+                      </button>
+                      <input
+                        type="number"
+                        id="quantity"
+                        value={quantity}
+                        onChange={(e) => handleQuantityChange(e.target.value)}
+                        min="1"
+                        max={Math.min(productStock, 10)}
+                        className="quantity-input"
+                        disabled={addingToCart}
+                      />
+                      <button 
+                        className="quantity-btn plus"
+                        onClick={() => handleQuantityChange(quantity + 1)}
+                        disabled={quantity >= Math.min(productStock, 10) || addingToCart}
+                      >
+                        +
+                      </button>
+                    </div>
                     <span className="stock-info">{productStock} in stock</span>
                   </div>
 
@@ -470,7 +492,7 @@ const ProductDetail = () => {
                     <button 
                       className={`btn btn-primary add-to-cart-btn ${addingToCart ? 'loading' : ''}`}
                       onClick={handleAddToCart}
-                      disabled={addingToCart}
+                      disabled={addingToCart || !isInStock}
                     >
                       {addingToCart ? (
                         <>
@@ -487,7 +509,7 @@ const ProductDetail = () => {
                     <button 
                       className="btn btn-success buy-now-btn"
                       onClick={handleBuyNow}
-                      disabled={addingToCart}
+                      disabled={addingToCart || !isInStock}
                     >
                       Buy Now
                     </button>
@@ -554,11 +576,11 @@ const ProductDetail = () => {
                       </div>
                       <div className="review-meta">
                         <div className="review-rating">
-                          {renderStars(review.rating)}
+                          {renderStars(review.rating || 0)}
                         </div>
                         <span className="review-date">
                           <FontAwesomeIcon icon={faCalendar} className="me-1" />
-                          {new Date(review.createdAt || review.date).toLocaleDateString()}
+                          {new Date(review.createdAt || review.date || Date.now()).toLocaleDateString()}
                         </span>
                       </div>
                     </div>
@@ -589,7 +611,7 @@ const ProductDetail = () => {
                 <div key={relatedProduct._id || relatedProduct.id} className="related-product-card">
                   <Link to={`/buyer/products/${relatedProduct._id || relatedProduct.id}`}>
                     <img 
-                      src={relatedProduct.images?.[0]?.url || relatedProduct.image || 'https://via.placeholder.com/300x300/667eea/ffffff?text=Product'} 
+                      src={relatedProduct.image || relatedProduct.images?.[0] || 'https://via.placeholder.com/300x300/667eea/ffffff?text=Product'} 
                       alt={relatedProduct.name}
                       className="related-product-image"
                       onError={handleImageError}
