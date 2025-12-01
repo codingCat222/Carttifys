@@ -15,9 +15,8 @@ app.use(cors({
     'http://localhost:5173', 
     'http://localhost:5174',
     'https://carttifys-oous.vercel.app',
-    'https://www.cartifymarket.com.ng',
-    'https://cartifymarket.com.ng', // Add both www and non-www
-    'https://carttifys.onrender.com'
+    'https://*.vercel.app',
+    'https://www.cartifymarket.com.ng'
   ],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
@@ -393,6 +392,285 @@ app.post('/api/seller/products', upload.array('media', 10), async (req, res) => 
   }
 });
 
+// ✅ ADD THIS: Base64 Image Product Creation Endpoint
+app.post('/api/seller/products/base64', async (req, res) => {
+  try {
+    const User = require('./models/User');
+    const Product = require('./models/Product');
+
+    console.log('🔄 Processing base64 product creation...');
+    
+    const seller = await User.findOne({ role: 'seller' });
+    
+    if (!seller) {
+      return res.status(404).json({
+        success: false,
+        message: 'Seller not found'
+      });
+    }
+
+    const {
+      name,
+      description,
+      price,
+      category,
+      stock,
+      features,
+      images,
+      videos
+    } = req.body;
+
+    console.log('📦 Product data received:', {
+      name,
+      category,
+      price,
+      stock,
+      imagesCount: images ? images.length : 0,
+      videosCount: videos ? videos.length : 0
+    });
+
+    // Validate required fields
+    if (!name || !description || !price || !category || !stock) {
+      return res.status(400).json({
+        success: false,
+        message: 'All required fields must be provided'
+      });
+    }
+
+    // Validate images
+    if (!images || images.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'At least one product image is required'
+      });
+    }
+
+    // ✅ FIXED: Process base64 images properly
+    const processedImages = images.map((image, index) => {
+      // If image is in correct format { data, contentType }
+      if (image.data && image.contentType) {
+        return {
+          data: image.data, // Pure base64 string from frontend
+          contentType: image.contentType,
+          _id: new mongoose.Types.ObjectId()
+        };
+      }
+      
+      return null;
+    }).filter(img => img !== null);
+
+    if (processedImages.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'No valid images provided'
+      });
+    }
+
+    // ✅ FIXED: Process base64 videos properly
+    const processedVideos = videos ? videos.map((video, index) => {
+      if (video.data && video.contentType) {
+        return {
+          data: video.data,
+          contentType: video.contentType,
+          name: video.name || `video_${index + 1}`,
+          size: video.size || 0,
+          _id: new mongoose.Types.ObjectId()
+        };
+      }
+      return null;
+    }).filter(vid => vid !== null) : [];
+
+    // Create product with processed data
+    const product = new Product({
+      name: name.trim(),
+      description: description.trim(),
+      price: parseFloat(price),
+      category: category.toLowerCase(),
+      stock: parseInt(stock),
+      features: Array.isArray(features) ? features.filter(f => f.trim() !== '') : [],
+      images: processedImages,
+      videos: processedVideos,
+      seller: seller._id,
+      sellerId: seller._id,
+      status: 'active'
+    });
+
+    await product.save();
+
+    console.log('✅ Product created successfully with base64 images:', product._id);
+
+    res.status(201).json({
+      success: true,
+      message: 'Product created successfully with real images/videos!',
+      data: product
+    });
+
+  } catch (error) {
+    console.error('❌ Error creating product with base64:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error while creating product',
+      error: error.message
+    });
+  }
+});
+
+// ✅ ADD THIS: Image Serving Endpoint for Base64 Images
+app.get('/api/products/:productId/image/:imageId', async (req, res) => {
+  try {
+    const Product = require('./models/Product');
+    const { productId, imageId } = req.params;
+
+    console.log('🔄 Serving image:', { productId, imageId });
+
+    // Validate ObjectId
+    if (!mongoose.Types.ObjectId.isValid(productId) || !mongoose.Types.ObjectId.isValid(imageId)) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Invalid product or image ID' 
+      });
+    }
+
+    const product = await Product.findById(productId);
+    if (!product) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Product not found' 
+      });
+    }
+
+    const image = product.images.id(imageId);
+    if (!image || !image.data) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Image not found' 
+      });
+    }
+
+    // Convert base64 to buffer
+    const imageBuffer = Buffer.from(image.data, 'base64');
+    
+    // Set appropriate headers
+    res.set({
+      'Content-Type': image.contentType || 'image/jpeg',
+      'Content-Length': imageBuffer.length,
+      'Cache-Control': 'public, max-age=31536000',
+      'Access-Control-Allow-Origin': '*'
+    });
+
+    res.send(imageBuffer);
+
+  } catch (error) {
+    console.error('❌ Error serving image:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Error serving image' 
+    });
+  }
+});
+
+// ✅ ADD THIS: Video Serving Endpoint for Base64 Videos
+app.get('/api/products/:productId/video/:videoId', async (req, res) => {
+  try {
+    const Product = require('./models/Product');
+    const { productId, videoId } = req.params;
+
+    console.log('🔄 Serving video:', { productId, videoId });
+
+    // Validate ObjectId
+    if (!mongoose.Types.ObjectId.isValid(productId) || !mongoose.Types.ObjectId.isValid(videoId)) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Invalid product or video ID' 
+      });
+    }
+
+    const product = await Product.findById(productId);
+    if (!product) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Product not found' 
+      });
+    }
+
+    const video = product.videos.id(videoId);
+    if (!video || !video.data) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Video not found' 
+      });
+    }
+
+    // Convert base64 to buffer
+    const videoBuffer = Buffer.from(video.data, 'base64');
+    
+    // Set appropriate headers
+    res.set({
+      'Content-Type': video.contentType || 'video/mp4',
+      'Content-Length': videoBuffer.length,
+      'Cache-Control': 'public, max-age=31536000',
+      'Access-Control-Allow-Origin': '*',
+      'Accept-Ranges': 'bytes'
+    });
+
+    res.send(videoBuffer);
+
+  } catch (error) {
+    console.error('❌ Error serving video:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Error serving video' 
+    });
+  }
+});
+
+// ✅ ADD THIS: Get product images and videos as base64
+app.get('/api/products/:productId/media', async (req, res) => {
+  try {
+    const Product = require('./models/Product');
+    const { productId } = req.params;
+
+    const product = await Product.findById(productId)
+      .select('images videos');
+
+    if (!product) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Product not found' 
+      });
+    }
+
+    const media = {
+      images: product.images.map(img => ({
+        id: img._id,
+        data: img.data ? `data:${img.contentType};base64,${img.data}` : null,
+        contentType: img.contentType,
+        url: img.data ? `/api/products/${productId}/image/${img._id}` : null
+      })),
+      videos: product.videos.map(vid => ({
+        id: vid._id,
+        data: vid.data ? `data:${vid.contentType};base64,${vid.data}` : null,
+        contentType: vid.contentType,
+        name: vid.name,
+        size: vid.size,
+        url: vid.data ? `/api/products/${productId}/video/${vid._id}` : null
+      }))
+    };
+
+    res.json({
+      success: true,
+      data: media
+    });
+
+  } catch (error) {
+    console.error('❌ Error fetching product media:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Error fetching product media' 
+    });
+  }
+});
+
 // ✅ GET UPLOADED FILES
 app.get('/api/uploads/:filename', (req, res) => {
   try {
@@ -505,7 +783,7 @@ app.get('/api/products', async (req, res) => {
         stock: product.stock,
         seller: product.seller?.businessName || product.seller?.name,
         image: product.images && product.images[0] ? 
-          (product.images[0].data ? `data:${product.images[0].contentType};base64,${product.images[0].data}` : 'https://via.placeholder.com/300') 
+          (product.images[0].data ? `/api/products/${product._id}/image/${product.images[0]._id}` : 'https://via.placeholder.com/300') 
           : 'https://via.placeholder.com/300',
         averageRating: product.averageRating
       }))
@@ -532,11 +810,25 @@ app.get('/api/products/:id', async (req, res) => {
       });
     }
 
+    // Transform images to include URLs
+    const transformedProduct = product.toObject();
+    transformedProduct.images = transformedProduct.images.map(img => ({
+      ...img,
+      url: img.data ? `/api/products/${product._id}/image/${img._id}` : null,
+      data: undefined // Remove base64 data from response
+    }));
+    
+    transformedProduct.videos = transformedProduct.videos.map(vid => ({
+      ...vid,
+      url: vid.data ? `/api/products/${product._id}/video/${vid._id}` : null,
+      data: undefined // Remove base64 data from response
+    }));
+
     res.json({
       success: true,
       data: {
-        ...product.toObject(),
-        sellerName: product.seller?.businessName || product.seller?.name
+        ...transformedProduct,
+        sellerName: transformedProduct.seller?.businessName || transformedProduct.seller?.name
       }
     });
   } catch (error) {
@@ -771,7 +1063,7 @@ app.get('/api/buyer/dashboard', async (req, res) => {
           category: product.category,
           seller: product.seller?.businessName || product.seller?.name,
           image: product.images && product.images[0] ? 
-            (product.images[0].data ? `data:${product.images[0].contentType};base64,${product.images[0].data}` : 'https://via.placeholder.com/150') 
+            (product.images[0].data ? `/api/products/${product._id}/image/${product.images[0]._id}` : 'https://via.placeholder.com/150') 
             : 'https://via.placeholder.com/150',
           stock: product.stock,
           rating: product.averageRating
@@ -846,12 +1138,21 @@ app.get('/api/buyer/products', async (req, res) => {
         stock: product.stock,
         seller: product.seller?.businessName || product.seller?.name,
         sellerId: product.seller?._id,
-        images: product.images,
+        images: product.images.map(img => ({
+          ...img.toObject(),
+          url: img.data ? `/api/products/${product._id}/image/${img._id}` : null,
+          data: undefined
+        })),
+        videos: product.videos.map(vid => ({
+          ...vid.toObject(),
+          url: vid.data ? `/api/products/${product._id}/video/${vid._id}` : null,
+          data: undefined
+        })),
         features: product.features,
         averageRating: product.averageRating,
         createdAt: product.createdAt,
         image: product.images && product.images[0] ? 
-          (product.images[0].data ? `data:${product.images[0].contentType};base64,${product.images[0].data}` : 'https://via.placeholder.com/300') 
+          (product.images[0].data ? `/api/products/${product._id}/image/${product.images[0]._id}` : 'https://via.placeholder.com/300') 
           : 'https://via.placeholder.com/300'
       })),
       pagination: {
@@ -887,14 +1188,26 @@ app.get('/api/buyer/products/:id', async (req, res) => {
       });
     }
 
+    // Transform media URLs
+    const productData = product.toObject();
+    productData.images = productData.images.map(img => ({
+      ...img,
+      url: img.data ? `/api/products/${product._id}/image/${img._id}` : null,
+      data: undefined
+    }));
+    productData.videos = productData.videos.map(vid => ({
+      ...vid,
+      url: vid.data ? `/api/products/${product._id}/video/${vid._id}` : null,
+      data: undefined
+    }));
+
     res.json({
       success: true,
       data: {
-        ...product.toObject(),
-        image: product.images && product.images[0] ? 
-          (product.images[0].data ? `data:${product.images[0].contentType};base64,${product.images[0].data}` : 'https://via.placeholder.com/400') 
-          : 'https://via.placeholder.com/400',
-        sellerName: product.seller?.businessName || product.seller?.name
+        ...productData,
+        image: productData.images && productData.images[0] ? 
+          productData.images[0].url : 'https://via.placeholder.com/400',
+        sellerName: productData.seller?.businessName || productData.seller?.name
       }
     });
   } catch (error) {
@@ -956,7 +1269,7 @@ app.get('/api/buyer/orders', async (req, res) => {
           quantity: item.quantity,
           price: item.price,
           image: item.product?.images && item.product.images[0] ? 
-            (item.product.images[0].data ? `data:${item.product.images[0].contentType};base64,${item.product.images[0].data}` : 'https://via.placeholder.com/80') 
+            (item.product.images[0].data ? `/api/products/${item.product._id}/image/${item.product.images[0]._id}` : 'https://via.placeholder.com/80') 
             : 'https://via.placeholder.com/80'
         })),
         totalAmount: order.totalAmount,
@@ -1257,7 +1570,7 @@ app.get('/api/buyer/products/search', async (req, res) => {
         seller: product.seller?.businessName || product.seller?.name,
         stock: product.stock,
         image: product.images && product.images[0] ? 
-          (product.images[0].data ? `data:${product.images[0].contentType};base64,${product.images[0].data}` : 'https://via.placeholder.com/150') 
+          (product.images[0].data ? `/api/products/${product._id}/image/${product.images[0]._id}` : 'https://via.placeholder.com/150') 
           : 'https://via.placeholder.com/150'
       })),
       pagination: {
@@ -1370,7 +1683,7 @@ app.get('/api/seller/dashboard', async (req, res) => {
           growth: '+12%',
           rating: 4.5,
           image: product.images && product.images[0] ? 
-            (product.images[0].data ? `data:${product.images[0].contentType};base64,${product.images[0].data}` : 'https://via.placeholder.com/100') 
+            (product.images[0].data ? `/api/products/${product._id}/image/${product.images[0]._id}` : 'https://via.placeholder.com/100') 
             : 'https://via.placeholder.com/100'
         }))
       }
@@ -1535,7 +1848,7 @@ app.get('/api/seller/products', async (req, res) => {
           price: product.price,
           category: product.category,
           image: product.images && product.images[0] ? 
-            (product.images[0].data ? `data:${product.images[0].contentType};base64,${product.images[0].data}` : 'https://via.placeholder.com/100') 
+            (product.images[0].data ? `/api/products/${product._id}/image/${product.images[0]._id}` : 'https://via.placeholder.com/100') 
             : 'https://via.placeholder.com/100',
           stock: product.stock,
           status: product.stock === 0 ? 'out_of_stock' : 'active',
@@ -2279,7 +2592,12 @@ const server = app.listen(PORT, () => {
   console.log(`📍 Upload Single: POST https://carttifys-1.onrender.com/api/upload/single`);
   console.log(`📍 Create Product with Media: POST https://carttifys-1.onrender.com/api/seller/products/with-media`);
   console.log(`📍 Seller Create Product: POST https://carttifys-1.onrender.com/api/seller/products`);
+  console.log(`📍 Seller Create Product (Base64): POST https://carttifys-1.onrender.com/api/seller/products/base64`);
   console.log(`📍 Get Uploads: GET https://carttifys-1.onrender.com/api/seller/uploads`);
+  console.log(`\n📍 IMAGE ROUTES:`);
+  console.log(`📍 Product Image: GET https://carttifys-1.onrender.com/api/products/:productId/image/:imageId`);
+  console.log(`📍 Product Video: GET https://carttifys-1.onrender.com/api/products/:productId/video/:videoId`);
+  console.log(`📍 Product Media: GET https://carttifys-1.onrender.com/api/products/:productId/media`);
   console.log(`\n📍 BUYER ENDPOINTS:`);
   console.log(`📍 Buyer Dashboard: GET https://carttifys-1.onrender.com/api/buyer/dashboard`);
   console.log(`📍 Buyer Products: GET https://carttifys-1.onrender.com/api/buyer/products`);
@@ -2293,6 +2611,43 @@ const server = app.listen(PORT, () => {
   console.log(`📍 User Profile: GET https://carttifys-1.onrender.com/api/user/profile`);
   console.log(`📍 Help Sections: GET https://carttifys-1.onrender.com/api/help/sections`);
   console.log(`📍 FAQs: GET https://carttifys-1.onrender.com/api/help/faqs`);
+  console.log(`\n💡 TIP: Make sure to set up your .env file with MONGODB_URI`);
+  console.log(`🚀 Server is now listening for requests...`);
 });
 
-module.exports = app;
+// Handle graceful shutdown
+process.on('SIGTERM', () => {
+  console.log('SIGTERM signal received: closing HTTP server');
+  server.close(() => {
+    console.log('HTTP server closed');
+    mongoose.connection.close(false, () => {
+      console.log('MongoDB connection closed');
+      process.exit(0);
+    });
+  });
+});
+
+process.on('SIGINT', () => {
+  console.log('SIGINT signal received: closing HTTP server');
+  server.close(() => {
+    console.log('HTTP server closed');
+    mongoose.connection.close(false, () => {
+      console.log('MongoDB connection closed');
+      process.exit(0);
+    });
+  });
+});
+
+// Handle uncaught exceptions
+process.on('uncaughtException', (error) => {
+  console.error('Uncaught Exception:', error);
+  process.exit(1);
+});
+
+// Handle unhandled promise rejections
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+  process.exit(1);
+});
+
+module.exports = app; // For testing purposes
