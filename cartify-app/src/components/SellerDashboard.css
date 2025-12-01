@@ -1,4 +1,4 @@
-/* SellerDashboard.css - Responsive Blue & White Theme */
+
 
 .seller-dashboard {
   background: linear-gradient(135deg, #f0f4f8 0%, #e6f0ff 100%);
@@ -1452,167 +1452,6 @@
   box-shadow: none;
   background: white;
 }
-/* Real Images Styling */
-.products-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 1.5rem;
-  margin-top: 1rem;
-}
-
-.product-card {
-  background: white;
-  border-radius: 12px;
-  padding: 1rem;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-  transition: transform 0.2s, box-shadow 0.2s;
-  border: 1px solid #e9ecef;
-}
-
-.product-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 16px rgba(0,0,0,0.15);
-}
-
-.product-image-container {
-  position: relative;
-  width: 100%;
-  height: 200px;
-  border-radius: 8px;
-  overflow: hidden;
-  background: #f8f9fa;
-  margin-bottom: 1rem;
-}
-
-.product-image {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  transition: transform 0.3s;
-}
-
-.product-card:hover .product-image {
-  transform: scale(1.05);
-}
-
-.image-fallback {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  width: 100%;
-  height: 100%;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
-  font-size: 0.9rem;
-}
-
-.image-fallback i {
-  font-size: 2rem;
-  margin-bottom: 0.5rem;
-}
-
-.product-info {
-  padding: 0.5rem 0;
-}
-
-.product-name {
-  font-weight: 600;
-  margin-bottom: 0.5rem;
-  color: #2c3e50;
-}
-
-.product-details {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 0.5rem;
-}
-
-.product-price {
-  font-weight: 700;
-  color: #27ae60;
-  font-size: 1.1rem;
-}
-
-.product-sales {
-  font-size: 0.85rem;
-  color: #7f8c8d;
-  background: #f8f9fa;
-  padding: 0.25rem 0.5rem;
-  border-radius: 12px;
-}
-
-.product-meta {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  font-size: 0.8rem;
-}
-
-.product-rating {
-  color: #f39c12;
-  font-weight: 600;
-}
-
-.product-category {
-  background: #e3f2fd;
-  color: #1976d2;
-  padding: 0.2rem 0.6rem;
-  border-radius: 10px;
-  font-size: 0.75rem;
-}
-
-/* Upload Tips */
-.upload-tips {
-  background: #f8f9fa;
-  padding: 1rem;
-  border-radius: 8px;
-  border-left: 4px solid #28a745;
-}
-
-.upload-tips h6 {
-  color: #28a745;
-  margin-bottom: 0.5rem;
-}
-
-.upload-tips ul {
-  margin: 0;
-  padding-left: 1.2rem;
-}
-
-.upload-tips li {
-  margin-bottom: 0.25rem;
-  color: #6c757d;
-}
-
-/* File upload list */
-.upload-files-list {
-  margin-top: 1rem;
-}
-
-.upload-file-item {
-  display: flex;
-  align-items: center;
-  padding: 0.5rem;
-  background: #f8f9fa;
-  border-radius: 6px;
-  margin-bottom: 0.5rem;
-}
-
-.upload-file-item i {
-  color: #28a745;
-  margin-right: 0.5rem;
-}
-
-.upload-file-item span {
-  flex: 1;
-  font-weight: 500;
-}
-
-.upload-file-item small {
-  color: #6c757d;
-}
 
 /* Ensure all interactive elements are touch-friendly */
 @media (max-width: 768px) {
@@ -1626,5 +1465,207 @@
   .action-buttons .btn {
     min-width: 44px;
     height: 44px;
+  }
+}
+/* Profile Card Styles */
+.profile-card {
+  background: white;
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 20px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  border-left: 4px solid #667eea;
+}
+
+.profile-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 20px;
+}
+
+.profile-info {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  flex: 1;
+}
+
+.profile-avatar {
+  width: 60px;
+  height: 60px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+}
+
+.profile-details h3 {
+  margin: 0 0 5px 0;
+  color: #2d3748;
+  font-size: 1.3rem;
+}
+
+.profile-details p {
+  margin: 0 0 10px 0;
+  color: #718096;
+}
+
+.profile-meta {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.profile-meta .badge {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px;
+  font-size: 0.8rem;
+}
+
+.profile-earnings {
+  text-align: right;
+}
+
+.earnings-display h4 {
+  margin: 0;
+  color: #2d3748;
+  font-size: 1.8rem;
+  font-weight: 700;
+}
+
+.earnings-display p {
+  margin: 5px 0;
+  color: #718096;
+}
+
+/* Earnings Details */
+.earnings-details {
+  background: #f8f9fa;
+  border-radius: 8px;
+  padding: 15px;
+  border-top: 1px solid #e2e8f0;
+}
+
+.earnings-breakdown h6 {
+  color: #2d3748;
+  margin-bottom: 15px;
+  font-size: 1rem;
+}
+
+.earnings-breakdown ul {
+  margin: 0;
+  padding: 0;
+}
+
+.earnings-breakdown li {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 0;
+  border-bottom: 1px solid #e2e8f0;
+  color: #4a5568;
+}
+
+.earnings-breakdown li:last-child {
+  border-bottom: none;
+}
+
+.earnings-actions h6 {
+  color: #2d3748;
+  margin-bottom: 15px;
+  font-size: 1rem;
+}
+
+/* Updated Stats Grid */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.stats-card {
+  background: white;
+  padding: 20px;
+  border-radius: 12px;
+  text-align: center;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.stats-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+.stats-card.sales-card .stats-icon {
+  background: #667eea;
+  color: white;
+}
+
+.stats-card.orders-card .stats-icon {
+  background: #f6ad55;
+  color: white;
+}
+
+.stats-card.products-card .stats-icon {
+  background: #68d391;
+  color: white;
+}
+
+.stats-card.rating-card .stats-icon {
+  background: #fc8181;
+  color: white;
+}
+
+/* Remove the old earnings card styles */
+.stats-card.earnings-card {
+  display: none;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .profile-header {
+    flex-direction: column;
+    text-align: center;
+  }
+  
+  .profile-info {
+    flex-direction: column;
+    text-align: center;
+  }
+  
+  .profile-earnings {
+    text-align: center;
+    width: 100%;
+    border-top: 1px solid #e2e8f0;
+    padding-top: 15px;
+    margin-top: 15px;
+  }
+  
+  .stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  
+  .header-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 10px;
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+@media (max-width: 480px) {
+  .stats-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .profile-meta {
+    justify-content: center;
   }
 }
