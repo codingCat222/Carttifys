@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { sellerAPI, healthAPI } from '../services/Api';
+import { sellerAPI, healthAPI, userAPI } from '../services/Api';
 import './SellerDashboard.css';
 
 const SellerDashboard = () => {
@@ -19,15 +19,13 @@ const SellerDashboard = () => {
   const [recentOrders, setRecentOrders] = useState([]);
   const [topProducts, setTopProducts] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [timeRange, setTimeRange] = useState('monthly');
-  const [notifications, setNotifications] = useState([]);
   const [backendStatus, setBackendStatus] = useState('checking');
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [selectedFiles, setSelectedFiles] = useState([]);
   const [error, setError] = useState(null);
-  const [showEarningsDetails, setShowEarningsDetails] = useState(false);
   const [sellerProfile, setSellerProfile] = useState(null);
+  const [profileLoading, setProfileLoading] = useState(true);
   
   const navigate = useNavigate();
 
@@ -39,7 +37,7 @@ const SellerDashboard = () => {
     if (backendStatus === 'connected' && !loading) {
       fetchDashboardData();
     }
-  }, [timeRange]);
+  }, [backendStatus]);
 
   // ✅ Initialize dashboard with connection check
   const initializeDashboard = async () => {
@@ -54,8 +52,10 @@ const SellerDashboard = () => {
       if (healthResult && healthResult.success !== false) {
         setBackendStatus('connected');
         console.log('✅ Backend connected successfully');
-        await fetchDashboardData();
-        await fetchSellerProfile();
+        await Promise.all([
+          fetchDashboardData(),
+          fetchSellerProfile()
+        ]);
       } else {
         throw new Error('Health check failed');
       }
@@ -67,25 +67,110 @@ const SellerDashboard = () => {
     }
   };
 
-  // ✅ Fetch seller profile
+  // ✅ REAL API CALL: Fetch Seller Profile with Real Data
   const fetchSellerProfile = async () => {
     try {
-      // You'll need to implement this API endpoint in your backend
-      const profileResponse = await sellerAPI.getProfile();
+      setProfileLoading(true);
+      console.log('🔄 Fetching seller profile from backend...');
+      
+      // Use userAPI.getProfile() which works for both buyers and sellers
+      const profileResponse = await userAPI.getProfile();
+      console.log('📋 Profile API response:', profileResponse);
+
       if (profileResponse && profileResponse.success) {
-        setSellerProfile(profileResponse.data);
+        // Transform the response to match seller profile structure
+        const sellerData = profileResponse.data;
+        setSellerProfile({
+          // Personal Information
+          name: sellerData.name || sellerData.fullName || 'Seller',
+          email: sellerData.email || 'No email provided',
+          phone: sellerData.phone || sellerData.mobile || 'Not provided',
+          address: sellerData.address || sellerData.location || 'Not provided',
+          dateOfBirth: sellerData.dateOfBirth || sellerData.dob || 'Not provided',
+          profileImage: sellerData.profileImage || sellerData.avatar || null,
+          
+          // Business Information
+          storeName: sellerData.storeName || sellerData.businessName || 'My Store',
+          businessDescription: sellerData.businessDescription || sellerData.bio || 'Professional seller on our marketplace',
+          businessContact: sellerData.businessEmail || sellerData.contactEmail || sellerData.email,
+          taxInfo: sellerData.taxInfo || 'Not provided',
+          businessRegistration: sellerData.businessRegistration || 'Not applicable',
+          
+          // Seller Stats
+          rating: sellerData.rating || sellerData.avgRating || 4.5,
+          totalProducts: stats.totalProducts,
+          totalSales: stats.totalSales,
+          totalEarnings: stats.totalEarnings,
+          joinedDate: sellerData.joinedDate || sellerData.createdAt || new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long' }),
+          
+          // Communication Preferences
+          notifications: {
+            email: sellerData.notifications?.email !== false,
+            sms: sellerData.notifications?.sms || false,
+            push: sellerData.notifications?.push !== false,
+            marketing: sellerData.notifications?.marketing || false
+          },
+          
+          // Verification Status
+          verified: sellerData.verified || sellerData.emailVerified || false,
+          idVerified: sellerData.idVerified || false,
+          phoneVerified: sellerData.phoneVerified || false,
+          
+          // Social Links
+          socialLinks: sellerData.socialLinks || {
+            facebook: '',
+            instagram: '',
+            twitter: '',
+            website: ''
+          }
+        });
+        console.log('✅ Seller profile loaded with real data');
+      } else {
+        console.warn('⚠️ Using enhanced default seller profile');
+        setSellerProfile(getDefaultSellerProfile());
       }
     } catch (error) {
-      console.error('Error fetching seller profile:', error);
-      // Set default profile data
-      setSellerProfile({
-        name: 'Seller',
-        storeName: 'My Store',
-        rating: 4.5,
-        totalProducts: stats.totalProducts,
-        joinedDate: new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long' })
-      });
+      console.error('❌ Error fetching seller profile:', error);
+      setSellerProfile(getDefaultSellerProfile());
+    } finally {
+      setProfileLoading(false);
     }
+  };
+
+  const getDefaultSellerProfile = () => {
+    return {
+      name: 'Seller',
+      email: 'seller@example.com',
+      phone: 'Not provided',
+      address: 'Not provided',
+      dateOfBirth: 'Not provided',
+      profileImage: null,
+      storeName: 'My Store',
+      businessDescription: 'Professional seller on our marketplace',
+      businessContact: 'seller@example.com',
+      taxInfo: 'Not provided',
+      businessRegistration: 'Not applicable',
+      rating: 4.5,
+      totalProducts: stats.totalProducts,
+      totalSales: stats.totalSales,
+      totalEarnings: stats.totalEarnings,
+      joinedDate: new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long' }),
+      notifications: {
+        email: true,
+        sms: false,
+        push: true,
+        marketing: false
+      },
+      verified: false,
+      idVerified: false,
+      phoneVerified: false,
+      socialLinks: {
+        facebook: '',
+        instagram: '',
+        twitter: '',
+        website: ''
+      }
+    };
   };
 
   // ✅ REAL API CALL TO DEPLOYED BACKEND
@@ -106,17 +191,27 @@ const SellerDashboard = () => {
         if (dashboardData) {          
           // Update stats with real data
           if (dashboardData.stats) {
-            setStats(prev => ({
-              ...prev,
+            const newStats = {
+              ...stats,
               ...dashboardData.stats
-            }));
+            };
+            setStats(newStats);
+            
+            // Update profile with new stats
+            if (sellerProfile) {
+              setSellerProfile(prev => ({
+                ...prev,
+                totalProducts: newStats.totalProducts,
+                totalSales: newStats.totalSales,
+                totalEarnings: newStats.totalEarnings
+              }));
+            }
           }
           
           // Update recent orders with proper image handling
           if (dashboardData.recentOrders) {
             const ordersWithImages = dashboardData.recentOrders.map(order => ({
               ...order,
-              // Ensure image URLs are properly formatted
               image: order.image ? formatImageUrl(order.image) : null
             }));
             setRecentOrders(ordersWithImages);
@@ -126,9 +221,7 @@ const SellerDashboard = () => {
           if (dashboardData.topProducts) {
             const productsWithImages = dashboardData.topProducts.map(product => ({
               ...product,
-              // Ensure image URLs are properly formatted
               image: product.image ? formatImageUrl(product.image) : null,
-              // Handle multiple images - use first image
               mainImage: product.images && product.images[0] ? formatImageUrl(product.images[0].url || product.images[0]) : null
             }));
             setTopProducts(productsWithImages);
@@ -154,33 +247,20 @@ const SellerDashboard = () => {
   const formatImageUrl = (imageUrl) => {
     if (!imageUrl) return null;
     
-    // If it's already a full URL, return as is
-    if (imageUrl.startsWith('http')) {
-      return imageUrl;
-    }
+    if (imageUrl.startsWith('http')) return imageUrl;
+    if (imageUrl.startsWith('data:')) return imageUrl;
+    if (imageUrl.startsWith('/uploads/')) return `https://carttifys-1.onrender.com${imageUrl}`;
     
-    // If it's a base64 image, return as is
-    if (imageUrl.startsWith('data:')) {
-      return imageUrl;
-    }
-    
-    // If it's a relative path, prepend the backend URL
-    if (imageUrl.startsWith('/uploads/')) {
-      return `https://carttifys-1.onrender.com${imageUrl}`;
-    }
-    
-    // Default case - assume it's a filename in uploads
     return `https://carttifys-1.onrender.com/uploads/${imageUrl}`;
   };
 
-  // ✅ FIXED: Enhanced file upload with better product data
+  // ✅ Enhanced file upload with better product data
   const handleFileSelect = (event) => {
     const files = Array.from(event.target.files);
     
-    // Validate file types and sizes
     const validFiles = files.filter(file => {
       const isValidType = file.type.startsWith('image/') || file.type.startsWith('video/');
-      const isValidSize = file.size <= 50 * 1024 * 1024; // 50MB limit
+      const isValidSize = file.size <= 50 * 1024 * 1024;
       
       if (!isValidType) {
         alert(`❌ ${file.name} is not a valid image or video file`);
@@ -197,7 +277,6 @@ const SellerDashboard = () => {
     
     setSelectedFiles(validFiles);
     
-    // Auto-upload if files are selected and backend is connected
     if (validFiles.length > 0 && backendStatus === 'connected') {
       handleFileUpload(validFiles);
     } else if (validFiles.length > 0) {
@@ -217,24 +296,21 @@ const SellerDashboard = () => {
     try {
       const formData = new FormData();
       
-      // Add all files to FormData
       files.forEach(file => {
         formData.append('media', file);
       });
       
-      // ✅ FIXED: Better product data for realistic products
       const productName = `Product ${Date.now()}`;
       const categories = ['electronics', 'clothing', 'home', 'sports', 'books'];
       const randomCategory = categories[Math.floor(Math.random() * categories.length)];
       
       formData.append('name', productName);
-      formData.append('description', `High-quality ${randomCategory} product with excellent features. Perfect for everyday use.`);
-      formData.append('price', (Math.random() * 100 + 10).toFixed(2)); // $10-$110
+      formData.append('description', `High-quality ${randomCategory} product with excellent features.`);
+      formData.append('price', (Math.random() * 100 + 10).toFixed(2));
       formData.append('category', randomCategory);
-      formData.append('stock', Math.floor(Math.random() * 50 + 10).toString()); // 10-60 in stock
+      formData.append('stock', Math.floor(Math.random() * 50 + 10).toString());
       formData.append('features', 'Premium Quality,Best Seller,New Arrival');
       
-      // Simulate upload progress
       const interval = setInterval(() => {
         setUploadProgress(prev => {
           if (prev >= 90) {
@@ -245,13 +321,6 @@ const SellerDashboard = () => {
         });
       }, 200);
 
-      console.log('🔄 Uploading files to create product...', {
-        name: productName,
-        category: randomCategory,
-        files: files.map(f => f.name)
-      });
-
-      // Use the sellerAPI for product upload
       const result = await sellerAPI.createProduct(formData);
       
       clearInterval(interval);
@@ -259,7 +328,6 @@ const SellerDashboard = () => {
       if (result && result.success !== false) {
         setUploadProgress(100);
         
-        // Show success message
         alert(`✅ Successfully uploaded ${files.length} file(s) and created "${productName}"!`);
         
         setTimeout(() => {
@@ -317,12 +385,25 @@ const SellerDashboard = () => {
     initializeDashboard();
   };
 
-  const toggleEarningsDetails = () => {
-    setShowEarningsDetails(!showEarningsDetails);
+  const handleProfileUpdate = (section, data) => {
+    console.log(`Updating profile section: ${section}`, data);
+    // Here you would make API call to update profile
+    // For now, just update local state
+    setSellerProfile(prev => ({
+      ...prev,
+      ...data
+    }));
+    alert('Profile updated! (In real implementation, this would save to backend)');
   };
 
-  const handleProfileClick = () => {
-    navigate('/seller/profile');
+  const handleNotificationToggle = (type) => {
+    setSellerProfile(prev => ({
+      ...prev,
+      notifications: {
+        ...prev.notifications,
+        [type]: !prev.notifications[type]
+      }
+    }));
   };
 
   // Utility functions
@@ -376,6 +457,9 @@ const SellerDashboard = () => {
         break;
       case 'update_inventory':
         navigate('/seller/products');
+        break;
+      case 'edit_profile':
+        navigate('/seller/profile/edit');
         break;
       case 'view_earnings':
         navigate('/seller/earnings');
@@ -461,26 +545,17 @@ const SellerDashboard = () => {
           style={{ display: 'none' }}
         />
 
-        {/* Header with Profile Button */}
+        {/* Header */}
         <div className="dashboard-header">
           <div className="header-content">
             <div className="header-text">
               <h1>
-                <i className="fas fa-store"></i>
+                <i className="fas fa-tachometer-alt"></i>
                 Seller Dashboard
               </h1>
-              <p className="lead">Manage your products with real images</p>
+              <p className="lead">Manage your products with real data</p>
             </div>
             <div className="header-actions">
-              {/* Profile Button */}
-              <button 
-                className="btn btn-outline-secondary btn-sm me-2"
-                onClick={handleProfileClick}
-              >
-                <i className="fas fa-user-circle"></i>
-                Profile
-              </button>
-              
               <button 
                 className="btn btn-outline-primary btn-sm"
                 onClick={refreshData}
@@ -494,7 +569,7 @@ const SellerDashboard = () => {
           
           <div className="data-status-banner real-data">
             <i className="fas fa-check-circle"></i>
-            ✅ Connected to live backend - Real Images
+            ✅ Connected to live backend - Real Data
           </div>
 
           {error && (
@@ -505,89 +580,270 @@ const SellerDashboard = () => {
           )}
         </div>
 
-        {/* Seller Profile Card */}
-        <div className="profile-card">
-          <div className="profile-header">
-            <div className="profile-info">
-              <div className="profile-avatar">
-                <i className="fas fa-store fa-2x"></i>
-              </div>
-              <div className="profile-details">
-                <h3>{sellerProfile?.storeName || 'My Store'}</h3>
-                <p className="text-muted">Seller: {sellerProfile?.name || 'Seller'}</p>
-                <div className="profile-meta">
-                  <span className="badge bg-primary">
-                    <i className="fas fa-star"></i> {sellerProfile?.rating || '4.5'}
-                  </span>
-                  <span className="badge bg-secondary">
-                    <i className="fas fa-cube"></i> {stats.totalProducts} Products
-                  </span>
-                  <span className="badge bg-info">
-                    <i className="fas fa-calendar"></i> Joined {sellerProfile?.joinedDate || 'Recently'}
-                  </span>
-                </div>
-              </div>
-            </div>
-            <div className="profile-earnings">
-              <div className="earnings-display">
-                <h4>{formatCurrency(stats.totalEarnings)}</h4>
-                <p className="text-muted">Total Earnings</p>
-                <button 
-                  className="btn btn-link btn-sm p-0"
-                  onClick={toggleEarningsDetails}
-                >
-                  <i className={`fas fa-chevron-${showEarningsDetails ? 'up' : 'down'}`}></i>
-                  {showEarningsDetails ? 'Hide Details' : 'View Details'}
-                </button>
-              </div>
+        {/* 🆕 SELLER PROFILE SECTION - Real Data */}
+        {profileLoading ? (
+          <div className="profile-section loading">
+            <div className="profile-loading">
+              <i className="fas fa-spinner fa-spin"></i>
+              <p>Loading your profile...</p>
             </div>
           </div>
-          
-          {showEarningsDetails && (
-            <div className="earnings-details mt-3">
-              <div className="row">
-                <div className="col-md-6">
-                  <div className="earnings-breakdown">
-                    <h6>Earnings Breakdown</h6>
-                    <ul className="list-unstyled">
-                      <li>
-                        <span>Product Sales</span>
-                        <span>{formatCurrency(stats.totalEarnings * 0.8)}</span>
-                      </li>
-                      <li>
-                        <span>Service Fees</span>
-                        <span>{formatCurrency(stats.totalEarnings * 0.15)}</span>
-                      </li>
-                      <li>
-                        <span>Commission</span>
-                        <span>{formatCurrency(stats.totalEarnings * 0.05)}</span>
-                      </li>
-                    </ul>
+        ) : sellerProfile && (
+          <div className="profile-section">
+            <div className="profile-header">
+              <div className="profile-avatar-section">
+                <div className="profile-avatar">
+                  {sellerProfile.profileImage ? (
+                    <img src={sellerProfile.profileImage} alt={sellerProfile.name} />
+                  ) : (
+                    <i className="fas fa-user-circle"></i>
+                  )}
+                </div>
+                <button 
+                  className="btn btn-outline-secondary btn-sm"
+                  onClick={() => handleQuickAction('edit_profile')}
+                >
+                  <i className="fas fa-edit"></i>
+                  Edit
+                </button>
+              </div>
+              
+              <div className="profile-info">
+                <h3>{sellerProfile.name}</h3>
+                <p className="store-name">
+                  <i className="fas fa-store"></i>
+                  {sellerProfile.storeName}
+                </p>
+                
+                <div className="profile-verification">
+                  {sellerProfile.verified && (
+                    <span className="badge verified-badge">
+                      <i className="fas fa-check-circle"></i>
+                      Verified Seller
+                    </span>
+                  )}
+                  {sellerProfile.idVerified && (
+                    <span className="badge id-verified-badge">
+                      <i className="fas fa-id-card"></i>
+                      ID Verified
+                    </span>
+                  )}
+                  <span className="rating-badge">
+                    <i className="fas fa-star"></i>
+                    {sellerProfile.rating}
+                  </span>
+                </div>
+                
+                <div className="profile-contact">
+                  <p>
+                    <i className="fas fa-envelope"></i>
+                    {sellerProfile.email}
+                  </p>
+                  <p>
+                    <i className="fas fa-phone"></i>
+                    {sellerProfile.phone}
+                  </p>
+                  <p>
+                    <i className="fas fa-map-marker-alt"></i>
+                    {sellerProfile.address}
+                  </p>
+                </div>
+              </div>
+              
+              <div className="profile-stats">
+                <div className="stat-item">
+                  <div className="stat-icon">
+                    <i className="fas fa-shopping-bag"></i>
+                  </div>
+                  <div className="stat-info">
+                    <h4>{sellerProfile.totalProducts || 0}</h4>
+                    <p>Products</p>
                   </div>
                 </div>
-                <div className="col-md-6">
-                  <div className="earnings-actions">
-                    <h6>Quick Actions</h6>
-                    <div className="d-flex gap-2">
-                      <button 
-                        className="btn btn-outline-primary btn-sm"
-                        onClick={() => handleQuickAction('view_earnings')}
-                      >
-                        <i className="fas fa-chart-line"></i> View Reports
-                      </button>
-                      <button 
-                        className="btn btn-outline-success btn-sm"
-                        onClick={() => navigate('/seller/withdraw')}
-                      >
-                        <i className="fas fa-money-bill-wave"></i> Withdraw
-                      </button>
+                
+                <div className="stat-item">
+                  <div className="stat-icon">
+                    <i className="fas fa-chart-line"></i>
+                  </div>
+                  <div className="stat-info">
+                    <h4>{sellerProfile.totalSales || 0}</h4>
+                    <p>Sales</p>
+                  </div>
+                </div>
+                
+                <div className="stat-item">
+                  <div className="stat-icon">
+                    <i className="fas fa-dollar-sign"></i>
+                  </div>
+                  <div className="stat-info">
+                    <h4>{formatCurrency(sellerProfile.totalEarnings || 0)}</h4>
+                    <p>Earnings</p>
+                  </div>
+                </div>
+                
+                <div className="stat-item">
+                  <div className="stat-icon">
+                    <i className="fas fa-calendar-alt"></i>
+                  </div>
+                  <div className="stat-info">
+                    <p>Joined</p>
+                    <p>{sellerProfile.joinedDate}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Profile Sections */}
+            <div className="profile-sections">
+              {/* Business Information */}
+              <div className="profile-section-card">
+                <h4>
+                  <i className="fas fa-building"></i>
+                  Business Information
+                </h4>
+                <div className="section-content">
+                  <div className="info-item">
+                    <label>Business Name</label>
+                    <p>{sellerProfile.storeName}</p>
+                  </div>
+                  <div className="info-item">
+                    <label>Business Description</label>
+                    <p>{sellerProfile.businessDescription}</p>
+                  </div>
+                  <div className="info-item">
+                    <label>Business Contact</label>
+                    <p>{sellerProfile.businessContact}</p>
+                  </div>
+                  <div className="info-item">
+                    <label>Tax Information</label>
+                    <p>{sellerProfile.taxInfo}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Notification Preferences */}
+              <div className="profile-section-card">
+                <h4>
+                  <i className="fas fa-bell"></i>
+                  Notification Preferences
+                </h4>
+                <div className="section-content">
+                  <div className="toggle-item">
+                    <label>Email Notifications</label>
+                    <div className="toggle-switch">
+                      <input 
+                        type="checkbox" 
+                        checked={sellerProfile.notifications.email}
+                        onChange={() => handleNotificationToggle('email')}
+                      />
+                      <span className="slider"></span>
+                    </div>
+                  </div>
+                  <div className="toggle-item">
+                    <label>SMS Notifications</label>
+                    <div className="toggle-switch">
+                      <input 
+                        type="checkbox" 
+                        checked={sellerProfile.notifications.sms}
+                        onChange={() => handleNotificationToggle('sms')}
+                      />
+                      <span className="slider"></span>
+                    </div>
+                  </div>
+                  <div className="toggle-item">
+                    <label>Push Notifications</label>
+                    <div className="toggle-switch">
+                      <input 
+                        type="checkbox" 
+                        checked={sellerProfile.notifications.push}
+                        onChange={() => handleNotificationToggle('push')}
+                      />
+                      <span className="slider"></span>
+                    </div>
+                  </div>
+                  <div className="toggle-item">
+                    <label>Marketing Emails</label>
+                    <div className="toggle-switch">
+                      <input 
+                        type="checkbox" 
+                        checked={sellerProfile.notifications.marketing}
+                        onChange={() => handleNotificationToggle('marketing')}
+                      />
+                      <span className="slider"></span>
                     </div>
                   </div>
                 </div>
               </div>
+
+              {/* Social Links */}
+              <div className="profile-section-card">
+                <h4>
+                  <i className="fas fa-share-alt"></i>
+                  Social Links
+                </h4>
+                <div className="section-content">
+                  <div className="social-links">
+                    {sellerProfile.socialLinks.facebook && (
+                      <a href={sellerProfile.socialLinks.facebook} className="social-link facebook">
+                        <i className="fab fa-facebook"></i>
+                        Facebook
+                      </a>
+                    )}
+                    {sellerProfile.socialLinks.instagram && (
+                      <a href={sellerProfile.socialLinks.instagram} className="social-link instagram">
+                        <i className="fab fa-instagram"></i>
+                        Instagram
+                      </a>
+                    )}
+                    {sellerProfile.socialLinks.twitter && (
+                      <a href={sellerProfile.socialLinks.twitter} className="social-link twitter">
+                        <i className="fab fa-twitter"></i>
+                        Twitter
+                      </a>
+                    )}
+                    {sellerProfile.socialLinks.website && (
+                      <a href={sellerProfile.socialLinks.website} className="social-link website">
+                        <i className="fas fa-globe"></i>
+                        Website
+                      </a>
+                    )}
+                    {!sellerProfile.socialLinks.facebook && 
+                     !sellerProfile.socialLinks.instagram && 
+                     !sellerProfile.socialLinks.twitter && 
+                     !sellerProfile.socialLinks.website && (
+                      <p className="text-muted">No social links added yet</p>
+                    )}
+                  </div>
+                </div>
+              </div>
             </div>
-          )}
-        </div>
+
+            {/* Profile Actions */}
+            <div className="profile-actions">
+              <button 
+                className="btn btn-primary"
+                onClick={() => handleQuickAction('edit_profile')}
+              >
+                <i className="fas fa-edit"></i>
+                Edit Full Profile
+              </button>
+              <button 
+                className="btn btn-outline-secondary"
+                onClick={() => navigate('/seller/settings')}
+              >
+                <i className="fas fa-cog"></i>
+                Account Settings
+              </button>
+              <button 
+                className="btn btn-outline-primary"
+                onClick={() => navigate('/seller/security')}
+              >
+                <i className="fas fa-shield-alt"></i>
+                Security
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Quick Stats */}
         <div className="stats-grid">
@@ -631,7 +887,7 @@ const SellerDashboard = () => {
               <i className="fas fa-bolt"></i>
               Quick Actions
             </h4>
-            <span className="badge bg-primary">Upload Real Images</span>
+            <span className="badge bg-primary">Real Data</span>
           </div>
           <div className="actions-grid">
             <button 
@@ -670,13 +926,13 @@ const SellerDashboard = () => {
             
             <button 
               className="action-btn info"
-              onClick={() => handleQuickAction('update_inventory')}
+              onClick={() => handleQuickAction('view_earnings')}
             >
               <div className="action-icon">
-                <i className="fas fa-boxes"></i>
+                <i className="fas fa-dollar-sign"></i>
               </div>
-              <span>Update Inventory</span>
-              <small>Stock management</small>
+              <span>View Earnings</span>
+              <small>{formatCurrency(stats.totalEarnings)}</small>
             </button>
           </div>
 
@@ -730,21 +986,18 @@ const SellerDashboard = () => {
                 {topProducts.map(product => (
                   <div key={product.id} className="product-card">
                     <div className="product-image-container">
-                      {/* ✅ REAL IMAGE DISPLAY - No placeholders */}
                       {product.mainImage || product.image ? (
                         <img 
                           src={product.mainImage || product.image} 
                           alt={product.name}
                           className="product-image"
                           onError={(e) => {
-                            // Fallback only if image fails to load
                             e.target.style.display = 'none';
                             e.target.nextSibling.style.display = 'flex';
                           }}
                         />
                       ) : null}
                       
-                      {/* Fallback only shown if image fails to load */}
                       <div 
                         className="image-fallback"
                         style={{ 
