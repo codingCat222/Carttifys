@@ -26,6 +26,8 @@ const SellerDashboard = () => {
   const [uploadProgress, setUploadProgress] = useState(0);
   const [selectedFiles, setSelectedFiles] = useState([]);
   const [error, setError] = useState(null);
+  const [showEarningsDetails, setShowEarningsDetails] = useState(false);
+  const [sellerProfile, setSellerProfile] = useState(null);
   
   const navigate = useNavigate();
 
@@ -53,6 +55,7 @@ const SellerDashboard = () => {
         setBackendStatus('connected');
         console.log('✅ Backend connected successfully');
         await fetchDashboardData();
+        await fetchSellerProfile();
       } else {
         throw new Error('Health check failed');
       }
@@ -61,6 +64,27 @@ const SellerDashboard = () => {
       setBackendStatus('disconnected');
       setError(`Backend connection failed: ${error.message}`);
       setLoading(false);
+    }
+  };
+
+  // ✅ Fetch seller profile
+  const fetchSellerProfile = async () => {
+    try {
+      // You'll need to implement this API endpoint in your backend
+      const profileResponse = await sellerAPI.getProfile();
+      if (profileResponse && profileResponse.success) {
+        setSellerProfile(profileResponse.data);
+      }
+    } catch (error) {
+      console.error('Error fetching seller profile:', error);
+      // Set default profile data
+      setSellerProfile({
+        name: 'Seller',
+        storeName: 'My Store',
+        rating: 4.5,
+        totalProducts: stats.totalProducts,
+        joinedDate: new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long' })
+      });
     }
   };
 
@@ -238,15 +262,12 @@ const SellerDashboard = () => {
         // Show success message
         alert(`✅ Successfully uploaded ${files.length} file(s) and created "${productName}"!`);
         
-        // Refresh dashboard data to show the new product with images
         setTimeout(() => {
           fetchDashboardData();
         }, 1000);
         
-        // Clear selected files
         setSelectedFiles([]);
         
-        // Reset progress after delay
         setTimeout(() => {
           setUploadProgress(0);
         }, 2000);
@@ -294,6 +315,14 @@ const SellerDashboard = () => {
     setError(null);
     setBackendStatus('checking');
     initializeDashboard();
+  };
+
+  const toggleEarningsDetails = () => {
+    setShowEarningsDetails(!showEarningsDetails);
+  };
+
+  const handleProfileClick = () => {
+    navigate('/seller/profile');
   };
 
   // Utility functions
@@ -347,6 +376,9 @@ const SellerDashboard = () => {
         break;
       case 'update_inventory':
         navigate('/seller/products');
+        break;
+      case 'view_earnings':
+        navigate('/seller/earnings');
         break;
       default:
         break;
@@ -429,17 +461,26 @@ const SellerDashboard = () => {
           style={{ display: 'none' }}
         />
 
-        {/* Header */}
+        {/* Header with Profile Button */}
         <div className="dashboard-header">
           <div className="header-content">
             <div className="header-text">
               <h1>
-                <i className="fas fa-tachometer-alt"></i>
+                <i className="fas fa-store"></i>
                 Seller Dashboard
               </h1>
               <p className="lead">Manage your products with real images</p>
             </div>
             <div className="header-actions">
+              {/* Profile Button */}
+              <button 
+                className="btn btn-outline-secondary btn-sm me-2"
+                onClick={handleProfileClick}
+              >
+                <i className="fas fa-user-circle"></i>
+                Profile
+              </button>
+              
               <button 
                 className="btn btn-outline-primary btn-sm"
                 onClick={refreshData}
@@ -464,19 +505,95 @@ const SellerDashboard = () => {
           )}
         </div>
 
-        {/* Quick Stats */}
-        <div className="stats-grid">
-          <div className="stats-card earnings-card">
-            <div className="stats-icon">
-              <i className="fas fa-dollar-sign"></i>
+        {/* Seller Profile Card */}
+        <div className="profile-card">
+          <div className="profile-header">
+            <div className="profile-info">
+              <div className="profile-avatar">
+                <i className="fas fa-store fa-2x"></i>
+              </div>
+              <div className="profile-details">
+                <h3>{sellerProfile?.storeName || 'My Store'}</h3>
+                <p className="text-muted">Seller: {sellerProfile?.name || 'Seller'}</p>
+                <div className="profile-meta">
+                  <span className="badge bg-primary">
+                    <i className="fas fa-star"></i> {sellerProfile?.rating || '4.5'}
+                  </span>
+                  <span className="badge bg-secondary">
+                    <i className="fas fa-cube"></i> {stats.totalProducts} Products
+                  </span>
+                  <span className="badge bg-info">
+                    <i className="fas fa-calendar"></i> Joined {sellerProfile?.joinedDate || 'Recently'}
+                  </span>
+                </div>
+              </div>
             </div>
-            <h3>{formatCurrency(stats.totalEarnings)}</h3>
-            <p>Total Earnings</p>
+            <div className="profile-earnings">
+              <div className="earnings-display">
+                <h4>{formatCurrency(stats.totalEarnings)}</h4>
+                <p className="text-muted">Total Earnings</p>
+                <button 
+                  className="btn btn-link btn-sm p-0"
+                  onClick={toggleEarningsDetails}
+                >
+                  <i className={`fas fa-chevron-${showEarningsDetails ? 'up' : 'down'}`}></i>
+                  {showEarningsDetails ? 'Hide Details' : 'View Details'}
+                </button>
+              </div>
+            </div>
           </div>
           
+          {showEarningsDetails && (
+            <div className="earnings-details mt-3">
+              <div className="row">
+                <div className="col-md-6">
+                  <div className="earnings-breakdown">
+                    <h6>Earnings Breakdown</h6>
+                    <ul className="list-unstyled">
+                      <li>
+                        <span>Product Sales</span>
+                        <span>{formatCurrency(stats.totalEarnings * 0.8)}</span>
+                      </li>
+                      <li>
+                        <span>Service Fees</span>
+                        <span>{formatCurrency(stats.totalEarnings * 0.15)}</span>
+                      </li>
+                      <li>
+                        <span>Commission</span>
+                        <span>{formatCurrency(stats.totalEarnings * 0.05)}</span>
+                      </li>
+                    </ul>
+                  </div>
+                </div>
+                <div className="col-md-6">
+                  <div className="earnings-actions">
+                    <h6>Quick Actions</h6>
+                    <div className="d-flex gap-2">
+                      <button 
+                        className="btn btn-outline-primary btn-sm"
+                        onClick={() => handleQuickAction('view_earnings')}
+                      >
+                        <i className="fas fa-chart-line"></i> View Reports
+                      </button>
+                      <button 
+                        className="btn btn-outline-success btn-sm"
+                        onClick={() => navigate('/seller/withdraw')}
+                      >
+                        <i className="fas fa-money-bill-wave"></i> Withdraw
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Quick Stats */}
+        <div className="stats-grid">
           <div className="stats-card sales-card">
             <div className="stats-icon">
-              <i className="fas fa-shopping-bag"></i>
+              <i className="fas fa-chart-line"></i>
             </div>
             <h3>{stats.totalSales}</h3>
             <p>Total Sales</p>
@@ -496,6 +613,14 @@ const SellerDashboard = () => {
             </div>
             <h3>{stats.totalProducts}</h3>
             <p>Products Listed</p>
+          </div>
+          
+          <div className="stats-card rating-card">
+            <div className="stats-icon">
+              <i className="fas fa-star"></i>
+            </div>
+            <h3>{stats.averageRating}</h3>
+            <p>Avg Rating</p>
           </div>
         </div>
 
@@ -580,51 +705,6 @@ const SellerDashboard = () => {
               </div>
             </div>
           )}
-        </div>
-
-        {/* Image Upload Section */}
-        <div className="main-card">
-          <div className="d-flex justify-content-between align-items-center mb-4">
-            <h4>
-              <i className="fas fa-images"></i>
-              Upload Real Product Images
-            </h4>
-            <span className="badge bg-success">Live Upload</span>
-          </div>
-          
-          <div 
-            className="upload-drop-zone"
-            onDragOver={handleDragOver}
-            onDragLeave={handleDragLeave}
-            onDrop={handleDrop}
-            onClick={() => document.getElementById('media-upload').click()}
-          >
-            <div className="drop-zone-content">
-              <i className="fas fa-cloud-upload-alt fa-3x"></i>
-              <h5>Drag & drop real product images here</h5>
-              <p className="text-muted">
-                Upload JPEG, PNG, WebP images of your actual products
-              </p>
-              <div className="file-types">
-                <span className="file-type-badge">
-                  <i className="fas fa-camera"></i> Product Photos
-                </span>
-                <span className="file-type-badge">
-                  <i className="fas fa-image"></i> High Quality
-                </span>
-              </div>
-            </div>
-          </div>
-          
-          <div className="upload-tips mt-3">
-            <h6>📸 Tips for best results:</h6>
-            <ul>
-              <li>Use high-quality product photos</li>
-              <li>Show multiple angles of your products</li>
-              <li>Use good lighting and clear backgrounds</li>
-              <li>Recommended size: 800x600 pixels or larger</li>
-            </ul>
-          </div>
         </div>
 
         {/* Main Content Grid */}
