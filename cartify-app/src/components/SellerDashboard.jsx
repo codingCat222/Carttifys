@@ -1,575 +1,235 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { sellerAPI, healthAPI, userAPI } from '../services/Api';
+import { sellerAPI, healthAPI } from '../services/Api';
 import './SellerDashboard.css';
 
 const SellerDashboard = () => {
-  const [stats, setStats] = useState({
-    totalSales: 0,
-    totalEarnings: 0,
-    pendingOrders: 0,
-    totalProducts: 0,
-    conversionRate: '0%',
-    returnRate: '0%',
-    averageRating: '0.0',
-    monthlyGrowth: '0%',
-    customerSatisfaction: '0%'
-  });
-
-  const [recentOrders, setRecentOrders] = useState([]);
-  const [topProducts, setTopProducts] = useState([]);
+  const [dashboardData, setDashboardData] = useState(null);
+  const [profileData, setProfileData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [profileLoading, setProfileLoading] = useState(false);
   const [backendStatus, setBackendStatus] = useState('checking');
-  const [uploading, setUploading] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(0);
-  const [selectedFiles, setSelectedFiles] = useState([]);
-  const [error, setError] = useState(null);
-  const [sellerProfile, setSellerProfile] = useState(null);
-  const [profileLoading, setProfileLoading] = useState(true);
-  const [showProfile, setShowProfile] = useState(false);
+  const [activeSection, setActiveSection] = useState('dashboard');
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
   
   const navigate = useNavigate();
 
+  // Initialize dashboard
   useEffect(() => {
     initializeDashboard();
   }, []);
 
-  // ✅ FIXED: Simplified initialization - combine everything
   const initializeDashboard = async () => {
     setLoading(true);
+    setError('');
     setBackendStatus('checking');
-    setError(null);
     
     try {
-      console.log('🔍 Checking backend connection...');
+      console.log('🔍 Initializing dashboard...');
       
-      // First check backend health
+      // Check backend health
       const healthResult = await healthAPI.check();
       
-      if (healthResult && healthResult.success !== false) {
+      if (healthResult?.success) {
         setBackendStatus('connected');
-        console.log('✅ Backend connected successfully');
+        console.log('✅ Backend connected');
         
-        // Fetch all data in parallel
+        // Load data
         await Promise.all([
-          fetchDashboardData(),
-          fetchSellerProfile()
+          fetchDashboard(),
+          fetchProfile()
         ]);
-        
       } else {
-        throw new Error('Health check failed');
+        throw new Error('Backend health check failed');
       }
-      
     } catch (error) {
-      console.error('❌ Backend connection failed:', error);
+      console.error('❌ Dashboard initialization error:', error);
       setBackendStatus('disconnected');
-      setError(`Unable to connect to server. Please try again later.`);
-      
-      // Load fallback data for demonstration
-      loadFallbackData();
+      setError('Unable to connect to server. Please try again.');
     } finally {
       setLoading(false);
     }
   };
 
-  // ✅ Load fallback data when backend is unavailable
-  const loadFallbackData = () => {
-    console.log('⚠️ Loading fallback data for demonstration');
-    
-    // Set demo stats
-    setStats({
-      totalSales: 42,
-      totalEarnings: 1250.75,
-      pendingOrders: 5,
-      totalProducts: 15,
-      conversionRate: '3.2%',
-      returnRate: '2.1%',
-      averageRating: '4.2',
-      monthlyGrowth: '12%',
-      customerSatisfaction: '89%'
-    });
-    
-    // Set demo orders
-    setRecentOrders([
-      { 
-        id: 'ORD001', 
-        customerName: 'John Doe', 
-        status: 'Processing', 
-        totalAmount: 99.99,
-        date: new Date().toISOString()
-      },
-      { 
-        id: 'ORD002', 
-        customerName: 'Jane Smith', 
-        status: 'Shipped', 
-        totalAmount: 149.50,
-        date: new Date().toISOString()
-      },
-      { 
-        id: 'ORD003', 
-        customerName: 'Bob Johnson', 
-        status: 'Delivered', 
-        totalAmount: 79.99,
-        date: new Date().toISOString()
-      }
-    ]);
-    
-    // Set demo products
-    setTopProducts([
-      { 
-        id: 1, 
-        name: 'Wireless Headphones', 
-        price: 89.99, 
-        revenue: 899.90,
-        salesCount: 10,
-        rating: 4.5,
-        category: 'electronics',
-        image: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=400&h=300&fit=crop'
-      },
-      { 
-        id: 2, 
-        name: 'Running Shoes', 
-        price: 129.99, 
-        revenue: 2599.80,
-        salesCount: 20,
-        rating: 4.7,
-        category: 'sports',
-        image: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w-400&h=300&fit=crop'
-      },
-      { 
-        id: 3, 
-        name: 'Smart Watch', 
-        price: 199.99, 
-        revenue: 3999.80,
-        salesCount: 20,
-        rating: 4.3,
-        category: 'electronics',
-        image: 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400&h=300&fit=crop'
-      }
-    ]);
-    
-    // Set demo profile
-    setSellerProfile({
-      name: 'Alex Johnson',
-      email: 'alex@seller.com',
-      phone: '+1 (555) 123-4567',
-      address: '123 Business Ave, New York, NY',
-      dateOfBirth: '1990-05-15',
-      profileImage: null,
-      storeName: 'Premium Electronics Store',
-      businessDescription: 'Specializing in high-quality electronics and gadgets',
-      businessContact: 'contact@premiumstore.com',
-      taxInfo: 'VAT Registered',
-      businessRegistration: 'REG123456',
-      rating: 4.5,
-      totalProducts: 15,
-      totalSales: 42,
-      totalEarnings: 1250.75,
-      joinedDate: 'January 2024',
-      notifications: {
-        email: true,
-        sms: false,
-        push: true,
-        marketing: false
-      },
-      verified: true,
-      idVerified: true,
-      phoneVerified: true,
-      socialLinks: {
-        facebook: 'facebook.com/premiumstore',
-        instagram: 'instagram.com/premiumstore',
-        twitter: '',
-        website: 'premiumstore.com'
-      }
-    });
-    
-    setProfileLoading(false);
-  };
-
-  // ✅ REAL API CALL: Fetch Seller Profile
-  const fetchSellerProfile = async () => {
+  // Fetch REAL dashboard data
+  const fetchDashboard = async () => {
     try {
-      setProfileLoading(true);
-      console.log('🔄 Fetching seller profile from backend...');
+      console.log('🔄 Fetching dashboard data...');
+      const response = await sellerAPI.getDashboard();
       
-      const profileResponse = await userAPI.getProfile();
-      console.log('📋 Profile API response:', profileResponse);
-
-      if (profileResponse && profileResponse.success) {
-        const sellerData = profileResponse.data;
-        setSellerProfile({
-          name: sellerData.name || sellerData.fullName || 'Seller',
-          email: sellerData.email || 'No email provided',
-          phone: sellerData.phone || sellerData.mobile || 'Not provided',
-          address: sellerData.address || sellerData.location || 'Not provided',
-          dateOfBirth: sellerData.dateOfBirth || sellerData.dob || 'Not provided',
-          profileImage: sellerData.profileImage || sellerData.avatar || null,
-          storeName: sellerData.storeName || sellerData.businessName || 'My Store',
-          businessDescription: sellerData.businessDescription || sellerData.bio || 'Professional seller',
-          businessContact: sellerData.businessEmail || sellerData.contactEmail || sellerData.email,
-          taxInfo: sellerData.taxInfo || 'Not provided',
-          businessRegistration: sellerData.businessRegistration || 'Not applicable',
-          rating: sellerData.rating || sellerData.avgRating || 4.5,
-          totalProducts: stats.totalProducts,
-          totalSales: stats.totalSales,
-          totalEarnings: stats.totalEarnings,
-          joinedDate: sellerData.joinedDate || sellerData.createdAt || new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long' }),
-          notifications: {
-            email: sellerData.notifications?.email !== false,
-            sms: sellerData.notifications?.sms || false,
-            push: sellerData.notifications?.push !== false,
-            marketing: sellerData.notifications?.marketing || false
-          },
-          verified: sellerData.verified || sellerData.emailVerified || false,
-          idVerified: sellerData.idVerified || false,
-          phoneVerified: sellerData.phoneVerified || false,
-          socialLinks: sellerData.socialLinks || {
-            facebook: '',
-            instagram: '',
-            twitter: '',
-            website: ''
-          }
-        });
-        console.log('✅ Seller profile loaded');
+      if (response?.success && response.data) {
+        setDashboardData(response.data);
+        console.log('✅ Dashboard data loaded:', response.data);
       } else {
-        console.warn('⚠️ Using default seller profile');
-        setSellerProfile(getDefaultSellerProfile());
+        throw new Error('No dashboard data received');
       }
     } catch (error) {
-      console.error('❌ Error fetching seller profile:', error);
-      setSellerProfile(getDefaultSellerProfile());
+      console.error('❌ Dashboard fetch error:', error);
+      setError('Failed to load dashboard data');
+    }
+  };
+
+  // Fetch REAL profile data
+  const fetchProfile = async () => {
+    try {
+      console.log('🔄 Fetching profile data...');
+      const response = await sellerAPI.getProfile();
+      
+      if (response?.success && response.data) {
+        setProfileData(response.data);
+        console.log('✅ Profile data loaded:', response.data);
+      } else {
+        throw new Error('No profile data received');
+      }
+    } catch (error) {
+      console.error('❌ Profile fetch error:', error);
+      // Don't set error - profile might not exist yet
+    }
+  };
+
+  // Update profile
+  const updateProfile = async (section, data) => {
+    try {
+      setProfileLoading(true);
+      setError('');
+      setSuccess('');
+      
+      console.log(`🔄 Updating profile section: ${section}`, data);
+      
+      const response = await sellerAPI.updateProfile({
+        ...data,
+        section
+      });
+      
+      if (response?.success) {
+        setSuccess('Profile updated successfully!');
+        await fetchProfile(); // Refresh profile data
+      } else {
+        throw new Error(response?.message || 'Update failed');
+      }
+    } catch (error) {
+      console.error('❌ Profile update error:', error);
+      setError(error.message || 'Failed to update profile');
     } finally {
       setProfileLoading(false);
     }
   };
 
-  const getDefaultSellerProfile = () => {
-    return {
-      name: 'Seller',
-      email: 'seller@example.com',
-      phone: 'Not provided',
-      address: 'Not provided',
-      dateOfBirth: 'Not provided',
-      profileImage: null,
-      storeName: 'My Store',
-      businessDescription: 'Professional seller on our marketplace',
-      businessContact: 'seller@example.com',
-      taxInfo: 'Not provided',
-      businessRegistration: 'Not applicable',
-      rating: 4.5,
-      totalProducts: stats.totalProducts,
-      totalSales: stats.totalSales,
-      totalEarnings: stats.totalEarnings,
-      joinedDate: new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long' }),
-      notifications: {
-        email: true,
-        sms: false,
-        push: true,
-        marketing: false
-      },
-      verified: false,
-      idVerified: false,
-      phoneVerified: false,
-      socialLinks: {
-        facebook: '',
-        instagram: '',
-        twitter: '',
-        website: ''
-      }
-    };
-  };
-
-  // ✅ REAL API CALL TO DEPLOYED BACKEND
-  const fetchDashboardData = async () => {
-    try {
-      console.log('🔄 Fetching dashboard data from real backend...');
-      
-      const dashboardResponse = await sellerAPI.getDashboard();
-      console.log('📊 Dashboard API response:', dashboardResponse);
-
-      if (dashboardResponse && dashboardResponse.success !== false) {
-        const dashboardData = dashboardResponse.data || dashboardResponse;
-        
-        if (dashboardData) {          
-          if (dashboardData.stats) {
-            setStats(prev => ({
-              ...prev,
-              ...dashboardData.stats
-            }));
-          }
-          
-          if (dashboardData.recentOrders) {
-            const ordersWithImages = dashboardData.recentOrders.map(order => ({
-              ...order,
-              image: order.image ? formatImageUrl(order.image) : null
-            }));
-            setRecentOrders(ordersWithImages);
-          }
-          
-          if (dashboardData.topProducts) {
-            const productsWithImages = dashboardData.topProducts.map(product => ({
-              ...product,
-              image: product.image ? formatImageUrl(product.image) : null,
-              mainImage: product.images && product.images[0] ? formatImageUrl(product.images[0].url || product.images[0]) : null
-            }));
-            setTopProducts(productsWithImages);
-          }
-          
-          console.log('✅ Real data loaded successfully with images');
-        } else {
-          throw new Error('No data received from backend');
-        }
-      } else {
-        throw new Error(dashboardResponse?.message || 'Failed to fetch dashboard data');
-      }
-      
-    } catch (error) {
-      console.error('❌ Error fetching real dashboard data:', error);
-      throw error; // Re-throw to be caught by initializeDashboard
-    }
-  };
-
-  // ✅ FIXED: Proper image URL formatting
-  const formatImageUrl = (imageUrl) => {
-    if (!imageUrl) return null;
-    
-    if (imageUrl.startsWith('http')) return imageUrl;
-    if (imageUrl.startsWith('data:')) return imageUrl;
-    
-    const cleanUrl = imageUrl.startsWith('/') ? imageUrl.substring(1) : imageUrl;
-    
-    if (cleanUrl.includes('http')) return cleanUrl;
-    
-    return `${process.env.REACT_APP_API_URL || 'https://carttifys-1.onrender.com'}/${cleanUrl}`;
-  };
-
-  // ✅ Enhanced file upload
-  const handleFileSelect = (event) => {
-    const files = Array.from(event.target.files);
-    
-    const validFiles = files.filter(file => {
-      const isValidType = file.type.startsWith('image/') || file.type.startsWith('video/');
-      const isValidSize = file.size <= 50 * 1024 * 1024;
-      
-      if (!isValidType) {
-        alert(`❌ ${file.name} is not a valid image or video file`);
-        return false;
-      }
-      
-      if (!isValidSize) {
-        alert(`❌ ${file.name} is too large. Maximum size is 50MB`);
-        return false;
-      }
-      
-      return true;
-    });
-    
-    setSelectedFiles(validFiles);
-    
-    if (validFiles.length > 0 && backendStatus === 'connected') {
-      handleFileUpload(validFiles);
-    } else if (validFiles.length > 0) {
-      alert('⚠️ Backend not connected. Please check your connection.');
-    }
-  };
-
-  const handleFileUpload = async (files) => {
-    if (backendStatus !== 'connected') {
-      alert('❌ Cannot upload: Backend not connected');
-      return;
-    }
-
-    setUploading(true);
-    setUploadProgress(0);
+  // Handle profile picture upload
+  const handleProfilePictureUpload = async (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
     
     try {
+      setProfileLoading(true);
+      setError('');
+      
       const formData = new FormData();
+      formData.append('profileImage', file);
       
-      files.forEach(file => {
-        formData.append('media', file);
-      });
+      const response = await sellerAPI.updateProfilePicture(formData);
       
-      const productName = `Product ${Date.now()}`;
-      const categories = ['electronics', 'clothing', 'home', 'sports', 'books'];
-      const randomCategory = categories[Math.floor(Math.random() * categories.length)];
-      
-      formData.append('name', productName);
-      formData.append('description', `High-quality ${randomCategory} product with excellent features.`);
-      formData.append('price', (Math.random() * 100 + 10).toFixed(2));
-      formData.append('category', randomCategory);
-      formData.append('stock', Math.floor(Math.random() * 50 + 10).toString());
-      formData.append('features', 'Premium Quality,Best Seller,New Arrival');
-      
-      const interval = setInterval(() => {
-        setUploadProgress(prev => {
-          if (prev >= 90) {
-            clearInterval(interval);
-            return 90;
-          }
-          return prev + 10;
-        });
-      }, 200);
-
-      const result = await sellerAPI.createProduct(formData);
-      
-      clearInterval(interval);
-      
-      if (result && result.success !== false) {
-        setUploadProgress(100);
-        
-        alert(`✅ Successfully uploaded ${files.length} file(s) and created "${productName}"!`);
-        
-        setTimeout(() => {
-          fetchDashboardData();
-        }, 1000);
-        
-        setSelectedFiles([]);
-        
-        setTimeout(() => {
-          setUploadProgress(0);
-        }, 2000);
+      if (response?.success) {
+        setSuccess('Profile picture updated!');
+        await fetchProfile();
       } else {
-        throw new Error(result?.message || 'Upload failed');
+        throw new Error('Failed to upload profile picture');
       }
-      
     } catch (error) {
-      console.error('Upload error:', error);
-      alert('❌ Upload failed: ' + error.message);
-      setUploadProgress(0);
+      console.error('❌ Profile picture upload error:', error);
+      setError('Failed to upload profile picture');
     } finally {
-      setUploading(false);
+      setProfileLoading(false);
     }
   };
 
-  const handleDragOver = (event) => {
-    event.preventDefault();
-    event.currentTarget.classList.add('drag-over');
+  // Format currency
+  const formatCurrency = (amount) => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0
+    }).format(amount || 0);
   };
 
-  const handleDragLeave = (event) => {
-    event.preventDefault();
-    event.currentTarget.classList.remove('drag-over');
+  // Format date
+  const formatDate = (dateString) => {
+    if (!dateString) return 'N/A';
+    return new Date(dateString).toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric'
+    });
   };
 
-  const handleDrop = (event) => {
-    event.preventDefault();
-    event.currentTarget.classList.remove('drag-over');
-    const files = Array.from(event.dataTransfer.files);
-    handleFileSelect({ target: { files } });
-  };
-
-  const refreshData = () => {
-    if (backendStatus === 'connected') {
-      setLoading(true);
-      Promise.all([fetchDashboardData(), fetchSellerProfile()])
-        .finally(() => setLoading(false));
-    }
-  };
-
+  // Quick actions
   const handleQuickAction = (action) => {
     switch(action) {
       case 'add_product':
         navigate('/seller/products/add');
         break;
-      case 'upload_media':
-        document.getElementById('media-upload').click();
-        break;
-      case 'process_orders':
-        navigate('/seller/orders');
-        break;
-      case 'update_inventory':
+      case 'manage_products':
         navigate('/seller/products');
         break;
-      case 'edit_profile':
-        setShowProfile(true);
+      case 'view_orders':
+        navigate('/seller/orders');
         break;
-      case 'view_profile':
-        setShowProfile(true);
+      case 'profile':
+        setActiveSection('profile');
         break;
       default:
         break;
     }
   };
 
-  const toggleProfileView = () => {
-    setShowProfile(!showProfile);
+  // Refresh data
+  const refreshData = async () => {
+    setLoading(true);
+    setError('');
+    try {
+      await Promise.all([
+        fetchDashboard(),
+        fetchProfile()
+      ]);
+    } catch (error) {
+      console.error('Refresh error:', error);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  // Utility functions
-  const getStatusBadge = (status) => {
-    const statusConfig = {
-      'Processing': 'status-processing',
-      'Shipped': 'status-shipped',
-      'Delivered': 'status-delivered',
-      'Cancelled': 'status-cancelled',
-      'Pending': 'status-pending'
-    };
-    return statusConfig[status] || 'status-default';
-  };
-
-  const getStatusIcon = (status) => {
-    const iconConfig = {
-      'Processing': 'fas fa-sync-alt fa-spin',
-      'Shipped': 'fas fa-shipping-fast',
-      'Delivered': 'fas fa-check-circle',
-      'Cancelled': 'fas fa-times-circle',
-      'Pending': 'fas fa-clock'
-    };
-    return iconConfig[status] || 'fas fa-circle';
-  };
-
-  const formatCurrency = (amount) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD'
-    }).format(amount || 0);
-  };
-
-  // ✅ Show only one loading state
+  // Loading state
   if (loading) {
     return (
-      <div className="seller-dashboard">
-        <div className="container">
-          <div className="loading-container">
-            <i className="fas fa-spinner fa-spin fa-2x"></i>
-            <p>Loading your dashboard...</p>
-            <div className="loading-progress">
-              <div className="progress-bar"></div>
-            </div>
-          </div>
+      <div className="seller-dashboard loading">
+        <div className="loading-content">
+          <div className="loading-spinner"></div>
+          <p>Loading your dashboard...</p>
+          <p className="loading-subtext">Connecting to backend server</p>
         </div>
       </div>
     );
   }
 
-  // ✅ Simplified disconnected state - no reconnect button
+  // Error state
   if (backendStatus === 'disconnected') {
     return (
-      <div className="seller-dashboard">
-        <div className="container">
-          <div className="dashboard-header">
-            <div className="header-content">
-              <div className="header-text">
-                <h1>
-                  <i className="fas fa-tachometer-alt"></i>
-                  Seller Dashboard
-                </h1>
-                <p className="lead">Manage your products and profile</p>
-              </div>
-            </div>
+      <div className="seller-dashboard error">
+        <div className="error-content">
+          <div className="error-icon">
+            <i className="fas fa-exclamation-triangle"></i>
           </div>
-          
-          <div className="demo-mode-banner mt-4">
-            <i className="fas fa-info-circle"></i>
-            Demo Mode: Using sample data
-          </div>
-          
-          <div className="alert alert-info mt-3">
-            <i className="fas fa-info-circle me-2"></i>
-            The backend server is currently unavailable. Showing demo data for demonstration purposes.
-          </div>
-          
-          {/* Continue with dashboard content */}
+          <h3>Connection Error</h3>
+          <p>Unable to connect to the server.</p>
+          <p className="error-details">{error}</p>
+          <button 
+            className="btn btn-primary"
+            onClick={initializeDashboard}
+          >
+            <i className="fas fa-redo"></i> Retry Connection
+          </button>
         </div>
       </div>
     );
@@ -577,381 +237,804 @@ const SellerDashboard = () => {
 
   return (
     <div className="seller-dashboard">
-      <div className="container">
-        {/* Hidden file input for media upload */}
-        <input
-          type="file"
-          id="media-upload"
-          multiple
-          accept="image/*,video/*"
-          onChange={handleFileSelect}
-          style={{ display: 'none' }}
-        />
+      {/* Hidden file input for profile picture */}
+      <input
+        type="file"
+        id="profile-picture-upload"
+        accept="image/*"
+        onChange={handleProfilePictureUpload}
+        style={{ display: 'none' }}
+      />
 
-        {/* Header */}
-        <div className="dashboard-header">
-          <div className="header-content">
-            <div className="header-text">
-              <h1>
-                <i className="fas fa-tachometer-alt"></i>
-                Seller Dashboard
-              </h1>
-              <p className="lead">Manage your products and profile</p>
-            </div>
-            <div className="header-actions">
-              <button 
-                className="btn btn-outline-primary btn-sm"
-                onClick={refreshData}
-                disabled={loading}
-              >
-                <i className="fas fa-sync-alt"></i>
-                {loading ? 'Refreshing...' : 'Refresh Data'}
-              </button>
-              <button 
-                className="btn btn-primary btn-sm ms-2"
-                onClick={toggleProfileView}
-              >
-                <i className="fas fa-user"></i>
-                {showProfile ? 'Hide Profile' : 'Show Profile'}
-              </button>
-            </div>
+      {/* Header */}
+      <div className="dashboard-header">
+        <div className="header-content">
+          <div className="header-left">
+            <h1>
+              <i className="fas fa-store"></i>
+              Seller Dashboard
+            </h1>
+            <p className="header-subtitle">
+              {activeSection === 'dashboard' ? 'Manage your business' : 'Manage your profile'}
+            </p>
           </div>
           
-          {/* ✅ Show appropriate banner based on connection status */}
-          {backendStatus === 'connected' ? (
-            <div className="data-status-banner real-data">
-              <i className="fas fa-check-circle"></i>
-              ✅ Connected to live backend
+          <div className="header-right">
+            <div className="connection-status connected">
+              <i className="fas fa-circle"></i>
+              <span>Connected</span>
             </div>
-          ) : (
-            <div className="data-status-banner demo-data">
-              <i className="fas fa-info-circle"></i>
-              ⚠️ Demo Mode - Showing sample data
-            </div>
-          )}
-
-          {error && (
-            <div className="alert alert-warning mt-2">
-              <i className="fas fa-exclamation-triangle"></i>
-              {error}
-            </div>
-          )}
-        </div>
-
-        {/* Rest of your JSX remains the same */}
-        {/* PROFILE SECTION - Only shown when toggled */}
-        {showProfile && sellerProfile && (
-          <div className="profile-section-card mt-4">
-            {/* Profile content remains the same */}
-            {/* ... */}
-          </div>
-        )}
-
-        {/* Quick Stats */}
-        <div className="row mt-4">
-          <div className="col-md-3 col-sm-6 mb-3">
-            <div className="stats-card sales-card p-3">
-              <div className="stats-icon">
-                <i className="fas fa-chart-line"></i>
-              </div>
-              <h3>{stats.totalSales}</h3>
-              <p>Total Sales</p>
-            </div>
-          </div>
-          
-          <div className="col-md-3 col-sm-6 mb-3">
-            <div className="stats-card orders-card p-3">
-              <div className="stats-icon">
-                <i className="fas fa-box"></i>
-              </div>
-              <h3>{stats.pendingOrders}</h3>
-              <p>Pending Orders</p>
-            </div>
-          </div>
-          
-          <div className="col-md-3 col-sm-6 mb-3">
-            <div className="stats-card products-card p-3">
-              <div className="stats-icon">
-                <i className="fas fa-cube"></i>
-              </div>
-              <h3>{stats.totalProducts}</h3>
-              <p>Products Listed</p>
-            </div>
-          </div>
-          
-          <div className="col-md-3 col-sm-6 mb-3">
-            <div className="stats-card rating-card p-3">
-              <div className="stats-icon">
-                <i className="fas fa-star"></i>
-              </div>
-              <h3>{stats.averageRating}</h3>
-              <p>Avg Rating</p>
-            </div>
+            
+            <button 
+              className="btn btn-outline refresh-btn"
+              onClick={refreshData}
+              disabled={loading}
+            >
+              <i className="fas fa-sync-alt"></i>
+              {loading ? 'Refreshing...' : 'Refresh'}
+            </button>
           </div>
         </div>
 
-        {/* Quick Actions */}
-        <div className="card mt-4">
-          <div className="card-body">
-            <div className="d-flex justify-content-between align-items-center mb-3">
-              <h4 className="card-title mb-0">
-                <i className="fas fa-bolt"></i>
-                Quick Actions
-              </h4>
-              <span className={`badge ${backendStatus === 'connected' ? 'bg-success' : 'bg-info'}`}>
-                {backendStatus === 'connected' ? 'Live Data' : 'Demo Mode'}
-              </span>
+        {/* Navigation Tabs */}
+        <div className="dashboard-tabs">
+          <button 
+            className={`tab-btn ${activeSection === 'dashboard' ? 'active' : ''}`}
+            onClick={() => setActiveSection('dashboard')}
+          >
+            <i className="fas fa-tachometer-alt"></i>
+            Dashboard
+          </button>
+          <button 
+            className={`tab-btn ${activeSection === 'profile' ? 'active' : ''}`}
+            onClick={() => setActiveSection('profile')}
+          >
+            <i className="fas fa-user"></i>
+            Profile
+          </button>
+        </div>
+      </div>
+
+      {/* Messages */}
+      {error && (
+        <div className="alert alert-error">
+          <i className="fas fa-exclamation-circle"></i>
+          {error}
+        </div>
+      )}
+
+      {success && (
+        <div className="alert alert-success">
+          <i className="fas fa-check-circle"></i>
+          {success}
+        </div>
+      )}
+
+      {/* Main Content */}
+      <div className="dashboard-content">
+        {activeSection === 'dashboard' ? (
+          /* DASHBOARD SECTION */
+          <div className="dashboard-section">
+            {/* Stats Cards */}
+            <div className="stats-grid">
+              <div className="stat-card">
+                <div className="stat-icon">
+                  <i className="fas fa-shopping-bag"></i>
+                </div>
+                <div className="stat-content">
+                  <h3>{dashboardData?.stats?.totalProducts || 0}</h3>
+                  <p>Total Products</p>
+                </div>
+              </div>
+              
+              <div className="stat-card">
+                <div className="stat-icon">
+                  <i className="fas fa-shopping-cart"></i>
+                </div>
+                <div className="stat-content">
+                  <h3>{dashboardData?.stats?.totalSales || 0}</h3>
+                  <p>Total Sales</p>
+                </div>
+              </div>
+              
+              <div className="stat-card">
+                <div className="stat-icon">
+                  <i className="fas fa-clock"></i>
+                </div>
+                <div className="stat-content">
+                  <h3>{dashboardData?.stats?.pendingOrders || 0}</h3>
+                  <p>Pending Orders</p>
+                </div>
+              </div>
+              
+              <div className="stat-card">
+                <div className="stat-icon">
+                  <i className="fas fa-star"></i>
+                </div>
+                <div className="stat-content">
+                  <h3>{dashboardData?.stats?.averageRating || '0.0'}</h3>
+                  <p>Avg Rating</p>
+                </div>
+              </div>
             </div>
-            <div className="row">
-              <div className="col-md-3 col-sm-6 mb-3">
+
+            {/* Quick Actions */}
+            <div className="section-card">
+              <div className="section-header">
+                <h3>
+                  <i className="fas fa-bolt"></i>
+                  Quick Actions
+                </h3>
+              </div>
+              <div className="actions-grid">
                 <button 
-                  className="action-btn primary w-100 p-3"
+                  className="action-btn"
                   onClick={() => handleQuickAction('add_product')}
                 >
-                  <div className="action-icon mb-2">
-                    <i className="fas fa-plus fa-2x"></i>
+                  <div className="action-icon">
+                    <i className="fas fa-plus"></i>
                   </div>
-                  <span>Add Product</span>
-                  <small>Create new listings</small>
+                  <div className="action-content">
+                    <h4>Add Product</h4>
+                    <p>Create new listing</p>
+                  </div>
                 </button>
-              </div>
-              
-              <div className="col-md-3 col-sm-6 mb-3">
+                
                 <button 
-                  className="action-btn success w-100 p-3"
-                  onClick={() => handleQuickAction('upload_media')}
-                  disabled={uploading || backendStatus !== 'connected'}
+                  className="action-btn"
+                  onClick={() => handleQuickAction('manage_products')}
                 >
-                  <div className="action-icon mb-2">
-                    <i className="fas fa-upload fa-2x"></i>
+                  <div className="action-icon">
+                    <i className="fas fa-box"></i>
                   </div>
-                  <span>Upload Images</span>
-                  <small>Add product photos</small>
+                  <div className="action-content">
+                    <h4>Manage Products</h4>
+                    <p>View all products</p>
+                  </div>
                 </button>
-              </div>
-              
-              <div className="col-md-3 col-sm-6 mb-3">
+                
                 <button 
-                  className="action-btn warning w-100 p-3"
-                  onClick={() => handleQuickAction('process_orders')}
+                  className="action-btn"
+                  onClick={() => handleQuickAction('view_orders')}
                 >
-                  <div className="action-icon mb-2">
-                    <i className="fas fa-clipboard-list fa-2x"></i>
+                  <div className="action-icon">
+                    <i className="fas fa-clipboard-list"></i>
                   </div>
-                  <span>Process Orders</span>
-                  <small>{stats.pendingOrders} pending</small>
+                  <div className="action-content">
+                    <h4>View Orders</h4>
+                    <p>Process orders</p>
+                  </div>
                 </button>
-              </div>
-              
-              <div className="col-md-3 col-sm-6 mb-3">
+                
                 <button 
-                  className="action-btn info w-100 p-3"
-                  onClick={() => handleQuickAction('view_profile')}
+                  className="action-btn"
+                  onClick={() => handleQuickAction('profile')}
                 >
-                  <div className="action-icon mb-2">
-                    <i className="fas fa-user fa-2x"></i>
+                  <div className="action-icon">
+                    <i className="fas fa-user-cog"></i>
                   </div>
-                  <span>View Profile</span>
-                  <small>Manage your account</small>
+                  <div className="action-content">
+                    <h4>Profile Settings</h4>
+                    <p>Update profile</p>
+                  </div>
                 </button>
               </div>
             </div>
 
-            {uploading && (
-              <div className="upload-progress-section mt-4">
-                <div className="upload-progress-header">
-                  <i className="fas fa-upload"></i>
-                  <span>Uploading {selectedFiles.length} image(s)...</span>
+            {/* Recent Orders */}
+            <div className="section-card">
+              <div className="section-header">
+                <h3>
+                  <i className="fas fa-history"></i>
+                  Recent Orders
+                </h3>
+                <Link to="/seller/orders" className="view-all">
+                  View All <i className="fas fa-arrow-right"></i>
+                </Link>
+              </div>
+              
+              {dashboardData?.recentOrders?.length > 0 ? (
+                <div className="orders-table">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Order ID</th>
+                        <th>Customer</th>
+                        <th>Amount</th>
+                        <th>Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {dashboardData.recentOrders.slice(0, 5).map(order => (
+                        <tr key={order.id}>
+                          <td className="order-id">#{order.orderId}</td>
+                          <td>{order.customerName}</td>
+                          <td className="order-amount">{formatCurrency(order.totalAmount)}</td>
+                          <td>
+                            <span className={`status-badge ${order.status?.toLowerCase()}`}>
+                              {order.status}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
-                <div className="progress mt-2">
-                  <div 
-                    className="progress-bar progress-bar-striped progress-bar-animated" 
-                    style={{ width: `${uploadProgress}%` }}
-                  >
-                    {uploadProgress}%
-                  </div>
+              ) : (
+                <div className="empty-state">
+                  <i className="fas fa-inbox"></i>
+                  <p>No orders yet</p>
+                  <p className="empty-subtext">Orders will appear here</p>
                 </div>
-                <div className="upload-files-list mt-2">
-                  {selectedFiles.map((file, index) => (
-                    <div key={index} className="upload-file-item">
-                      <i className="fas fa-image me-2"></i>
-                      <span>{file.name}</span>
-                      <small className="ms-2">({(file.size / (1024 * 1024)).toFixed(2)} MB)</small>
+              )}
+            </div>
+
+            {/* Top Products */}
+            <div className="section-card">
+              <div className="section-header">
+                <h3>
+                  <i className="fas fa-trophy"></i>
+                  Your Products
+                </h3>
+                <Link to="/seller/products" className="view-all">
+                  View All <i className="fas fa-arrow-right"></i>
+                </Link>
+              </div>
+              
+              {dashboardData?.topProducts?.length > 0 ? (
+                <div className="products-grid">
+                  {dashboardData.topProducts.slice(0, 3).map(product => (
+                    <div key={product.id} className="product-card">
+                      <div className="product-image">
+                        {product.image ? (
+                          <img 
+                            src={product.image} 
+                            alt={product.name}
+                            onError={(e) => {
+                              e.target.style.display = 'none';
+                              e.target.nextElementSibling.style.display = 'flex';
+                            }}
+                          />
+                        ) : null}
+                        <div className="image-placeholder">
+                          <i className="fas fa-box"></i>
+                        </div>
+                      </div>
+                      <div className="product-info">
+                        <h4 className="product-name">{product.name}</h4>
+                        <div className="product-details">
+                          <span className="product-price">{formatCurrency(product.price)}</span>
+                          <span className="product-sales">{product.salesCount || 0} sales</span>
+                        </div>
+                        <div className="product-rating">
+                          <i className="fas fa-star"></i>
+                          <span>{product.rating || '0.0'}</span>
+                        </div>
+                      </div>
                     </div>
                   ))}
                 </div>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Main Content Grid */}
-        <div className="row mt-4">
-          {/* Top Products */}
-          <div className="col-lg-8 mb-4">
-            <div className="card">
-              <div className="card-body">
-                <div className="d-flex justify-content-between align-items-center mb-4">
-                  <div>
-                    <h4 className="card-title">
-                      <i className="fas fa-trophy"></i>
-                      {backendStatus === 'connected' ? 'Your Products' : 'Sample Products'}
-                    </h4>
-                    <p className="text-muted mb-0">
-                      {backendStatus === 'connected' 
-                        ? 'Products you\'ve uploaded' 
-                        : 'Example products for demonstration'}
-                    </p>
-                  </div>
-                  <Link to="/seller/products" className="btn btn-sm btn-primary">
-                    <i className="fas fa-eye"></i>
-                    Manage All
-                  </Link>
+              ) : (
+                <div className="empty-state">
+                  <i className="fas fa-box-open"></i>
+                  <p>No products yet</p>
+                  <button 
+                    className="btn btn-primary"
+                    onClick={() => handleQuickAction('add_product')}
+                  >
+                    <i className="fas fa-plus"></i> Add Your First Product
+                  </button>
                 </div>
-                
-                {topProducts.length > 0 ? (
-                  <div className="row">
-                    {topProducts.map(product => (
-                      <div key={product.id} className="col-md-4 mb-3">
-                        <div className="product-card">
-                          <div className="product-image-container">
-                            {product.mainImage || product.image ? (
-                              <img 
-                                src={product.mainImage || product.image} 
-                                alt={product.name}
-                                className="product-image"
-                                onError={(e) => {
-                                  e.target.style.display = 'none';
-                                  e.target.nextSibling.style.display = 'flex';
-                                }}
-                              />
-                            ) : null}
-                            
-                            <div 
-                              className="image-fallback"
-                              style={{ 
-                                display: (product.mainImage || product.image) ? 'none' : 'flex' 
-                              }}
-                            >
-                              <i className="fas fa-cube"></i>
-                              <span>No image</span>
-                            </div>
-                          </div>
-                          
-                          <div className="product-info mt-2">
-                            <h6 className="product-name">{product.name}</h6>
-                            <div className="product-details d-flex justify-content-between">
-                              <span className="product-price">{formatCurrency(product.revenue || product.price)}</span>
-                              <span className="product-sales">{product.salesCount || 0} sales</span>
-                            </div>
-                            <div className="product-meta d-flex justify-content-between mt-1">
-                              <span className="product-rating">
-                                <i className="fas fa-star text-warning"></i>
-                                {product.rating || '4.5'}
-                              </span>
-                              <span className="product-category badge bg-secondary">{product.category}</span>
-                            </div>
-                          </div>
-                        </div>
+              )}
+            </div>
+          </div>
+        ) : (
+          /* PROFILE SECTION */
+          <div className="profile-section">
+            {/* Profile Header */}
+            <div className="profile-header-card">
+              <div className="profile-header-content">
+                <div className="profile-picture-section">
+                  <div className="profile-picture">
+                    {profileData?.profileImage ? (
+                      <img src={profileData.profileImage} alt={profileData.name} />
+                    ) : (
+                      <div className="profile-picture-placeholder">
+                        <i className="fas fa-user"></i>
                       </div>
-                    ))}
+                    )}
+                    <label htmlFor="profile-picture-upload" className="picture-upload-btn">
+                      <i className="fas fa-camera"></i>
+                    </label>
                   </div>
-                ) : (
-                  <div className="empty-state text-center py-5">
-                    <i className="fas fa-images fa-3x text-muted"></i>
-                    <h5 className="mt-3">No products yet</h5>
-                    <p className="text-muted">Add your first product to get started</p>
-                    <button 
-                      className="btn btn-primary mt-2"
-                      onClick={() => handleQuickAction('add_product')}
-                    >
-                      <i className="fas fa-plus"></i>
-                      Add Your First Product
-                    </button>
+                  
+                  <div className="profile-basic-info">
+                    <h2>{profileData?.name || 'Seller'}</h2>
+                    <p className="store-name">
+                      <i className="fas fa-store"></i>
+                      {profileData?.storeName || 'My Store'}
+                    </p>
+                    
+                    <div className="profile-verification">
+                      {profileData?.verified && (
+                        <span className="verification-badge verified">
+                          <i className="fas fa-check-circle"></i> Verified
+                        </span>
+                      )}
+                      {profileData?.idVerified && (
+                        <span className="verification-badge id-verified">
+                          <i className="fas fa-id-card"></i> ID Verified
+                        </span>
+                      )}
+                      <span className="rating-badge">
+                        <i className="fas fa-star"></i> {profileData?.rating || '0.0'}
+                      </span>
+                    </div>
                   </div>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* Recent Orders */}
-          <div className="col-lg-4 mb-4">
-            <div className="card">
-              <div className="card-body">
-                <div className="d-flex justify-content-between align-items-center mb-4">
-                  <h4 className="card-title mb-0">
-                    <i className="fas fa-clock"></i>
-                    Recent Orders
-                  </h4>
-                  <Link to="/seller/orders" className="btn btn-sm btn-primary">
-                    <i className="fas fa-eye"></i>
-                    View All
-                  </Link>
                 </div>
                 
-                {recentOrders.length > 0 ? (
-                  <div className="table-responsive">
-                    <table className="table table-hover">
-                      <thead>
-                        <tr>
-                          <th>Order ID</th>
-                          <th>Customer</th>
-                          <th>Status</th>
-                          <th>Total</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {recentOrders.slice(0, 5).map(order => (
-                          <tr key={order.id}>
-                            <td><strong>#{order.id}</strong></td>
-                            <td>{order.customerName}</td>
-                            <td>
-                              <span className={`badge ${getStatusBadge(order.status)}`}>
-                                <i className={getStatusIcon(order.status)}></i>
-                                {order.status}
-                              </span>
-                            </td>
-                            <td>
-                              <strong>{formatCurrency(order.totalAmount)}</strong>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                <div className="profile-stats">
+                  <div className="profile-stat">
+                    <div className="stat-number">{profileData?.totalProducts || 0}</div>
+                    <div className="stat-label">Products</div>
                   </div>
-                ) : (
-                  <div className="empty-state text-center py-5">
-                    <i className="fas fa-inbox fa-3x text-muted"></i>
-                    <h5 className="mt-3">No orders yet</h5>
-                    <p className="text-muted">Orders will appear here when customers purchase your products</p>
+                  <div className="profile-stat">
+                    <div className="stat-number">{profileData?.totalSales || 0}</div>
+                    <div className="stat-label">Sales</div>
                   </div>
-                )}
+                  <div className="profile-stat">
+                    <div className="stat-number">{formatCurrency(profileData?.totalEarnings || 0)}</div>
+                    <div className="stat-label">Earnings</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Personal Information */}
+            <div className="profile-form-card">
+              <div className="profile-form-header">
+                <h3>
+                  <i className="fas fa-user-circle"></i>
+                  Personal Information
+                </h3>
+                <button 
+                  className="btn btn-primary btn-sm"
+                  onClick={() => updateProfile('personal', {
+                    name: profileData?.name,
+                    phone: profileData?.phone,
+                    address: profileData?.address
+                  })}
+                  disabled={profileLoading}
+                >
+                  {profileLoading ? 'Saving...' : 'Save Changes'}
+                </button>
+              </div>
+              
+              <div className="form-grid">
+                <div className="form-group">
+                  <label>Full Name</label>
+                  <input 
+                    type="text" 
+                    value={profileData?.name || ''}
+                    onChange={(e) => setProfileData({
+                      ...profileData,
+                      name: e.target.value
+                    })}
+                    placeholder="Enter your full name"
+                  />
+                </div>
+                
+                <div className="form-group">
+                  <label>Email Address</label>
+                  <input 
+                    type="email" 
+                    value={profileData?.email || ''}
+                    readOnly
+                    className="read-only"
+                    placeholder="Email (cannot be changed)"
+                  />
+                </div>
+                
+                <div className="form-group">
+                  <label>Phone Number</label>
+                  <input 
+                    type="tel" 
+                    value={profileData?.phone || ''}
+                    onChange={(e) => setProfileData({
+                      ...profileData,
+                      phone: e.target.value
+                    })}
+                    placeholder="Enter phone number"
+                  />
+                </div>
+                
+                <div className="form-group">
+                  <label>Date of Birth</label>
+                  <input 
+                    type="date" 
+                    value={profileData?.dateOfBirth || ''}
+                    onChange={(e) => setProfileData({
+                      ...profileData,
+                      dateOfBirth: e.target.value
+                    })}
+                  />
+                </div>
+                
+                <div className="form-group full-width">
+                  <label>Address</label>
+                  <textarea 
+                    value={profileData?.address || ''}
+                    onChange={(e) => setProfileData({
+                      ...profileData,
+                      address: e.target.value
+                    })}
+                    placeholder="Enter your address"
+                    rows="3"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Business Information */}
+            <div className="profile-form-card">
+              <div className="profile-form-header">
+                <h3>
+                  <i className="fas fa-building"></i>
+                  Business Information
+                </h3>
+                <button 
+                  className="btn btn-primary btn-sm"
+                  onClick={() => updateProfile('business', {
+                    storeName: profileData?.storeName,
+                    businessDescription: profileData?.businessDescription,
+                    businessContact: profileData?.businessContact,
+                    taxInfo: profileData?.taxInfo,
+                    businessRegistration: profileData?.businessRegistration
+                  })}
+                  disabled={profileLoading}
+                >
+                  {profileLoading ? 'Saving...' : 'Save Changes'}
+                </button>
+              </div>
+              
+              <div className="form-grid">
+                <div className="form-group">
+                  <label>Store/Business Name</label>
+                  <input 
+                    type="text" 
+                    value={profileData?.storeName || ''}
+                    onChange={(e) => setProfileData({
+                      ...profileData,
+                      storeName: e.target.value
+                    })}
+                    placeholder="Your business name"
+                  />
+                </div>
+                
+                <div className="form-group">
+                  <label>Business Contact Email</label>
+                  <input 
+                    type="email" 
+                    value={profileData?.businessContact || ''}
+                    onChange={(e) => setProfileData({
+                      ...profileData,
+                      businessContact: e.target.value
+                    })}
+                    placeholder="Business contact email"
+                  />
+                </div>
+                
+                <div className="form-group full-width">
+                  <label>Business Description</label>
+                  <textarea 
+                    value={profileData?.businessDescription || ''}
+                    onChange={(e) => setProfileData({
+                      ...profileData,
+                      businessDescription: e.target.value
+                    })}
+                    placeholder="Describe your business"
+                    rows="4"
+                  />
+                </div>
+                
+                <div className="form-group">
+                  <label>Tax Information</label>
+                  <input 
+                    type="text" 
+                    value={profileData?.taxInfo || ''}
+                    onChange={(e) => setProfileData({
+                      ...profileData,
+                      taxInfo: e.target.value
+                    })}
+                    placeholder="Tax ID/VAT number"
+                  />
+                </div>
+                
+                <div className="form-group">
+                  <label>Business Registration</label>
+                  <input 
+                    type="text" 
+                    value={profileData?.businessRegistration || ''}
+                    onChange={(e) => setProfileData({
+                      ...profileData,
+                      businessRegistration: e.target.value
+                    })}
+                    placeholder="Registration number"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Communication Preferences */}
+            <div className="profile-form-card">
+              <div className="profile-form-header">
+                <h3>
+                  <i className="fas fa-bell"></i>
+                  Notification Preferences
+                </h3>
+                <button 
+                  className="btn btn-primary btn-sm"
+                  onClick={() => updateProfile('notifications', {
+                    notifications: profileData?.notifications
+                  })}
+                  disabled={profileLoading}
+                >
+                  {profileLoading ? 'Saving...' : 'Save Changes'}
+                </button>
+              </div>
+              
+              <div className="preferences-grid">
+                <div className="preference-item">
+                  <div className="preference-info">
+                    <h4>Email Notifications</h4>
+                    <p>Receive order updates via email</p>
+                  </div>
+                  <label className="toggle-switch">
+                    <input 
+                      type="checkbox" 
+                      checked={profileData?.notifications?.email || false}
+                      onChange={(e) => setProfileData({
+                        ...profileData,
+                        notifications: {
+                          ...profileData?.notifications,
+                          email: e.target.checked
+                        }
+                      })}
+                    />
+                    <span className="toggle-slider"></span>
+                  </label>
+                </div>
+                
+                <div className="preference-item">
+                  <div className="preference-info">
+                    <h4>SMS Notifications</h4>
+                    <p>Receive SMS alerts for orders</p>
+                  </div>
+                  <label className="toggle-switch">
+                    <input 
+                      type="checkbox" 
+                      checked={profileData?.notifications?.sms || false}
+                      onChange={(e) => setProfileData({
+                        ...profileData,
+                        notifications: {
+                          ...profileData?.notifications,
+                          sms: e.target.checked
+                        }
+                      })}
+                    />
+                    <span className="toggle-slider"></span>
+                  </label>
+                </div>
+                
+                <div className="preference-item">
+                  <div className="preference-info">
+                    <h4>Push Notifications</h4>
+                    <p>Browser/app notifications</p>
+                  </div>
+                  <label className="toggle-switch">
+                    <input 
+                      type="checkbox" 
+                      checked={profileData?.notifications?.push || false}
+                      onChange={(e) => setProfileData({
+                        ...profileData,
+                        notifications: {
+                          ...profileData?.notifications,
+                          push: e.target.checked
+                        }
+                      })}
+                    />
+                    <span className="toggle-slider"></span>
+                  </label>
+                </div>
+                
+                <div className="preference-item">
+                  <div className="preference-info">
+                    <h4>Marketing Emails</h4>
+                    <p>Promotions and newsletters</p>
+                  </div>
+                  <label className="toggle-switch">
+                    <input 
+                      type="checkbox" 
+                      checked={profileData?.notifications?.marketing || false}
+                      onChange={(e) => setProfileData({
+                        ...profileData,
+                        notifications: {
+                          ...profileData?.notifications,
+                          marketing: e.target.checked
+                        }
+                      })}
+                    />
+                    <span className="toggle-slider"></span>
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            {/* Social Links */}
+            <div className="profile-form-card">
+              <div className="profile-form-header">
+                <h3>
+                  <i className="fas fa-share-alt"></i>
+                  Social Links
+                </h3>
+                <button 
+                  className="btn btn-primary btn-sm"
+                  onClick={() => updateProfile('social', {
+                    socialLinks: profileData?.socialLinks
+                  })}
+                  disabled={profileLoading}
+                >
+                  {profileLoading ? 'Saving...' : 'Save Changes'}
+                </button>
+              </div>
+              
+              <div className="form-grid">
+                <div className="form-group">
+                  <label>
+                    <i className="fab fa-facebook"></i> Facebook
+                  </label>
+                  <input 
+                    type="url" 
+                    value={profileData?.socialLinks?.facebook || ''}
+                    onChange={(e) => setProfileData({
+                      ...profileData,
+                      socialLinks: {
+                        ...profileData?.socialLinks,
+                        facebook: e.target.value
+                      }
+                    })}
+                    placeholder="https://facebook.com/yourpage"
+                  />
+                </div>
+                
+                <div className="form-group">
+                  <label>
+                    <i className="fab fa-instagram"></i> Instagram
+                  </label>
+                  <input 
+                    type="url" 
+                    value={profileData?.socialLinks?.instagram || ''}
+                    onChange={(e) => setProfileData({
+                      ...profileData,
+                      socialLinks: {
+                        ...profileData?.socialLinks,
+                        instagram: e.target.value
+                      }
+                    })}
+                    placeholder="https://instagram.com/yourprofile"
+                  />
+                </div>
+                
+                <div className="form-group">
+                  <label>
+                    <i className="fab fa-twitter"></i> Twitter
+                  </label>
+                  <input 
+                    type="url" 
+                    value={profileData?.socialLinks?.twitter || ''}
+                    onChange={(e) => setProfileData({
+                      ...profileData,
+                      socialLinks: {
+                        ...profileData?.socialLinks,
+                        twitter: e.target.value
+                      }
+                    })}
+                    placeholder="https://twitter.com/yourhandle"
+                  />
+                </div>
+                
+                <div className="form-group">
+                  <label>
+                    <i className="fas fa-globe"></i> Website
+                  </label>
+                  <input 
+                    type="url" 
+                    value={profileData?.socialLinks?.website || ''}
+                    onChange={(e) => setProfileData({
+                      ...profileData,
+                      socialLinks: {
+                        ...profileData?.socialLinks,
+                        website: e.target.value
+                      }
+                    })}
+                    placeholder="https://yourwebsite.com"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Account Information */}
+            <div className="profile-info-card">
+              <h3>
+                <i className="fas fa-info-circle"></i>
+                Account Information
+              </h3>
+              
+              <div className="info-grid">
+                <div className="info-item">
+                  <span className="info-label">Member Since</span>
+                  <span className="info-value">{profileData?.joinedDate || 'N/A'}</span>
+                </div>
+                
+                <div className="info-item">
+                  <span className="info-label">Account Status</span>
+                  <span className={`info-value status-${profileData?.verified ? 'verified' : 'pending'}`}>
+                    {profileData?.verified ? 'Verified' : 'Pending Verification'}
+                  </span>
+                </div>
+                
+                <div className="info-item">
+                  <span className="info-label">Phone Verified</span>
+                  <span className={`info-value status-${profileData?.phoneVerified ? 'verified' : 'pending'}`}>
+                    {profileData?.phoneVerified ? 'Verified' : 'Not Verified'}
+                  </span>
+                </div>
+                
+                <div className="info-item">
+                  <span className="info-label">ID Verified</span>
+                  <span className={`info-value status-${profileData?.idVerified ? 'verified' : 'pending'}`}>
+                    {profileData?.idVerified ? 'Verified' : 'Not Verified'}
+                  </span>
+                </div>
               </div>
             </div>
           </div>
-        </div>
+        )}
+      </div>
 
-        {/* Bottom Navigation */}
-        <div className="bottom-nav fixed-bottom d-lg-none">
-          <div className="bottom-nav-content">
-            <button className="nav-item" onClick={() => navigate('/seller/dashboard')}>
-              <i className="fas fa-home"></i>
-              <span>Dashboard</span>
-            </button>
-            <button className="nav-item" onClick={() => navigate('/seller/products')}>
-              <i className="fas fa-box"></i>
-              <span>Products</span>
-            </button>
-            <button className="nav-item" onClick={() => navigate('/seller/orders')}>
-              <i className="fas fa-clipboard-list"></i>
-              <span>Orders</span>
-            </button>
-            <button className="nav-item active" onClick={toggleProfileView}>
-              <i className="fas fa-user"></i>
-              <span>Profile</span>
-            </button>
-          </div>
-        </div>
+      {/* Bottom Navigation */}
+      <div className="bottom-nav">
+        <button 
+          className={`nav-item ${activeSection === 'dashboard' ? 'active' : ''}`}
+          onClick={() => setActiveSection('dashboard')}
+        >
+          <i className="fas fa-tachometer-alt"></i>
+          <span>Dashboard</span>
+        </button>
+        
+        <button 
+          className={`nav-item ${activeSection === 'profile' ? 'active' : ''}`}
+          onClick={() => setActiveSection('profile')}
+        >
+          <i className="fas fa-user"></i>
+          <span>Profile</span>
+        </button>
+        
+        <button 
+          className="nav-item"
+          onClick={() => handleQuickAction('add_product')}
+        >
+          <i className="fas fa-plus-circle"></i>
+          <span>Add Product</span>
+        </button>
+        
+        <button 
+          className="nav-item"
+          onClick={() => handleQuickAction('view_orders')}
+        >
+          <i className="fas fa-clipboard-list"></i>
+          <span>Orders</span>
+        </button>
       </div>
     </div>
   );
