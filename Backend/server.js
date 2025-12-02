@@ -19,7 +19,7 @@ app.use(cors({
     'https://www.cartifymarket.com.ng'
   ],
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
 }));
 
@@ -27,7 +27,7 @@ app.options('*', cors());
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
-// ✅ FIXED: Static file serving with proper CORS
+// ✅ Static file serving with proper CORS
 app.use('/uploads', express.static(path.join(__dirname, 'uploads'), {
   setHeaders: (res, path) => {
     res.set('Access-Control-Allow-Origin', '*');
@@ -47,7 +47,8 @@ const storage = multer.diskStorage({
   },
   filename: function (req, file, cb) {
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname));
+    const ext = path.extname(file.originalname);
+    cb(null, file.fieldname + '-' + uniqueSuffix + ext);
   }
 });
 
@@ -115,13 +116,205 @@ app.get('/api/health', (req, res) => {
     message: '🚀 E-commerce Backend is Running!',
     timestamp: new Date().toISOString(),
     database: mongoose.connection.readyState === 1 ? 'Connected' : 'Disconnected',
-    environment: process.env.NODE_ENV || 'development'
+    environment: process.env.NODE_ENV || 'development',
+    uptime: process.uptime()
   });
 });
 
-// ==================== UPLOAD ROUTES ====================
+// ==================== IMAGE ROUTES ====================
 
-// ✅ UPLOAD MEDIA FILES
+// ✅ GET ALL UPLOADED FILES
+app.get('/api/images', async (req, res) => {
+  try {
+    const uploadDir = path.join(__dirname, 'uploads');
+    
+    if (!fs.existsSync(uploadDir)) {
+      return res.json({
+        success: true,
+        data: [],
+        count: 0
+      });
+    }
+
+    const files = fs.readdirSync(uploadDir)
+      .map(filename => {
+        const filePath = path.join(uploadDir, filename);
+        const stats = fs.statSync(filePath);
+        const ext = path.extname(filename).toLowerCase().substring(1);
+        
+        return {
+          filename,
+          path: `/uploads/${filename}`,
+          url: `https://carttifys-1.onrender.com/uploads/${filename}`,
+          size: stats.size,
+          uploadedAt: stats.birthtime,
+          type: ['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext) ? 'image' :
+                ['mp4', 'mpeg', 'webm', 'avi', 'mov'].includes(ext) ? 'video' : 'file'
+        };
+      })
+      .sort((a, b) => b.uploadedAt - a.uploadedAt);
+
+    res.json({
+      success: true,
+      count: files.length,
+      data: files
+    });
+  } catch (error) {
+    console.error('Get images error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching uploaded files',
+      error: error.message
+    });
+  }
+});
+
+// ✅ UPLOAD SINGLE IMAGE
+app.post('/api/images/upload', upload.single('file'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        message: 'No file uploaded'
+      });
+    }
+
+    const fileInfo = {
+      filename: req.file.filename,
+      originalName: req.file.originalname,
+      mimetype: req.file.mimetype,
+      size: req.file.size,
+      path: `/uploads/${req.file.filename}`,
+      url: `https://carttifys-1.onrender.com/uploads/${req.file.filename}`,
+      type: req.file.mimetype.startsWith('image/') ? 'image' : 'video',
+      uploadedAt: new Date()
+    };
+
+    res.status(201).json({
+      success: true,
+      message: 'File uploaded successfully',
+      data: fileInfo
+    });
+
+  } catch (error) {
+    console.error('Single upload error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error uploading file',
+      error: error.message
+    });
+  }
+});
+
+// ✅ UPLOAD MULTIPLE IMAGES
+app.post('/api/images/upload-multiple', upload.array('files', 10), async (req, res) => {
+  try {
+    if (!req.files || req.files.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'No files uploaded'
+      });
+    }
+
+    const uploadedFiles = req.files.map(file => ({
+      filename: file.filename,
+      originalName: file.originalname,
+      mimetype: file.mimetype,
+      size: file.size,
+      path: `/uploads/${file.filename}`,
+      url: `https://carttifys-1.onrender.com/uploads/${file.filename}`,
+      type: file.mimetype.startsWith('image/') ? 'image' : 'video',
+      uploadedAt: new Date()
+    }));
+
+    res.status(201).json({
+      success: true,
+      message: `Successfully uploaded ${uploadedFiles.length} file(s)`,
+      data: uploadedFiles
+    });
+
+  } catch (error) {
+    console.error('Multiple upload error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error uploading files',
+      error: error.message
+    });
+  }
+});
+
+// ✅ DELETE IMAGE
+app.delete('/api/images/:filename', async (req, res) => {
+  try {
+    const filename = req.params.filename;
+    const filePath = path.join(__dirname, 'uploads', filename);
+    
+    if (!fs.existsSync(filePath)) {
+      return res.status(404).json({
+        success: false,
+        message: 'File not found'
+      });
+    }
+
+    fs.unlinkSync(filePath);
+
+    res.json({
+      success: true,
+      message: 'File deleted successfully'
+    });
+  } catch (error) {
+    console.error('Delete file error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error deleting file',
+      error: error.message
+    });
+  }
+});
+
+// ✅ GET IMAGE INFO
+app.get('/api/images/:filename', async (req, res) => {
+  try {
+    const filename = req.params.filename;
+    const filePath = path.join(__dirname, 'uploads', filename);
+    
+    if (!fs.existsSync(filePath)) {
+      return res.status(404).json({
+        success: false,
+        message: 'File not found'
+      });
+    }
+
+    const stats = fs.statSync(filePath);
+    const ext = path.extname(filename).toLowerCase().substring(1);
+
+    const fileInfo = {
+      filename,
+      path: `/uploads/${filename}`,
+      url: `https://carttifys-1.onrender.com/uploads/${filename}`,
+      size: stats.size,
+      uploadedAt: stats.birthtime,
+      type: ['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext) ? 'image' :
+            ['mp4', 'mpeg', 'webm', 'avi', 'mov'].includes(ext) ? 'video' : 'file'
+    };
+
+    res.json({
+      success: true,
+      data: fileInfo
+    });
+  } catch (error) {
+    console.error('Get file error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching file info',
+      error: error.message
+    });
+  }
+});
+
+// ==================== UPLOAD ROUTES (Compatibility) ====================
+
+// ✅ UPLOAD MEDIA FILES (Compatibility)
 app.post('/api/upload/media', upload.array('media', 10), async (req, res) => {
   try {
     if (!req.files || req.files.length === 0) {
@@ -131,7 +324,6 @@ app.post('/api/upload/media', upload.array('media', 10), async (req, res) => {
       });
     }
 
-    // ✅ FIXED: Use actual domain instead of localhost
     const uploadedFiles = req.files.map(file => ({
       filename: file.filename,
       originalName: file.originalname,
@@ -158,7 +350,7 @@ app.post('/api/upload/media', upload.array('media', 10), async (req, res) => {
   }
 });
 
-// ✅ UPLOAD SINGLE FILE
+// ✅ UPLOAD SINGLE FILE (Compatibility)
 app.post('/api/upload/single', upload.single('file'), async (req, res) => {
   try {
     if (!req.file) {
@@ -168,7 +360,6 @@ app.post('/api/upload/single', upload.single('file'), async (req, res) => {
       });
     }
 
-    // ✅ FIXED: Use actual domain instead of localhost
     const fileInfo = {
       filename: req.file.filename,
       originalName: req.file.originalname,
@@ -226,7 +417,6 @@ app.post('/api/seller/products/with-media', upload.array('media', 10), async (re
       });
     }
 
-    // ✅ FIXED: Use actual domain instead of localhost
     const images = [];
     const videos = [];
 
@@ -324,7 +514,6 @@ app.post('/api/seller/products', upload.array('media', 10), async (req, res) => 
       });
     }
 
-    // ✅ FIXED: Use actual domain instead of localhost
     const images = [];
     const videos = [];
 
@@ -392,285 +581,6 @@ app.post('/api/seller/products', upload.array('media', 10), async (req, res) => 
   }
 });
 
-// ✅ ADD THIS: Base64 Image Product Creation Endpoint
-app.post('/api/seller/products/base64', async (req, res) => {
-  try {
-    const User = require('./models/User');
-    const Product = require('./models/Product');
-
-    console.log('🔄 Processing base64 product creation...');
-    
-    const seller = await User.findOne({ role: 'seller' });
-    
-    if (!seller) {
-      return res.status(404).json({
-        success: false,
-        message: 'Seller not found'
-      });
-    }
-
-    const {
-      name,
-      description,
-      price,
-      category,
-      stock,
-      features,
-      images,
-      videos
-    } = req.body;
-
-    console.log('📦 Product data received:', {
-      name,
-      category,
-      price,
-      stock,
-      imagesCount: images ? images.length : 0,
-      videosCount: videos ? videos.length : 0
-    });
-
-    // Validate required fields
-    if (!name || !description || !price || !category || !stock) {
-      return res.status(400).json({
-        success: false,
-        message: 'All required fields must be provided'
-      });
-    }
-
-    // Validate images
-    if (!images || images.length === 0) {
-      return res.status(400).json({
-        success: false,
-        message: 'At least one product image is required'
-      });
-    }
-
-    // ✅ FIXED: Process base64 images properly
-    const processedImages = images.map((image, index) => {
-      // If image is in correct format { data, contentType }
-      if (image.data && image.contentType) {
-        return {
-          data: image.data, // Pure base64 string from frontend
-          contentType: image.contentType,
-          _id: new mongoose.Types.ObjectId()
-        };
-      }
-      
-      return null;
-    }).filter(img => img !== null);
-
-    if (processedImages.length === 0) {
-      return res.status(400).json({
-        success: false,
-        message: 'No valid images provided'
-      });
-    }
-
-    // ✅ FIXED: Process base64 videos properly
-    const processedVideos = videos ? videos.map((video, index) => {
-      if (video.data && video.contentType) {
-        return {
-          data: video.data,
-          contentType: video.contentType,
-          name: video.name || `video_${index + 1}`,
-          size: video.size || 0,
-          _id: new mongoose.Types.ObjectId()
-        };
-      }
-      return null;
-    }).filter(vid => vid !== null) : [];
-
-    // Create product with processed data
-    const product = new Product({
-      name: name.trim(),
-      description: description.trim(),
-      price: parseFloat(price),
-      category: category.toLowerCase(),
-      stock: parseInt(stock),
-      features: Array.isArray(features) ? features.filter(f => f.trim() !== '') : [],
-      images: processedImages,
-      videos: processedVideos,
-      seller: seller._id,
-      sellerId: seller._id,
-      status: 'active'
-    });
-
-    await product.save();
-
-    console.log('✅ Product created successfully with base64 images:', product._id);
-
-    res.status(201).json({
-      success: true,
-      message: 'Product created successfully with real images/videos!',
-      data: product
-    });
-
-  } catch (error) {
-    console.error('❌ Error creating product with base64:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Server error while creating product',
-      error: error.message
-    });
-  }
-});
-
-// ✅ ADD THIS: Image Serving Endpoint for Base64 Images
-app.get('/api/products/:productId/image/:imageId', async (req, res) => {
-  try {
-    const Product = require('./models/Product');
-    const { productId, imageId } = req.params;
-
-    console.log('🔄 Serving image:', { productId, imageId });
-
-    // Validate ObjectId
-    if (!mongoose.Types.ObjectId.isValid(productId) || !mongoose.Types.ObjectId.isValid(imageId)) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Invalid product or image ID' 
-      });
-    }
-
-    const product = await Product.findById(productId);
-    if (!product) {
-      return res.status(404).json({ 
-        success: false, 
-        message: 'Product not found' 
-      });
-    }
-
-    const image = product.images.id(imageId);
-    if (!image || !image.data) {
-      return res.status(404).json({ 
-        success: false, 
-        message: 'Image not found' 
-      });
-    }
-
-    // Convert base64 to buffer
-    const imageBuffer = Buffer.from(image.data, 'base64');
-    
-    // Set appropriate headers
-    res.set({
-      'Content-Type': image.contentType || 'image/jpeg',
-      'Content-Length': imageBuffer.length,
-      'Cache-Control': 'public, max-age=31536000',
-      'Access-Control-Allow-Origin': '*'
-    });
-
-    res.send(imageBuffer);
-
-  } catch (error) {
-    console.error('❌ Error serving image:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: 'Error serving image' 
-    });
-  }
-});
-
-// ✅ ADD THIS: Video Serving Endpoint for Base64 Videos
-app.get('/api/products/:productId/video/:videoId', async (req, res) => {
-  try {
-    const Product = require('./models/Product');
-    const { productId, videoId } = req.params;
-
-    console.log('🔄 Serving video:', { productId, videoId });
-
-    // Validate ObjectId
-    if (!mongoose.Types.ObjectId.isValid(productId) || !mongoose.Types.ObjectId.isValid(videoId)) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Invalid product or video ID' 
-      });
-    }
-
-    const product = await Product.findById(productId);
-    if (!product) {
-      return res.status(404).json({ 
-        success: false, 
-        message: 'Product not found' 
-      });
-    }
-
-    const video = product.videos.id(videoId);
-    if (!video || !video.data) {
-      return res.status(404).json({ 
-        success: false, 
-        message: 'Video not found' 
-      });
-    }
-
-    // Convert base64 to buffer
-    const videoBuffer = Buffer.from(video.data, 'base64');
-    
-    // Set appropriate headers
-    res.set({
-      'Content-Type': video.contentType || 'video/mp4',
-      'Content-Length': videoBuffer.length,
-      'Cache-Control': 'public, max-age=31536000',
-      'Access-Control-Allow-Origin': '*',
-      'Accept-Ranges': 'bytes'
-    });
-
-    res.send(videoBuffer);
-
-  } catch (error) {
-    console.error('❌ Error serving video:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: 'Error serving video' 
-    });
-  }
-});
-
-// ✅ ADD THIS: Get product images and videos as base64
-app.get('/api/products/:productId/media', async (req, res) => {
-  try {
-    const Product = require('./models/Product');
-    const { productId } = req.params;
-
-    const product = await Product.findById(productId)
-      .select('images videos');
-
-    if (!product) {
-      return res.status(404).json({ 
-        success: false, 
-        message: 'Product not found' 
-      });
-    }
-
-    const media = {
-      images: product.images.map(img => ({
-        id: img._id,
-        data: img.data ? `data:${img.contentType};base64,${img.data}` : null,
-        contentType: img.contentType,
-        url: img.data ? `/api/products/${productId}/image/${img._id}` : null
-      })),
-      videos: product.videos.map(vid => ({
-        id: vid._id,
-        data: vid.data ? `data:${vid.contentType};base64,${vid.data}` : null,
-        contentType: vid.contentType,
-        name: vid.name,
-        size: vid.size,
-        url: vid.data ? `/api/products/${productId}/video/${vid._id}` : null
-      }))
-    };
-
-    res.json({
-      success: true,
-      data: media
-    });
-
-  } catch (error) {
-    console.error('❌ Error fetching product media:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: 'Error fetching product media' 
-    });
-  }
-});
-
 // ✅ GET UPLOADED FILES
 app.get('/api/uploads/:filename', (req, res) => {
   try {
@@ -734,7 +644,6 @@ app.get('/api/seller/uploads', async (req, res) => {
       });
     }
 
-    // ✅ FIXED: Use actual domain instead of localhost
     const files = fs.readdirSync(uploadDir).map(filename => {
       const filePath = path.join(uploadDir, filename);
       const stats = fs.statSync(filePath);
@@ -769,24 +678,27 @@ app.get('/api/products', async (req, res) => {
     const Product = require('./models/Product');
     const products = await Product.find({ stock: { $gt: 0 } })
       .populate('seller', 'name businessName')
-      .select('-images.data -videos.data')
       .limit(20);
 
     res.json({
       success: true,
       count: products.length,
-      data: products.map(product => ({
-        id: product._id,
-        name: product.name,
-        price: product.price,
-        category: product.category,
-        stock: product.stock,
-        seller: product.seller?.businessName || product.seller?.name,
-        image: product.images && product.images[0] ? 
-          (product.images[0].data ? `/api/products/${product._id}/image/${product.images[0]._id}` : 'https://via.placeholder.com/300') 
-          : 'https://via.placeholder.com/300',
-        averageRating: product.averageRating
-      }))
+      data: products.map(product => {
+        const imageUrl = product.images && product.images[0] 
+          ? `https://carttifys-1.onrender.com/uploads/${product.images[0].filename}`
+          : 'https://via.placeholder.com/300';
+        
+        return {
+          id: product._id,
+          name: product.name,
+          price: product.price,
+          category: product.category,
+          stock: product.stock,
+          seller: product.seller?.businessName || product.seller?.name,
+          image: imageUrl,
+          averageRating: product.averageRating
+        };
+      })
     });
   } catch (error) {
     console.error('Products error:', error);
@@ -810,26 +722,18 @@ app.get('/api/products/:id', async (req, res) => {
       });
     }
 
-    // Transform images to include URLs
-    const transformedProduct = product.toObject();
-    transformedProduct.images = transformedProduct.images.map(img => ({
-      ...img,
-      url: img.data ? `/api/products/${product._id}/image/${img._id}` : null,
-      data: undefined // Remove base64 data from response
-    }));
-    
-    transformedProduct.videos = transformedProduct.videos.map(vid => ({
-      ...vid,
-      url: vid.data ? `/api/products/${product._id}/video/${vid._id}` : null,
-      data: undefined // Remove base64 data from response
-    }));
+    const formattedProduct = {
+      ...product.toObject(),
+      sellerName: product.seller?.businessName || product.seller?.name,
+      images: product.images?.map(img => ({
+        ...img,
+        url: `https://carttifys-1.onrender.com/uploads/${img.filename}`
+      })) || []
+    };
 
     res.json({
       success: true,
-      data: {
-        ...transformedProduct,
-        sellerName: transformedProduct.seller?.businessName || transformedProduct.seller?.name
-      }
+      data: formattedProduct
     });
   } catch (error) {
     console.error('Product details error:', error);
@@ -1039,8 +943,7 @@ app.get('/api/buyer/dashboard', async (req, res) => {
     const recommendedProducts = await Product.find({ stock: { $gt: 0 } })
       .populate('seller', 'name businessName')
       .sort({ createdAt: -1 })
-      .limit(6)
-      .select('-images.data -videos.data');
+      .limit(6);
 
     res.status(200).json({
       success: true,
@@ -1056,18 +959,22 @@ app.get('/api/buyer/dashboard', async (req, res) => {
           orderDate: order.createdAt,
           estimatedDelivery: order.estimatedDelivery
         })),
-        recommendedProducts: recommendedProducts.map(product => ({
-          id: product._id,
-          name: product.name,
-          price: product.price,
-          category: product.category,
-          seller: product.seller?.businessName || product.seller?.name,
-          image: product.images && product.images[0] ? 
-            (product.images[0].data ? `/api/products/${product._id}/image/${product.images[0]._id}` : 'https://via.placeholder.com/150') 
-            : 'https://via.placeholder.com/150',
-          stock: product.stock,
-          rating: product.averageRating
-        }))
+        recommendedProducts: recommendedProducts.map(product => {
+          const imageUrl = product.images && product.images[0] 
+            ? `https://carttifys-1.onrender.com/uploads/${product.images[0].filename}`
+            : 'https://via.placeholder.com/150';
+          
+          return {
+            id: product._id,
+            name: product.name,
+            price: product.price,
+            category: product.category,
+            seller: product.seller?.businessName || product.seller?.name,
+            image: imageUrl,
+            stock: product.stock,
+            rating: product.averageRating
+          };
+        })
       }
     });
 
@@ -1121,40 +1028,37 @@ app.get('/api/buyer/products', async (req, res) => {
       .populate('seller', 'name email businessName')
       .sort({ [sortBy]: sortOrder === 'desc' ? -1 : 1 })
       .skip(skip)
-      .limit(parseInt(limit))
-      .select('-images.data -videos.data');
+      .limit(parseInt(limit));
 
     const total = await Product.countDocuments(filter);
     const totalPages = Math.ceil(total / limit);
 
     res.json({
       success: true,
-      data: products.map(product => ({
-        id: product._id,
-        name: product.name,
-        description: product.description,
-        price: product.price,
-        category: product.category,
-        stock: product.stock,
-        seller: product.seller?.businessName || product.seller?.name,
-        sellerId: product.seller?._id,
-        images: product.images.map(img => ({
-          ...img.toObject(),
-          url: img.data ? `/api/products/${product._id}/image/${img._id}` : null,
-          data: undefined
-        })),
-        videos: product.videos.map(vid => ({
-          ...vid.toObject(),
-          url: vid.data ? `/api/products/${product._id}/video/${vid._id}` : null,
-          data: undefined
-        })),
-        features: product.features,
-        averageRating: product.averageRating,
-        createdAt: product.createdAt,
-        image: product.images && product.images[0] ? 
-          (product.images[0].data ? `/api/products/${product._id}/image/${product.images[0]._id}` : 'https://via.placeholder.com/300') 
-          : 'https://via.placeholder.com/300'
-      })),
+      data: products.map(product => {
+        const imageUrl = product.images && product.images[0] 
+          ? `https://carttifys-1.onrender.com/uploads/${product.images[0].filename}`
+          : 'https://via.placeholder.com/300';
+        
+        return {
+          id: product._id,
+          name: product.name,
+          description: product.description,
+          price: product.price,
+          category: product.category,
+          stock: product.stock,
+          seller: product.seller?.businessName || product.seller?.name,
+          sellerId: product.seller?._id,
+          images: product.images?.map(img => ({
+            ...img,
+            url: `https://carttifys-1.onrender.com/uploads/${img.filename}`
+          })) || [],
+          features: product.features,
+          averageRating: product.averageRating,
+          createdAt: product.createdAt,
+          image: imageUrl
+        };
+      }),
       pagination: {
         currentPage: parseInt(page),
         totalPages,
@@ -1188,26 +1092,20 @@ app.get('/api/buyer/products/:id', async (req, res) => {
       });
     }
 
-    // Transform media URLs
-    const productData = product.toObject();
-    productData.images = productData.images.map(img => ({
-      ...img,
-      url: img.data ? `/api/products/${product._id}/image/${img._id}` : null,
-      data: undefined
-    }));
-    productData.videos = productData.videos.map(vid => ({
-      ...vid,
-      url: vid.data ? `/api/products/${product._id}/video/${vid._id}` : null,
-      data: undefined
-    }));
+    const imageUrl = product.images && product.images[0] 
+      ? `https://carttifys-1.onrender.com/uploads/${product.images[0].filename}`
+      : 'https://via.placeholder.com/400';
 
     res.json({
       success: true,
       data: {
-        ...productData,
-        image: productData.images && productData.images[0] ? 
-          productData.images[0].url : 'https://via.placeholder.com/400',
-        sellerName: productData.seller?.businessName || productData.seller?.name
+        ...product.toObject(),
+        image: imageUrl,
+        sellerName: product.seller?.businessName || product.seller?.name,
+        images: product.images?.map(img => ({
+          ...img,
+          url: `https://carttifys-1.onrender.com/uploads/${img.filename}`
+        })) || []
       }
     });
   } catch (error) {
@@ -1260,24 +1158,28 @@ app.get('/api/buyer/orders', async (req, res) => {
 
     res.json({
       success: true,
-      data: orders.map(order => ({
-        id: order._id,
-        orderId: order.orderId,
-        seller: order.seller?.businessName || order.seller?.name,
-        items: order.items.map(item => ({
-          product: item.product?.name,
-          quantity: item.quantity,
-          price: item.price,
-          image: item.product?.images && item.product.images[0] ? 
-            (item.product.images[0].data ? `/api/products/${item.product._id}/image/${item.product.images[0]._id}` : 'https://via.placeholder.com/80') 
-            : 'https://via.placeholder.com/80'
-        })),
-        totalAmount: order.totalAmount,
-        status: order.status,
-        orderDate: order.createdAt,
-        estimatedDelivery: order.estimatedDelivery,
-        shippingAddress: order.shippingAddress
-      })),
+      data: orders.map(order => {
+        const productImage = order.items && order.items[0] && order.items[0].product?.images && order.items[0].product.images[0]
+          ? `https://carttifys-1.onrender.com/uploads/${order.items[0].product.images[0].filename}`
+          : 'https://via.placeholder.com/80';
+        
+        return {
+          id: order._id,
+          orderId: order.orderId,
+          seller: order.seller?.businessName || order.seller?.name,
+          items: order.items.map(item => ({
+            product: item.product?.name,
+            quantity: item.quantity,
+            price: item.price,
+            image: productImage
+          })),
+          totalAmount: order.totalAmount,
+          status: order.status,
+          orderDate: order.createdAt,
+          estimatedDelivery: order.estimatedDelivery,
+          shippingAddress: order.shippingAddress
+        };
+      }),
       pagination: {
         currentPage: parseInt(page),
         totalPages,
@@ -1562,17 +1464,21 @@ app.get('/api/buyer/products/search', async (req, res) => {
 
     res.json({
       success: true,
-      data: products.map(product => ({
-        id: product._id,
-        name: product.name,
-        price: product.price,
-        category: product.category,
-        seller: product.seller?.businessName || product.seller?.name,
-        stock: product.stock,
-        image: product.images && product.images[0] ? 
-          (product.images[0].data ? `/api/products/${product._id}/image/${product.images[0]._id}` : 'https://via.placeholder.com/150') 
-          : 'https://via.placeholder.com/150'
-      })),
+      data: products.map(product => {
+        const imageUrl = product.images && product.images[0] 
+          ? `https://carttifys-1.onrender.com/uploads/${product.images[0].filename}`
+          : 'https://via.placeholder.com/150';
+        
+        return {
+          id: product._id,
+          name: product.name,
+          price: product.price,
+          category: product.category,
+          seller: product.seller?.businessName || product.seller?.name,
+          stock: product.stock,
+          image: imageUrl
+        };
+      }),
       pagination: {
         currentPage: parseInt(page),
         totalPages: Math.ceil(total / limit),
@@ -1608,10 +1514,12 @@ app.get('/api/seller/dashboard', async (req, res) => {
             activeProducts: 0,
             totalSales: 0,
             totalEarnings: 0,
-            totalCommission: 0,
             pendingOrders: 0,
             conversionRate: '0%',
-            averageRating: '0.0'
+            averageRating: '0.0',
+            monthlyGrowth: '0%',
+            returnRate: '0%',
+            customerSatisfaction: '0%'
           },
           recentOrders: [],
           topProducts: []
@@ -1630,7 +1538,7 @@ app.get('/api/seller/dashboard', async (req, res) => {
     });
 
     const salesData = await Order.aggregate([
-      { $match: { seller: seller._id, paymentStatus: 'completed' } },
+      { $match: { seller: seller._id, status: 'delivered' } },
       {
         $group: {
           _id: null,
@@ -1651,6 +1559,15 @@ app.get('/api/seller/dashboard', async (req, res) => {
       .sort({ createdAt: -1 })
       .limit(3);
 
+    // Calculate conversion rate
+    const conversionRate = totalProducts > 0 ? 
+      Math.round((sales.totalSales / totalProducts) * 100) + '%' : '0%';
+    
+    // Calculate monthly growth (simulated)
+    const monthlyGrowth = sales.totalSales > 0 ? '+12.5%' : '0%';
+    const returnRate = '2.5%';
+    const customerSatisfaction = '94%';
+
     res.status(200).json({
       success: true,
       data: {
@@ -1659,10 +1576,12 @@ app.get('/api/seller/dashboard', async (req, res) => {
           activeProducts,
           totalSales: sales.totalSales,
           totalEarnings: sales.totalEarnings,
-          totalCommission: 0,
           pendingOrders,
-          conversionRate: sales.totalSales > 0 ? '12.5%' : '0%',
-          averageRating: '4.7'
+          conversionRate,
+          averageRating: '4.7',
+          monthlyGrowth,
+          returnRate,
+          customerSatisfaction
         },
         recentOrders: recentOrders.map(order => ({
           id: order._id,
@@ -1675,17 +1594,22 @@ app.get('/api/seller/dashboard', async (req, res) => {
           priority: 'medium',
           items: order.items ? order.items.length : 1
         })),
-        topProducts: topProducts.map(product => ({
-          id: product._id,
-          name: product.name,
-          salesCount: 0,
-          totalRevenue: (product.price || 0) * 0,
-          growth: '+12%',
-          rating: 4.5,
-          image: product.images && product.images[0] ? 
-            (product.images[0].data ? `/api/products/${product._id}/image/${product.images[0]._id}` : 'https://via.placeholder.com/100') 
-            : 'https://via.placeholder.com/100'
-        }))
+        topProducts: topProducts.map(product => {
+          const imageUrl = product.images && product.images[0] 
+            ? `https://carttifys-1.onrender.com/uploads/${product.images[0].filename}`
+            : 'https://via.placeholder.com/100';
+          
+          return {
+            id: product._id,
+            name: product.name,
+            salesCount: product.salesCount || 0,
+            totalRevenue: (product.price || 0) * (product.salesCount || 0),
+            growth: '+12%',
+            rating: product.averageRating || 4.5,
+            image: imageUrl,
+            mainImage: imageUrl
+          };
+        })
       }
     });
 
@@ -1693,90 +1617,13 @@ app.get('/api/seller/dashboard', async (req, res) => {
     console.error('Dashboard error:', error);
     res.status(500).json({
       success: false,
-      message: 'Error fetching dashboard data'
+      message: 'Error fetching dashboard data',
+      error: error.message
     });
   }
 });
 
-app.get('/api/seller/earnings', async (req, res) => {
-  try {
-    const User = require('./models/User');
-    const Order = require('./models/Order');
-
-    const seller = await User.findOne({ role: 'seller' });
-    
-    if (!seller) {
-      return res.status(200).json({
-        success: true,
-        data: {
-          totalEarnings: 0,
-          availableBalance: 0,
-          pendingPayout: 0,
-          totalCommission: 0,
-          transactions: [],
-          payoutHistory: []
-        }
-      });
-    }
-
-    const earningsData = await Order.aggregate([
-      { $match: { seller: seller._id, paymentStatus: 'completed' } },
-      {
-        $group: {
-          _id: null,
-          totalEarnings: { $sum: '$totalAmount' },
-          pendingPayout: { 
-            $sum: {
-              $cond: [
-                { $in: ['$status', ['delivered']] },
-                '$totalAmount',
-                0
-              ]
-            }
-          }
-        }
-      }
-    ]);
-
-    const earnings = earningsData[0] || { totalEarnings: 0, pendingPayout: 0 };
-
-    const transactions = await Order.find({ 
-      seller: seller._id,
-      paymentStatus: 'completed'
-    })
-    .populate('buyer', 'name')
-    .sort({ createdAt: -1 })
-    .limit(10);
-
-    res.status(200).json({
-      success: true,
-      data: {
-        totalEarnings: earnings.totalEarnings,
-        availableBalance: earnings.pendingPayout,
-        pendingPayout: earnings.pendingPayout,
-        totalCommission: 0,
-        transactions: transactions.map(transaction => ({
-          id: transaction._id,
-          orderId: transaction.orderId || `ORD-${transaction._id}`,
-          product: transaction.items && transaction.items[0] ? transaction.items[0].productName : 'Product',
-          amount: transaction.totalAmount || 0,
-          commission: 0,
-          netEarnings: transaction.totalAmount || 0,
-          date: transaction.createdAt,
-          status: transaction.status || 'completed'
-        })),
-        payoutHistory: []
-      }
-    });
-
-  } catch (error) {
-    console.error('Earnings error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error fetching earnings data'
-    });
-  }
-});
+// ✅ REMOVED: Seller earnings endpoint (as requested)
 
 app.get('/api/seller/products', async (req, res) => {
   try {
@@ -1842,20 +1689,25 @@ app.get('/api/seller/products', async (req, res) => {
     res.status(200).json({
       success: true,
       data: {
-        products: products.map(product => ({
-          id: product._id,
-          name: product.name,
-          price: product.price,
-          category: product.category,
-          image: product.images && product.images[0] ? 
-            (product.images[0].data ? `/api/products/${product._id}/image/${product.images[0]._id}` : 'https://via.placeholder.com/100') 
-            : 'https://via.placeholder.com/100',
-          stock: product.stock,
-          status: product.stock === 0 ? 'out_of_stock' : 'active',
-          sales: 0,
-          featured: false,
-          createdAt: product.createdAt
-        })),
+        products: products.map(product => {
+          const imageUrl = product.images && product.images[0] 
+            ? `https://carttifys-1.onrender.com/uploads/${product.images[0].filename}`
+            : 'https://via.placeholder.com/100';
+          
+          return {
+            id: product._id,
+            name: product.name,
+            price: product.price,
+            category: product.category,
+            image: imageUrl,
+            mainImage: imageUrl,
+            stock: product.stock,
+            status: product.stock === 0 ? 'out_of_stock' : 'active',
+            sales: product.salesCount || 0,
+            featured: product.featured || false,
+            createdAt: product.createdAt
+          };
+        }),
         pagination: {
           currentPage: parseInt(page),
           totalPages: Math.ceil(total / limit),
@@ -1869,7 +1721,8 @@ app.get('/api/seller/products', async (req, res) => {
     console.error('Products error:', error);
     res.status(500).json({
       success: false,
-      message: 'Error fetching products'
+      message: 'Error fetching products',
+      error: error.message
     });
   }
 });
@@ -1917,7 +1770,6 @@ app.post('/api/seller/products', async (req, res) => {
             });
           }
 
-          // ✅ FIXED: Use actual domain instead of localhost
           const images = [];
           const videos = [];
 
@@ -2111,6 +1963,289 @@ app.put('/api/seller/products/:id/status', async (req, res) => {
   }
 });
 
+// ==================== SELLER PROFILE ENDPOINTS ====================
+
+// ✅ GET SELLER PROFILE
+app.get('/api/seller/profile', async (req, res) => {
+  try {
+    const User = require('./models/User');
+    const Product = require('./models/Product');
+    const Order = require('./models/Order');
+
+    const seller = await User.findOne({ role: 'seller' });
+    
+    if (!seller) {
+      return res.status(404).json({
+        success: false,
+        message: 'Seller not found'
+      });
+    }
+
+    // Get seller stats
+    const totalProducts = await Product.countDocuments({ seller: seller._id });
+    const totalSales = await Order.countDocuments({ 
+      seller: seller._id,
+      status: 'delivered'
+    });
+    
+    const earningsData = await Order.aggregate([
+      { 
+        $match: { 
+          seller: seller._id, 
+          status: 'delivered',
+          paymentStatus: 'completed'
+        } 
+      },
+      {
+        $group: {
+          _id: null,
+          totalEarnings: { $sum: '$totalAmount' }
+        }
+      }
+    ]);
+
+    const totalEarnings = earningsData[0]?.totalEarnings || 0;
+
+    // Format joined date
+    const joinedDate = seller.createdAt 
+      ? new Date(seller.createdAt).toLocaleDateString('en-US', { 
+          year: 'numeric', 
+          month: 'long',
+          day: 'numeric'
+        })
+      : 'Not available';
+
+    // Construct profile response
+    const profileData = {
+      // Personal Information
+      name: seller.name || seller.businessName || 'Seller',
+      email: seller.email,
+      phone: seller.phone || 'Not provided',
+      address: seller.businessAddress || seller.address || 'Not provided',
+      dateOfBirth: seller.dateOfBirth || 'Not provided',
+      profileImage: seller.profileImage || null,
+      
+      // Business Information
+      storeName: seller.businessName || 'My Store',
+      businessDescription: seller.businessDescription || seller.bio || 'Professional seller on our marketplace',
+      businessContact: seller.businessEmail || seller.contactEmail || seller.email,
+      taxInfo: seller.taxInfo || 'Not provided',
+      businessRegistration: seller.businessRegistration || 'Not applicable',
+      
+      // Seller Stats
+      rating: seller.rating || seller.avgRating || 4.5,
+      totalProducts,
+      totalSales,
+      totalEarnings,
+      joinedDate,
+      
+      // Communication Preferences
+      notifications: seller.notifications || {
+        email: true,
+        sms: false,
+        push: true,
+        marketing: false
+      },
+      
+      // Verification Status
+      verified: seller.verified || false,
+      idVerified: seller.idVerified || false,
+      phoneVerified: seller.phoneVerified || false,
+      
+      // Social Links
+      socialLinks: seller.socialLinks || {
+        facebook: '',
+        instagram: '',
+        twitter: '',
+        website: ''
+      }
+    };
+
+    res.status(200).json({
+      success: true,
+      data: profileData
+    });
+
+  } catch (error) {
+    console.error('Seller profile error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching seller profile',
+      error: error.message
+    });
+  }
+});
+
+// ✅ UPDATE SELLER PROFILE
+app.put('/api/seller/profile', async (req, res) => {
+  try {
+    const {
+      name,
+      phone,
+      address,
+      dateOfBirth,
+      storeName,
+      businessDescription,
+      businessContact,
+      taxInfo,
+      businessRegistration,
+      notifications,
+      socialLinks
+    } = req.body;
+
+    const User = require('./models/User');
+    const seller = await User.findOne({ role: 'seller' });
+    
+    if (!seller) {
+      return res.status(404).json({
+        success: false,
+        message: 'Seller not found'
+      });
+    }
+
+    // Update fields
+    if (name) seller.name = name;
+    if (phone) seller.phone = phone;
+    if (address) seller.businessAddress = address;
+    if (dateOfBirth) seller.dateOfBirth = dateOfBirth;
+    if (storeName) seller.businessName = storeName;
+    if (businessDescription) seller.businessDescription = businessDescription;
+    if (businessContact) seller.businessEmail = businessContact;
+    if (taxInfo) seller.taxInfo = taxInfo;
+    if (businessRegistration) seller.businessRegistration = businessRegistration;
+    if (notifications) seller.notifications = notifications;
+    if (socialLinks) seller.socialLinks = socialLinks;
+
+    await seller.save();
+
+    // Get updated stats
+    const Product = require('./models/Product');
+    const Order = require('./models/Order');
+    
+    const totalProducts = await Product.countDocuments({ seller: seller._id });
+    const totalSales = await Order.countDocuments({ 
+      seller: seller._id,
+      status: 'delivered'
+    });
+    
+    const earningsData = await Order.aggregate([
+      { 
+        $match: { 
+          seller: seller._id, 
+          status: 'delivered',
+          paymentStatus: 'completed'
+        } 
+      },
+      {
+        $group: {
+          _id: null,
+          totalEarnings: { $sum: '$totalAmount' }
+        }
+      }
+    ]);
+
+    const totalEarnings = earningsData[0]?.totalEarnings || 0;
+
+    const joinedDate = seller.createdAt 
+      ? new Date(seller.createdAt).toLocaleDateString('en-US', { 
+          year: 'numeric', 
+          month: 'long' 
+        })
+      : 'Not available';
+
+    const updatedProfile = {
+      name: seller.name,
+      email: seller.email,
+      phone: seller.phone,
+      address: seller.businessAddress,
+      dateOfBirth: seller.dateOfBirth,
+      profileImage: seller.profileImage,
+      storeName: seller.businessName,
+      businessDescription: seller.businessDescription,
+      businessContact: seller.businessEmail,
+      taxInfo: seller.taxInfo,
+      businessRegistration: seller.businessRegistration,
+      rating: seller.rating || 4.5,
+      totalProducts,
+      totalSales,
+      totalEarnings,
+      joinedDate,
+      notifications: seller.notifications,
+      verified: seller.verified || false,
+      idVerified: seller.idVerified || false,
+      phoneVerified: seller.phoneVerified || false,
+      socialLinks: seller.socialLinks
+    };
+
+    res.status(200).json({
+      success: true,
+      message: 'Profile updated successfully',
+      data: updatedProfile
+    });
+
+  } catch (error) {
+    console.error('Update seller profile error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error updating seller profile',
+      error: error.message
+    });
+  }
+});
+
+// ✅ UPDATE SELLER PROFILE PICTURE
+app.post('/api/seller/profile/picture', upload.single('profileImage'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        message: 'No profile image uploaded'
+      });
+    }
+
+    const User = require('./models/User');
+    const seller = await User.findOne({ role: 'seller' });
+    
+    if (!seller) {
+      // Delete the uploaded file
+      fs.unlinkSync(req.file.path);
+      return res.status(404).json({
+        success: false,
+        message: 'Seller not found'
+      });
+    }
+
+    // Delete old profile picture if exists
+    if (seller.profileImage && seller.profileImage.includes('/uploads/')) {
+      const oldFilename = path.basename(seller.profileImage);
+      const oldPath = path.join(__dirname, 'uploads', oldFilename);
+      if (fs.existsSync(oldPath)) {
+        fs.unlinkSync(oldPath);
+      }
+    }
+
+    // Update seller profile image
+    seller.profileImage = `https://carttifys-1.onrender.com/uploads/${req.file.filename}`;
+    await seller.save();
+
+    res.status(200).json({
+      success: true,
+      message: 'Profile picture updated successfully',
+      data: {
+        profileImage: seller.profileImage
+      }
+    });
+
+  } catch (error) {
+    console.error('Profile picture update error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error updating profile picture',
+      error: error.message
+    });
+  }
+});
+
 // ==================== USER PROFILE & HELP ROUTES ====================
 
 app.get('/api/user/profile', async (req, res) => {
@@ -2125,6 +2260,40 @@ app.get('/api/user/profile', async (req, res) => {
       });
     }
     
+    // Get user stats based on role
+    const Product = require('./models/Product');
+    const Order = require('./models/Order');
+    
+    let totalProducts = 0;
+    let totalSales = 0;
+    let totalEarnings = 0;
+
+    if (user.role === 'seller') {
+      totalProducts = await Product.countDocuments({ seller: user._id });
+      totalSales = await Order.countDocuments({ 
+        seller: user._id,
+        status: 'delivered'
+      });
+      
+      const earningsData = await Order.aggregate([
+        { 
+          $match: { 
+            seller: user._id, 
+            status: 'delivered',
+            paymentStatus: 'completed'
+          } 
+        },
+        {
+          $group: {
+            _id: null,
+            totalEarnings: { $sum: '$totalAmount' }
+          }
+        }
+      ]);
+
+      totalEarnings = earningsData[0]?.totalEarnings || 0;
+    }
+
     const profileData = {
       name: user.name || 'User',
       email: user.email,
@@ -2134,7 +2303,7 @@ app.get('/api/user/profile', async (req, res) => {
         year: 'numeric', 
         month: 'long' 
       }),
-      notifications: {
+      notifications: user.notifications || {
         email: true,
         push: true,
         sms: false
@@ -2142,7 +2311,22 @@ app.get('/api/user/profile', async (req, res) => {
       role: user.role,
       ...(user.role === 'seller' && {
         businessName: user.businessName,
-        businessType: user.businessType
+        businessType: user.businessType,
+        businessDescription: user.businessDescription,
+        profileImage: user.profileImage,
+        rating: user.rating || 4.5,
+        totalProducts,
+        totalSales,
+        totalEarnings,
+        verified: user.verified || false,
+        idVerified: user.idVerified || false,
+        phoneVerified: user.phoneVerified || false,
+        socialLinks: user.socialLinks || {
+          facebook: '',
+          instagram: '',
+          twitter: '',
+          website: ''
+        }
       })
     };
 
@@ -2154,7 +2338,8 @@ app.get('/api/user/profile', async (req, res) => {
     console.error('Profile fetch error:', error);
     res.status(500).json({
       success: false,
-      message: 'Error fetching user profile'
+      message: 'Error fetching user profile',
+      error: error.message
     });
   }
 });
@@ -2211,7 +2396,8 @@ app.put('/api/user/profile', async (req, res) => {
     console.error('Profile update error:', error);
     res.status(500).json({
       success: false,
-      message: 'Error updating profile'
+      message: 'Error updating profile',
+      error: error.message
     });
   }
 });
@@ -2566,88 +2752,86 @@ app.put('/api/user/password', async (req, res) => {
 app.use('*', (req, res) => {
   res.status(404).json({
     success: false,
-    message: '🔍 Route not found'
+    message: '🔍 Route not found',
+    requestedUrl: req.originalUrl,
+    method: req.method,
+    availableEndpoints: [
+      'GET /api/health',
+      'POST /api/auth/register',
+      'POST /api/auth/login',
+      'GET /api/seller/dashboard',
+      'GET /api/seller/profile',
+      'GET /api/buyer/dashboard',
+      'GET /api/products',
+      'POST /api/images/upload',
+      'GET /api/user/profile'
+    ]
   });
 });
 
 app.use((error, req, res, next) => {
-  console.error('🔥 Error:', error);
+  console.error('🔥 Server Error:', {
+    message: error.message,
+    stack: error.stack,
+    url: req.originalUrl,
+    method: req.method,
+    timestamp: new Date().toISOString()
+  });
+  
   res.status(500).json({
     success: false,
-    message: 'Internal Server Error'
+    message: 'Internal Server Error',
+    error: process.env.NODE_ENV === 'development' ? error.message : 'Something went wrong!'
   });
 });
 
 const PORT = process.env.PORT || 5000;
 
 const server = app.listen(PORT, () => {
-  console.log(`🛒 E-commerce Backend Server Running on PORT ${PORT}`);
+  console.log(`\n🛒 E-commerce Backend Server Running on PORT ${PORT}`);
   console.log(`🌐 Environment: ${process.env.NODE_ENV || 'development'}`);
   console.log(`\n📍 HEALTH & AUTH:`);
   console.log(`📍 Health Check: https://carttifys-1.onrender.com/api/health`);
   console.log(`📍 Register: POST https://carttifys-1.onrender.com/api/auth/register`);
   console.log(`📍 Login: POST https://carttifys-1.onrender.com/api/auth/login`);
-  console.log(`\n📍 UPLOAD ENDPOINTS:`);
-  console.log(`📍 Upload Media: POST https://carttifys-1.onrender.com/api/upload/media`);
-  console.log(`📍 Upload Single: POST https://carttifys-1.onrender.com/api/upload/single`);
-  console.log(`📍 Create Product with Media: POST https://carttifys-1.onrender.com/api/seller/products/with-media`);
-  console.log(`📍 Seller Create Product: POST https://carttifys-1.onrender.com/api/seller/products`);
-  console.log(`📍 Seller Create Product (Base64): POST https://carttifys-1.onrender.com/api/seller/products/base64`);
-  console.log(`📍 Get Uploads: GET https://carttifys-1.onrender.com/api/seller/uploads`);
-  console.log(`\n📍 IMAGE ROUTES:`);
-  console.log(`📍 Product Image: GET https://carttifys-1.onrender.com/api/products/:productId/image/:imageId`);
-  console.log(`📍 Product Video: GET https://carttifys-1.onrender.com/api/products/:productId/video/:videoId`);
-  console.log(`📍 Product Media: GET https://carttifys-1.onrender.com/api/products/:productId/media`);
+  console.log(`\n📍 IMAGE ENDPOINTS:`);
+  console.log(`📍 Upload Single: POST https://carttifys-1.onrender.com/api/images/upload`);
+  console.log(`📍 Upload Multiple: POST https://carttifys-1.onrender.com/api/images/upload-multiple`);
+  console.log(`📍 Get Images: GET https://carttifys-1.onrender.com/api/images`);
+  console.log(`\n📍 SELLER ENDPOINTS:`);
+  console.log(`📍 Dashboard: GET https://carttifys-1.onrender.com/api/seller/dashboard`);
+  console.log(`📍 Profile: GET https://carttifys-1.onrender.com/api/seller/profile`);
+  console.log(`📍 Update Profile: PUT https://carttifys-1.onrender.com/api/seller/profile`);
+  console.log(`📍 Profile Picture: POST https://carttifys-1.onrender.com/api/seller/profile/picture`);
+  console.log(`📍 Products: GET https://carttifys-1.onrender.com/api/seller/products`);
+  console.log(`📍 Create Product: POST https://carttifys-1.onrender.com/api/seller/products`);
   console.log(`\n📍 BUYER ENDPOINTS:`);
   console.log(`📍 Buyer Dashboard: GET https://carttifys-1.onrender.com/api/buyer/dashboard`);
   console.log(`📍 Buyer Products: GET https://carttifys-1.onrender.com/api/buyer/products`);
   console.log(`📍 Buyer Orders: GET https://carttifys-1.onrender.com/api/buyer/orders`);
   console.log(`📍 Buyer Categories: GET https://carttifys-1.onrender.com/api/buyer/categories`);
-  console.log(`\n📍 SELLER ENDPOINTS:`);
-  console.log(`📍 Seller Dashboard: GET https://carttifys-1.onrender.com/api/seller/dashboard`);
-  console.log(`📍 Seller Earnings: GET https://carttifys-1.onrender.com/api/seller/earnings`);
-  console.log(`📍 Seller Products: GET https://carttifys-1.onrender.com/api/seller/products`);
-  console.log(`\n📍 USER & HELP ENDPOINTS:`);
+  console.log(`\n📍 USER ENDPOINTS:`);
   console.log(`📍 User Profile: GET https://carttifys-1.onrender.com/api/user/profile`);
   console.log(`📍 Help Sections: GET https://carttifys-1.onrender.com/api/help/sections`);
   console.log(`📍 FAQs: GET https://carttifys-1.onrender.com/api/help/faqs`);
-  console.log(`\n💡 TIP: Make sure to set up your .env file with MONGODB_URI`);
-  console.log(`🚀 Server is now listening for requests...`);
+  console.log(`\n✅ Server is ready to accept connections!\n`);
 });
 
-// Handle graceful shutdown
+// Handle server shutdown gracefully
 process.on('SIGTERM', () => {
-  console.log('SIGTERM signal received: closing HTTP server');
+  console.log('SIGTERM received. Shutting down gracefully...');
   server.close(() => {
-    console.log('HTTP server closed');
-    mongoose.connection.close(false, () => {
-      console.log('MongoDB connection closed');
-      process.exit(0);
-    });
+    console.log('Process terminated!');
+    process.exit(0);
   });
 });
 
 process.on('SIGINT', () => {
-  console.log('SIGINT signal received: closing HTTP server');
+  console.log('SIGINT received. Shutting down gracefully...');
   server.close(() => {
-    console.log('HTTP server closed');
-    mongoose.connection.close(false, () => {
-      console.log('MongoDB connection closed');
-      process.exit(0);
-    });
+    console.log('Process terminated!');
+    process.exit(0);
   });
 });
 
-// Handle uncaught exceptions
-process.on('uncaughtException', (error) => {
-  console.error('Uncaught Exception:', error);
-  process.exit(1);
-});
-
-// Handle unhandled promise rejections
-process.on('unhandledRejection', (reason, promise) => {
-  console.error('Unhandled Rejection at:', promise, 'reason:', reason);
-  process.exit(1);
-});
-
-module.exports = app; // For testing purposes
+module.exports = app;
