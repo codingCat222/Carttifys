@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
 import { CartProvider } from './contexts/CartContext';
 import Navbar from './components/Navbar';
@@ -17,11 +17,22 @@ import BuyerOrders from './components/BuyerOrders';
 import SellerDashboard from './components/SellerDashboard';
 import AddProduct from './components/AddProduct';  
 import ManageProducts from './components/ManageProducts';
-import SellerEarnings from './components/SellerEarnings';
+import SellerProfile from './components/SellerProfile';
 import AdminDashboard from './components/AdminDashboard';
 import UserManagement from './components/UserManagement';
 import AdminEarnings from './components/AdminEarnings';
-import SellerLayout from './components/SellerLayout'; // Import the layout
+import SellerLayout from './components/SellerLayout';
+
+// Create a layout wrapper component
+const Layout = ({ children, showNavbar = true, showFooter = true }) => {
+  return (
+    <>
+      {showNavbar && <Navbar />}
+      <main>{children}</main>
+      {showFooter && <Footer />}
+    </>
+  );
+};
 
 function App() {
   return (
@@ -29,87 +40,97 @@ function App() {
       <AuthProvider>
         <CartProvider>
           <div className="App">
-            <Navbar />
-            <main>
-              <Routes>
-                {/* Public Routes */}
-                <Route path="/" element={<Landing />} />
-                <Route path="/login" element={<Login />} />
-                <Route path="/signup" element={<Signup />} />
+            <Routes>
+              {/* Public Routes - NO Navbar/Footer */}
+              <Route path="/login" element={
+                <Layout showNavbar={false} showFooter={false}>
+                  <Login />
+                </Layout>
+              } />
+              
+              <Route path="/signup" element={
+                <Layout showNavbar={false} showFooter={false}>
+                  <Signup />
+                </Layout>
+              } />
+              
+              {/* Landing Page - WITH Navbar/Footer */}
+              <Route path="/" element={
+                <Layout>
+                  <Landing />
+                </Layout>
+              } />
 
-                {/* Buyer Routes */}
-                <Route path="/buyer/dashboard" element={
-                  <ProtectedRoute role="buyer">
+              {/* Buyer Routes - WITH Navbar/Footer */}
+              <Route path="/buyer/dashboard" element={
+                <ProtectedRoute role="buyer">
+                  <Layout>
                     <BuyerDashboard />
-                  </ProtectedRoute>
-                } />
-                <Route path="/buyer/products" element={
-                  <ProtectedRoute role="buyer">
+                  </Layout>
+                </ProtectedRoute>
+              } />
+              
+              <Route path="/buyer/products" element={
+                <ProtectedRoute role="buyer">
+                  <Layout>
                     <ProductList />
-                  </ProtectedRoute>
-                } />
-                <Route path="/buyer/products/:id" element={
-                  <ProtectedRoute role="buyer">
+                  </Layout>
+                </ProtectedRoute>
+              } />
+              
+              <Route path="/buyer/products/:id" element={
+                <ProtectedRoute role="buyer">
+                  <Layout>
                     <ProductDetail />
-                  </ProtectedRoute>
-                } />
-                <Route path="/buyer/cart" element={
-                  <ProtectedRoute role="buyer">
-                    <Cart />
-                  </ProtectedRoute>
-                } />
-                <Route path="/buyer/checkout" element={
-                  <ProtectedRoute role="buyer">
-                    <Checkout />
-                  </ProtectedRoute>
-                } />
-                <Route path="/buyer/orders" element={
-                  <ProtectedRoute role="buyer">
-                    <BuyerOrders />
-                  </ProtectedRoute>
-                } />
+                  </Layout>
+                </ProtectedRoute>
+              } />
 
-                {/* Seller Routes - Wrapped with SellerLayout */}
-                <Route path="/seller" element={
-                  <ProtectedRoute role="seller">
-                    <SellerLayout />
-                  </ProtectedRoute>
-                }>
-                  <Route path="dashboard" element={<SellerDashboard />} />
-                  <Route path="products/add" element={<AddProduct />} />
-                  <Route path="products" element={<ManageProducts />} />
-                  <Route path="earnings" element={<SellerEarnings />} />
-                  {/* Add these routes if they don't exist yet */}
-                  <Route path="analytics" element={<div className="container"><h1>Analytics</h1><p>Coming soon...</p></div>} />
-                  <Route path="orders" element={<div className="container"><h1>Orders</h1><p>Coming soon...</p></div>} />
-                </Route>
+              {/* Seller Routes - Using SellerLayout (check if it has its own navbar) */}
+              <Route path="/seller" element={
+                <ProtectedRoute role="seller">
+                  <SellerLayout />
+                </ProtectedRoute>
+              }>
+                <Route path="dashboard" element={<SellerDashboard />} />
+                <Route path="products/add" element={<AddProduct />} />
+                <Route path="products" element={<ManageProducts />} />
+                <Route path="profile" element={<SellerProfile />} />
+              </Route>
 
-                {/* Temporary route for the wrong path */}
-                <Route path="/seller/add-product" element={
-                  <ProtectedRoute role="seller">
-                    <AddProduct />
-                  </ProtectedRoute>
-                } />
+              {/* Temporary route for the wrong path */}
+              <Route path="/seller/add-product" element={
+                <ProtectedRoute role="seller">
+                  <AddProduct />
+                </ProtectedRoute>
+              } />
 
-                {/* Admin Routes */}
-                <Route path="/admin/dashboard" element={
-                  <ProtectedRoute role="admin">
+              {/* Admin Routes - WITH Navbar/Footer */}
+              <Route path="/admin/dashboard" element={
+                <ProtectedRoute role="admin">
+                  <Layout>
                     <AdminDashboard />
-                  </ProtectedRoute>
-                } />
-                <Route path="/admin/users" element={
-                  <ProtectedRoute role="admin">
+                  </Layout>
+                </ProtectedRoute>
+              } />
+              
+              <Route path="/admin/users" element={
+                <ProtectedRoute role="admin">
+                  <Layout>
                     <UserManagement />
-                  </ProtectedRoute>
-                } />
-                <Route path="/admin/earnings" element={
-                  <ProtectedRoute role="admin">
+                  </Layout>
+                </ProtectedRoute>
+              } />
+              
+              <Route path="/admin/earnings" element={
+                <ProtectedRoute role="admin">
+                  <Layout>
                     <AdminEarnings />
-                  </ProtectedRoute>
-                } />
-              </Routes>
-            </main>
-            <Footer />
+                  </Layout>
+                </ProtectedRoute>
+              } />
+
+            </Routes>
           </div>
         </CartProvider>
       </AuthProvider>
