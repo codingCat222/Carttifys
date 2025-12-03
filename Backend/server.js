@@ -746,6 +746,7 @@ app.get('/api/products/:id', async (req, res) => {
 
 // ==================== AUTH ROUTES ====================
 
+
 app.post('/api/auth/register', async (req, res) => {
   try {
     console.log('📝 Registration attempt:', req.body);
@@ -759,18 +760,30 @@ app.post('/api/auth/register', async (req, res) => {
       });
     }
     
-    if (role === 'buyer' && (!name || !phone || !address)) {
-      return res.status(400).json({
-        success: false,
-        message: 'Buyer requires name, phone, and address'
-      });
+    // ✅ FIXED: Separate validation for buyer vs seller
+    if (role === 'buyer') {
+      if (!name || !phone || !address) {
+        return res.status(400).json({
+          success: false,
+          message: 'Buyer requires name, phone, and address'
+        });
+      }
     }
     
-    if (role === 'seller' && (!businessName || !businessType || !businessAddress)) {
-      return res.status(400).json({
-        success: false,
-        message: 'Seller requires business name, type, and address'
-      });
+    if (role === 'seller') {
+      if (!businessName || !businessType || !businessAddress) {
+        return res.status(400).json({
+          success: false,
+          message: 'Seller requires business name, type, and address'
+        });
+      }
+      // ✅ FIXED: Require personal name for sellers too
+      if (!name) {
+        return res.status(400).json({
+          success: false,
+          message: 'Seller personal name is required'
+        });
+      }
     }
     
     const User = require('./models/User');
@@ -782,28 +795,33 @@ app.post('/api/auth/register', async (req, res) => {
       });
     }
     
+    // ✅ FIXED: Store both personal name AND business name for sellers
     const userData = {
       email,
       password,
       role,
-      ...(role === 'buyer' && { name, phone, address }),
+      name, // Always store personal name for both roles
+      ...(role === 'buyer' && { phone, address }),
       ...(role === 'seller' && { 
         businessName, 
         businessType, 
         businessAddress,
-        name: businessName 
+        // Don't overwrite personal name with business name
+        // name: businessName  ← REMOVE THIS LINE
       })
     };
     
     const user = await User.create(userData);
     
+    // ✅ FIXED: Return both personal and business info for sellers
     const userResponse = {
       id: user._id,
       email: user.email,
       role: user.role,
-      name: user.name,
+      name: user.name, // Personal name
       ...(user.role === 'buyer' && { address: user.address, phone: user.phone }),
       ...(user.role === 'seller' && { 
+        businessName: user.businessName, // Business name
         businessType: user.businessType, 
         businessAddress: user.businessAddress 
       })
@@ -812,7 +830,12 @@ app.post('/api/auth/register', async (req, res) => {
     res.status(201).json({
       success: true,
       message: `${role} account created successfully`,
-      token: 'jwt_token_will_be_here',
+      // token: 'jwt_token_will_be_here',
+      token: Buffer.from(JSON.stringify({
+  id: user._id,
+  email: user.email,
+  role: user.role
+})).toString('base64'),
       user: userResponse,
       redirectTo: role === 'buyer' ? '/buyer/dashboard' : '/seller/dashboard'
     });
@@ -827,6 +850,11 @@ app.post('/api/auth/register', async (req, res) => {
   }
 });
 
+
+
+//  login Routes 
+// ==================== LOGIN ROUTE ====================
+
 app.post('/api/auth/login', async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -839,7 +867,7 @@ app.post('/api/auth/login', async (req, res) => {
     }
     
     const User = require('./models/User');
-    const user = await User.findOne({ email });
+    const user = await User.findOne({ email: email.toLowerCase() }).select('+password');
     
     if (!user) {
       return res.status(401).json({
@@ -848,7 +876,9 @@ app.post('/api/auth/login', async (req, res) => {
       });
     }
     
-    if (user.password !== password) {
+    const isPasswordValid = await user.comparePassword(password);
+    
+    if (!isPasswordValid) {
       return res.status(401).json({
         success: false,
         message: 'Invalid email or password'
@@ -860,17 +890,27 @@ app.post('/api/auth/login', async (req, res) => {
       email: user.email,
       role: user.role,
       name: user.name,
+      profileImage: user.profileImage || '',
       ...(user.role === 'buyer' && { address: user.address, phone: user.phone }),
       ...(user.role === 'seller' && { 
+        businessName: user.businessName,
         businessType: user.businessType, 
-        businessAddress: user.businessAddress 
+        businessAddress: user.businessAddress,
+        businessDescription: user.businessDescription || '',
+        isSellerVerified: user.isSellerVerified || false
       })
     };
     
     res.status(200).json({
       success: true,
       message: 'Login successful',
-      token: 'jwt_token_will_be_here',
+      // ✅ ONLY CHANGE THIS LINE:
+      token: Buffer.from(JSON.stringify({
+        id: user._id,
+        email: user.email,
+        role: user.role
+      })).toString('base64'),
+      // ✅ END OF CHANGE
       user: userResponse,
       redirectTo: user.role === 'buyer' ? '/buyer/dashboard' : '/seller/dashboard'
     });
@@ -879,11 +919,11 @@ app.post('/api/auth/login', async (req, res) => {
     console.error('Login error:', error);
     res.status(500).json({
       success: false,
-      message: 'Server error during login'
+      message: 'Server error during login',
+      error: error.message
     });
   }
 });
-
 // ==================== BUYER ROUTES ====================
 
 app.get('/api/buyer/dashboard', async (req, res) => {
@@ -1966,12 +2006,11 @@ app.put('/api/seller/products/:id/status', async (req, res) => {
 // ==================== SELLER PROFILE ENDPOINTS ====================
 
 // ✅ GET SELLER PROFILE
+
+// ✅ GET SELLER PROFILE
 app.get('/api/seller/profile', async (req, res) => {
   try {
     const User = require('./models/User');
-    const Product = require('./models/Product');
-    const Order = require('./models/Order');
-
     const seller = await User.findOne({ role: 'seller' });
     
     if (!seller) {
@@ -1981,83 +2020,74 @@ app.get('/api/seller/profile', async (req, res) => {
       });
     }
 
-    // Get seller stats
-    const totalProducts = await Product.countDocuments({ seller: seller._id });
-    const totalSales = await Order.countDocuments({ 
-      seller: seller._id,
-      status: 'delivered'
-    });
-    
-    const earningsData = await Order.aggregate([
-      { 
-        $match: { 
-          seller: seller._id, 
-          status: 'delivered',
-          paymentStatus: 'completed'
-        } 
-      },
-      {
-        $group: {
-          _id: null,
-          totalEarnings: { $sum: '$totalAmount' }
-        }
-      }
-    ]);
-
-    const totalEarnings = earningsData[0]?.totalEarnings || 0;
-
-    // Format joined date
-    const joinedDate = seller.createdAt 
-      ? new Date(seller.createdAt).toLocaleDateString('en-US', { 
-          year: 'numeric', 
-          month: 'long',
-          day: 'numeric'
-        })
-      : 'Not available';
-
-    // Construct profile response
+    // ✅ FIXED: Get name from User model, not businessName
     const profileData = {
-      // Personal Information
-      name: seller.name || seller.businessName || 'Seller',
-      email: seller.email,
-      phone: seller.phone || 'Not provided',
-      address: seller.businessAddress || seller.address || 'Not provided',
-      dateOfBirth: seller.dateOfBirth || 'Not provided',
-      profileImage: seller.profileImage || null,
-      
-      // Business Information
-      storeName: seller.businessName || 'My Store',
-      businessDescription: seller.businessDescription || seller.bio || 'Professional seller on our marketplace',
-      businessContact: seller.businessEmail || seller.contactEmail || seller.email,
-      taxInfo: seller.taxInfo || 'Not provided',
-      businessRegistration: seller.businessRegistration || 'Not applicable',
-      
-      // Seller Stats
-      rating: seller.rating || seller.avgRating || 4.5,
-      totalProducts,
-      totalSales,
-      totalEarnings,
-      joinedDate,
-      
-      // Communication Preferences
-      notifications: seller.notifications || {
-        email: true,
-        sms: false,
-        push: true,
-        marketing: false
+      personal: {
+        fullName: seller.name || '', // Personal name from User model
+        contactEmail: seller.email || '',
+        phone: seller.phone || '',
+        dob: seller.dateOfBirth || '',
+        address: seller.businessAddress || '',
+        profileImage: seller.profileImage || ''
       },
-      
-      // Verification Status
-      verified: seller.verified || false,
-      idVerified: seller.idVerified || false,
-      phoneVerified: seller.phoneVerified || false,
-      
-      // Social Links
-      socialLinks: seller.socialLinks || {
-        facebook: '',
-        instagram: '',
-        twitter: '',
-        website: ''
+      business: {
+        displayName: seller.businessName || '', // Business display name
+        businessPhone: seller.businessPhone || seller.phone || '',
+        description: seller.businessDescription || '',
+        taxInfo: seller.taxInfo || '',
+        registrationNumber: seller.businessRegistration || '',
+        logo: seller.logo || seller.profileImage || ''
+      },
+      communication: seller.communicationPrefs || {
+        contactMethod: 'email',
+        orderInstant: true,
+        orderDigest: false,
+        marketingEmails: false,
+        smsPromotions: false,
+        systemAlerts: true,
+        maintenance: true
+      },
+      operational: seller.operationalSettings || {
+        workingHours: '9-5',
+        maxOrders: 50,
+        vacationMode: false,
+        vacationMessage: '',
+        shippingAreas: ''
+      },
+      payment: seller.paymentInfo || {
+        payoutMethod: 'bank',
+        bankName: '',
+        accountNumber: '',
+        routingNumber: '',
+        payoutSchedule: 'weekly',
+        taxForm: null
+      },
+      security: seller.securitySettings || {
+        twoFactor: false
+      },
+      integrations: seller.integrations || {
+        facebook: false,
+        instagram: false
+      },
+      preferences: seller.preferences || {
+        language: 'en',
+        timezone: 'UTC',
+        currency: 'USD',
+        catalogSort: 'newest',
+        emailSignature: ''
+      },
+      documents: seller.documents || {
+        idVerified: seller.idVerified || false,
+        agreement: false
+      },
+      // ✅ ADDED: Return basic user info too
+      userInfo: {
+        id: seller._id,
+        email: seller.email,
+        name: seller.name,
+        role: seller.role,
+        profileImage: seller.profileImage,
+        isSellerVerified: seller.isSellerVerified
       }
     };
 
@@ -2075,24 +2105,12 @@ app.get('/api/seller/profile', async (req, res) => {
     });
   }
 });
-
+// ✅ UPDATE SELLER PROFILE
 // ✅ UPDATE SELLER PROFILE
 app.put('/api/seller/profile', async (req, res) => {
   try {
-    const {
-      name,
-      phone,
-      address,
-      dateOfBirth,
-      storeName,
-      businessDescription,
-      businessContact,
-      taxInfo,
-      businessRegistration,
-      notifications,
-      socialLinks
-    } = req.body;
-
+    const { section, data } = req.body;
+    
     const User = require('./models/User');
     const seller = await User.findOne({ role: 'seller' });
     
@@ -2103,84 +2121,51 @@ app.put('/api/seller/profile', async (req, res) => {
       });
     }
 
-    // Update fields
-    if (name) seller.name = name;
-    if (phone) seller.phone = phone;
-    if (address) seller.businessAddress = address;
-    if (dateOfBirth) seller.dateOfBirth = dateOfBirth;
-    if (storeName) seller.businessName = storeName;
-    if (businessDescription) seller.businessDescription = businessDescription;
-    if (businessContact) seller.businessEmail = businessContact;
-    if (taxInfo) seller.taxInfo = taxInfo;
-    if (businessRegistration) seller.businessRegistration = businessRegistration;
-    if (notifications) seller.notifications = notifications;
-    if (socialLinks) seller.socialLinks = socialLinks;
+    if (section === 'personalInfo') {
+      // ✅ FIXED: Update personal name separately
+      seller.name = data.fullName || seller.name; // Personal name
+      seller.email = data.contactEmail || seller.email;
+      seller.phone = data.phone || seller.phone;
+      seller.dateOfBirth = data.dob || seller.dateOfBirth;
+      seller.businessAddress = data.address || seller.businessAddress;
+      if (data.profileImage) seller.profileImage = data.profileImage;
+    } 
+    else if (section === 'businessInfo') {
+      seller.businessName = data.displayName || seller.businessName; // Business name
+      seller.businessPhone = data.businessPhone || seller.businessPhone;
+      seller.businessDescription = data.description || seller.businessDescription;
+      seller.taxInfo = data.taxInfo || seller.taxInfo;
+      seller.businessRegistration = data.registrationNumber || seller.businessRegistration;
+      if (data.logo) seller.logo = data.logo;
+    }
+    else if (section === 'communicationPrefs') {
+      seller.communicationPrefs = data;
+    }
+    else if (section === 'operationalSettings') {
+      seller.operationalSettings = data;
+    }
+    else if (section === 'paymentInfo') {
+      seller.paymentInfo = data;
+    }
+    else if (section === 'securitySettings') {
+      seller.securitySettings = data;
+    }
+    else if (section === 'integrations') {
+      seller.integrations = data;
+    }
+    else if (section === 'preferences') {
+      seller.preferences = data;
+    }
+    else if (section === 'documents') {
+      seller.documents = data;
+    }
 
     await seller.save();
 
-    // Get updated stats
-    const Product = require('./models/Product');
-    const Order = require('./models/Order');
-    
-    const totalProducts = await Product.countDocuments({ seller: seller._id });
-    const totalSales = await Order.countDocuments({ 
-      seller: seller._id,
-      status: 'delivered'
-    });
-    
-    const earningsData = await Order.aggregate([
-      { 
-        $match: { 
-          seller: seller._id, 
-          status: 'delivered',
-          paymentStatus: 'completed'
-        } 
-      },
-      {
-        $group: {
-          _id: null,
-          totalEarnings: { $sum: '$totalAmount' }
-        }
-      }
-    ]);
-
-    const totalEarnings = earningsData[0]?.totalEarnings || 0;
-
-    const joinedDate = seller.createdAt 
-      ? new Date(seller.createdAt).toLocaleDateString('en-US', { 
-          year: 'numeric', 
-          month: 'long' 
-        })
-      : 'Not available';
-
-    const updatedProfile = {
-      name: seller.name,
-      email: seller.email,
-      phone: seller.phone,
-      address: seller.businessAddress,
-      dateOfBirth: seller.dateOfBirth,
-      profileImage: seller.profileImage,
-      storeName: seller.businessName,
-      businessDescription: seller.businessDescription,
-      businessContact: seller.businessEmail,
-      taxInfo: seller.taxInfo,
-      businessRegistration: seller.businessRegistration,
-      rating: seller.rating || 4.5,
-      totalProducts,
-      totalSales,
-      totalEarnings,
-      joinedDate,
-      notifications: seller.notifications,
-      verified: seller.verified || false,
-      idVerified: seller.idVerified || false,
-      phoneVerified: seller.phoneVerified || false,
-      socialLinks: seller.socialLinks
-    };
-
     res.status(200).json({
       success: true,
-      message: 'Profile updated successfully',
-      data: updatedProfile
+      message: `${section} updated successfully`,
+      data: data
     });
 
   } catch (error) {
@@ -2192,6 +2177,134 @@ app.put('/api/seller/profile', async (req, res) => {
     });
   }
 });
+
+// ✅ UPDATE SELLER PROFILE PICTURE
+app.post('/api/seller/profile/picture', upload.single('profileImage'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        message: 'No profile image uploaded'
+      });
+    }
+
+    const User = require('./models/User');
+    const seller = await User.findOne({ role: 'seller' });
+    
+    if (!seller) {
+      fs.unlinkSync(req.file.path);
+      return res.status(404).json({
+        success: false,
+        message: 'Seller not found'
+      });
+    }
+
+    if (seller.profileImage && seller.profileImage.includes('/uploads/')) {
+      const oldFilename = path.basename(seller.profileImage);
+      const oldPath = path.join(__dirname, 'uploads', oldFilename);
+      if (fs.existsSync(oldPath)) {
+        fs.unlinkSync(oldPath);
+      }
+    }
+
+    seller.profileImage = `https://carttifys-1.onrender.com/uploads/${req.file.filename}`;
+    await seller.save();
+
+    res.status(200).json({
+      success: true,
+      message: 'Profile picture updated successfully',
+      data: {
+        profileImage: seller.profileImage
+      }
+    });
+
+  } catch (error) {
+    console.error('Profile picture update error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error updating profile picture',
+      error: error.message
+    });
+  }
+});
+
+
+    // await seller.save();
+//     // Get updated stats
+//     const Product = require('./models/Product');
+//     const Order = require('./models/Order');
+    
+//     const totalProducts = await Product.countDocuments({ seller: seller._id });
+//     const totalSales = await Order.countDocuments({ 
+//       seller: seller._id,
+//       status: 'delivered'
+//     });
+    
+//     const earningsData = await Order.aggregate([
+//       { 
+//         $match: { 
+//           seller: seller._id, 
+//           status: 'delivered',
+//           paymentStatus: 'completed'
+//         } 
+//       },
+//       {
+//         $group: {
+//           _id: null,
+//           totalEarnings: { $sum: '$totalAmount' }
+//         }
+//       }
+//     ]);
+
+//     const totalEarnings = earningsData[0]?.totalEarnings || 0;
+
+//     const joinedDate = seller.createdAt 
+//       ? new Date(seller.createdAt).toLocaleDateString('en-US', { 
+//           year: 'numeric', 
+//           month: 'long' 
+//         })
+//       : 'Not available';
+
+//     const updatedProfile = {
+//       name: seller.name,
+//       email: seller.email,
+//       phone: seller.phone,
+//       address: seller.businessAddress,
+//       dateOfBirth: seller.dateOfBirth,
+//       profileImage: seller.profileImage,
+//       storeName: seller.businessName,
+//       businessDescription: seller.businessDescription,
+//       businessContact: seller.businessEmail,
+//       taxInfo: seller.taxInfo,
+//       businessRegistration: seller.businessRegistration,
+//       rating: seller.rating || 4.5,
+//       totalProducts,
+//       totalSales,
+//       totalEarnings,
+//       joinedDate,
+//       notifications: seller.notifications,
+//       verified: seller.verified || false,
+//       idVerified: seller.idVerified || false,
+//       phoneVerified: seller.phoneVerified || false,
+//       socialLinks: seller.socialLinks
+//     };
+
+//     res.status(200).json({
+//       success: true,
+//       message: 'Profile updated successfully',
+//       data: updatedProfile
+//     });
+
+//   } catch (error) {
+//     console.error('Update seller profile error:', error);
+//     res.status(500).json({
+//       success: false,
+//       message: 'Error updating seller profile',
+//       error: error.message
+//     });
+//   }
+// });
+
 
 // ✅ UPDATE SELLER PROFILE PICTURE
 app.post('/api/seller/profile/picture', upload.single('profileImage'), async (req, res) => {
