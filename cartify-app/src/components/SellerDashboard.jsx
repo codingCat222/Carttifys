@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { sellerAPI, healthAPI } from '../services/Api';
 import './SellerDashboard.css';
 
@@ -9,13 +9,24 @@ const SellerDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [profileLoading, setProfileLoading] = useState(false);
   const [backendStatus, setBackendStatus] = useState('checking');
-  const [activeSection, setActiveSection] = useState('dashboard');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   
   const navigate = useNavigate();
+  const location = useLocation();
 
-  // Initialize dashboard
+  // Determine active section from URL
+  const getActiveSection = () => {
+    if (location.pathname === '/seller/dashboard') return 'dashboard';
+    if (location.pathname === '/seller/analytics') return 'analytics';
+    if (location.pathname === '/seller/products') return 'products';
+    if (location.pathname === '/seller/orders') return 'orders';
+    if (location.pathname === '/seller/profile') return 'profile';
+    return 'dashboard';
+  };
+
+  const activeSection = getActiveSection();
+
   useEffect(() => {
     initializeDashboard();
   }, []);
@@ -26,16 +37,11 @@ const SellerDashboard = () => {
     setBackendStatus('checking');
     
     try {
-      console.log('🔍 Initializing dashboard...');
-      
-      // Check backend health
       const healthResult = await healthAPI.check();
       
       if (healthResult?.success) {
         setBackendStatus('connected');
-        console.log('✅ Backend connected');
         
-        // Load data
         await Promise.all([
           fetchDashboard(),
           fetchProfile()
@@ -44,7 +50,6 @@ const SellerDashboard = () => {
         throw new Error('Backend health check failed');
       }
     } catch (error) {
-      console.error('❌ Dashboard initialization error:', error);
       setBackendStatus('disconnected');
       setError('Unable to connect to server. Please try again.');
     } finally {
@@ -52,50 +57,36 @@ const SellerDashboard = () => {
     }
   };
 
-  // Fetch REAL dashboard data
   const fetchDashboard = async () => {
     try {
-      console.log('🔄 Fetching dashboard data...');
       const response = await sellerAPI.getDashboard();
       
       if (response?.success && response.data) {
         setDashboardData(response.data);
-        console.log('✅ Dashboard data loaded:', response.data);
       } else {
         throw new Error('No dashboard data received');
       }
     } catch (error) {
-      console.error('❌ Dashboard fetch error:', error);
       setError('Failed to load dashboard data');
     }
   };
 
-  // Fetch REAL profile data
   const fetchProfile = async () => {
     try {
-      console.log('🔄 Fetching profile data...');
       const response = await sellerAPI.getProfile();
       
       if (response?.success && response.data) {
         setProfileData(response.data);
-        console.log('✅ Profile data loaded:', response.data);
-      } else {
-        throw new Error('No profile data received');
       }
     } catch (error) {
-      console.error('❌ Profile fetch error:', error);
-      // Don't set error - profile might not exist yet
     }
   };
 
-  // Update profile
   const updateProfile = async (section, data) => {
     try {
       setProfileLoading(true);
       setError('');
       setSuccess('');
-      
-      console.log(`🔄 Updating profile section: ${section}`, data);
       
       const response = await sellerAPI.updateProfile({
         ...data,
@@ -104,19 +95,17 @@ const SellerDashboard = () => {
       
       if (response?.success) {
         setSuccess('Profile updated successfully!');
-        await fetchProfile(); // Refresh profile data
+        await fetchProfile();
       } else {
         throw new Error(response?.message || 'Update failed');
       }
     } catch (error) {
-      console.error('❌ Profile update error:', error);
       setError(error.message || 'Failed to update profile');
     } finally {
       setProfileLoading(false);
     }
   };
 
-  // Handle profile picture upload
   const handleProfilePictureUpload = async (event) => {
     const file = event.target.files[0];
     if (!file) return;
@@ -137,14 +126,12 @@ const SellerDashboard = () => {
         throw new Error('Failed to upload profile picture');
       }
     } catch (error) {
-      console.error('❌ Profile picture upload error:', error);
       setError('Failed to upload profile picture');
     } finally {
       setProfileLoading(false);
     }
   };
 
-  // Format currency
   const formatCurrency = (amount) => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
@@ -154,17 +141,6 @@ const SellerDashboard = () => {
     }).format(amount || 0);
   };
 
-  // Format date
-  const formatDate = (dateString) => {
-    if (!dateString) return 'N/A';
-    return new Date(dateString).toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric'
-    });
-  };
-
-  // Quick actions
   const handleQuickAction = (action) => {
     switch(action) {
       case 'add_product':
@@ -176,15 +152,11 @@ const SellerDashboard = () => {
       case 'view_orders':
         navigate('/seller/orders');
         break;
-      case 'profile':
-        setActiveSection('profile');
-        break;
       default:
         break;
     }
   };
 
-  // Refresh data
   const refreshData = async () => {
     setLoading(true);
     setError('');
@@ -194,26 +166,22 @@ const SellerDashboard = () => {
         fetchProfile()
       ]);
     } catch (error) {
-      console.error('Refresh error:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  // Loading state
   if (loading) {
     return (
       <div className="seller-dashboard loading">
         <div className="loading-content">
           <div className="loading-spinner"></div>
           <p>Loading your dashboard...</p>
-          <p className="loading-subtext">Connecting to backend server</p>
         </div>
       </div>
     );
   }
 
-  // Error state
   if (backendStatus === 'disconnected') {
     return (
       <div className="seller-dashboard error">
@@ -223,7 +191,6 @@ const SellerDashboard = () => {
           </div>
           <h3>Connection Error</h3>
           <p>Unable to connect to the server.</p>
-          <p className="error-details">{error}</p>
           <button 
             className="btn btn-primary"
             onClick={initializeDashboard}
@@ -237,7 +204,6 @@ const SellerDashboard = () => {
 
   return (
     <div className="seller-dashboard">
-      {/* Hidden file input for profile picture */}
       <input
         type="file"
         id="profile-picture-upload"
@@ -246,17 +212,17 @@ const SellerDashboard = () => {
         style={{ display: 'none' }}
       />
 
-      {/* Header */}
       <div className="dashboard-header">
         <div className="header-content">
           <div className="header-left">
             <h1>
               <i className="fas fa-store"></i>
-              Seller Dashboard
+              {activeSection === 'dashboard' && 'Seller Dashboard'}
+              {activeSection === 'analytics' && 'Analytics'}
+              {activeSection === 'products' && 'Products'}
+              {activeSection === 'orders' && 'Orders'}
+              {activeSection === 'profile' && 'Profile'}
             </h1>
-            <p className="header-subtitle">
-              {activeSection === 'dashboard' ? 'Manage your business' : 'Manage your profile'}
-            </p>
           </div>
           
           <div className="header-right">
@@ -275,27 +241,8 @@ const SellerDashboard = () => {
             </button>
           </div>
         </div>
-
-        {/* Navigation Tabs */}
-        <div className="dashboard-tabs">
-          <button 
-            className={`tab-btn ${activeSection === 'dashboard' ? 'active' : ''}`}
-            onClick={() => setActiveSection('dashboard')}
-          >
-            <i className="fas fa-tachometer-alt"></i>
-            Dashboard
-          </button>
-          <button 
-            className={`tab-btn ${activeSection === 'profile' ? 'active' : ''}`}
-            onClick={() => setActiveSection('profile')}
-          >
-            <i className="fas fa-user"></i>
-            Profile
-          </button>
-        </div>
       </div>
 
-      {/* Messages */}
       {error && (
         <div className="alert alert-error">
           <i className="fas fa-exclamation-circle"></i>
@@ -310,12 +257,9 @@ const SellerDashboard = () => {
         </div>
       )}
 
-      {/* Main Content */}
       <div className="dashboard-content">
         {activeSection === 'dashboard' ? (
-          /* DASHBOARD SECTION */
           <div className="dashboard-section">
-            {/* Stats Cards */}
             <div className="stats-grid">
               <div className="stat-card">
                 <div className="stat-icon">
@@ -358,70 +302,6 @@ const SellerDashboard = () => {
               </div>
             </div>
 
-            {/* Quick Actions */}
-            <div className="section-card">
-              <div className="section-header">
-                <h3>
-                  <i className="fas fa-bolt"></i>
-                  Quick Actions
-                </h3>
-              </div>
-              <div className="actions-grid">
-                <button 
-                  className="action-btn"
-                  onClick={() => handleQuickAction('add_product')}
-                >
-                  <div className="action-icon">
-                    <i className="fas fa-plus"></i>
-                  </div>
-                  <div className="action-content">
-                    <h4>Add Product</h4>
-                    <p>Create new listing</p>
-                  </div>
-                </button>
-                
-                <button 
-                  className="action-btn"
-                  onClick={() => handleQuickAction('manage_products')}
-                >
-                  <div className="action-icon">
-                    <i className="fas fa-box"></i>
-                  </div>
-                  <div className="action-content">
-                    <h4>Manage Products</h4>
-                    <p>View all products</p>
-                  </div>
-                </button>
-                
-                <button 
-                  className="action-btn"
-                  onClick={() => handleQuickAction('view_orders')}
-                >
-                  <div className="action-icon">
-                    <i className="fas fa-clipboard-list"></i>
-                  </div>
-                  <div className="action-content">
-                    <h4>View Orders</h4>
-                    <p>Process orders</p>
-                  </div>
-                </button>
-                
-                <button 
-                  className="action-btn"
-                  onClick={() => handleQuickAction('profile')}
-                >
-                  <div className="action-icon">
-                    <i className="fas fa-user-cog"></i>
-                  </div>
-                  <div className="action-content">
-                    <h4>Profile Settings</h4>
-                    <p>Update profile</p>
-                  </div>
-                </button>
-              </div>
-            </div>
-
-            {/* Recent Orders */}
             <div className="section-card">
               <div className="section-header">
                 <h3>
@@ -464,12 +344,10 @@ const SellerDashboard = () => {
                 <div className="empty-state">
                   <i className="fas fa-inbox"></i>
                   <p>No orders yet</p>
-                  <p className="empty-subtext">Orders will appear here</p>
                 </div>
               )}
             </div>
 
-            {/* Top Products */}
             <div className="section-card">
               <div className="section-header">
                 <h3>
@@ -518,20 +396,33 @@ const SellerDashboard = () => {
                 <div className="empty-state">
                   <i className="fas fa-box-open"></i>
                   <p>No products yet</p>
-                  <button 
-                    className="btn btn-primary"
-                    onClick={() => handleQuickAction('add_product')}
-                  >
-                    <i className="fas fa-plus"></i> Add Your First Product
-                  </button>
                 </div>
               )}
             </div>
           </div>
-        ) : (
-          /* PROFILE SECTION */
+        ) : activeSection === 'analytics' ? (
+          <div className="analytics-section">
+            <div className="section-card">
+              <h3>Analytics</h3>
+              <p>Analytics content will go here</p>
+            </div>
+          </div>
+        ) : activeSection === 'products' ? (
+          <div className="products-section">
+            <div className="section-card">
+              <h3>Products</h3>
+              <p>Products content will go here</p>
+            </div>
+          </div>
+        ) : activeSection === 'orders' ? (
+          <div className="orders-section">
+            <div className="section-card">
+              <h3>Orders</h3>
+              <p>Orders content will go here</p>
+            </div>
+          </div>
+        ) : activeSection === 'profile' ? (
           <div className="profile-section">
-            {/* Profile Header */}
             <div className="profile-header-card">
               <div className="profile-header-content">
                 <div className="profile-picture-section">
@@ -582,15 +473,10 @@ const SellerDashboard = () => {
                     <div className="stat-number">{profileData?.totalSales || 0}</div>
                     <div className="stat-label">Sales</div>
                   </div>
-                  <div className="profile-stat">
-                    <div className="stat-number">{formatCurrency(profileData?.totalEarnings || 0)}</div>
-                    <div className="stat-label">Earnings</div>
-                  </div>
                 </div>
               </div>
             </div>
 
-            {/* Personal Information */}
             <div className="profile-form-card">
               <div className="profile-form-header">
                 <h3>
@@ -648,18 +534,6 @@ const SellerDashboard = () => {
                   />
                 </div>
                 
-                <div className="form-group">
-                  <label>Date of Birth</label>
-                  <input 
-                    type="date" 
-                    value={profileData?.dateOfBirth || ''}
-                    onChange={(e) => setProfileData({
-                      ...profileData,
-                      dateOfBirth: e.target.value
-                    })}
-                  />
-                </div>
-                
                 <div className="form-group full-width">
                   <label>Address</label>
                   <textarea 
@@ -675,7 +549,6 @@ const SellerDashboard = () => {
               </div>
             </div>
 
-            {/* Business Information */}
             <div className="profile-form-card">
               <div className="profile-form-header">
                 <h3>
@@ -764,277 +637,8 @@ const SellerDashboard = () => {
                 </div>
               </div>
             </div>
-
-            {/* Communication Preferences */}
-            <div className="profile-form-card">
-              <div className="profile-form-header">
-                <h3>
-                  <i className="fas fa-bell"></i>
-                  Notification Preferences
-                </h3>
-                <button 
-                  className="btn btn-primary btn-sm"
-                  onClick={() => updateProfile('notifications', {
-                    notifications: profileData?.notifications
-                  })}
-                  disabled={profileLoading}
-                >
-                  {profileLoading ? 'Saving...' : 'Save Changes'}
-                </button>
-              </div>
-              
-              <div className="preferences-grid">
-                <div className="preference-item">
-                  <div className="preference-info">
-                    <h4>Email Notifications</h4>
-                    <p>Receive order updates via email</p>
-                  </div>
-                  <label className="toggle-switch">
-                    <input 
-                      type="checkbox" 
-                      checked={profileData?.notifications?.email || false}
-                      onChange={(e) => setProfileData({
-                        ...profileData,
-                        notifications: {
-                          ...profileData?.notifications,
-                          email: e.target.checked
-                        }
-                      })}
-                    />
-                    <span className="toggle-slider"></span>
-                  </label>
-                </div>
-                
-                <div className="preference-item">
-                  <div className="preference-info">
-                    <h4>SMS Notifications</h4>
-                    <p>Receive SMS alerts for orders</p>
-                  </div>
-                  <label className="toggle-switch">
-                    <input 
-                      type="checkbox" 
-                      checked={profileData?.notifications?.sms || false}
-                      onChange={(e) => setProfileData({
-                        ...profileData,
-                        notifications: {
-                          ...profileData?.notifications,
-                          sms: e.target.checked
-                        }
-                      })}
-                    />
-                    <span className="toggle-slider"></span>
-                  </label>
-                </div>
-                
-                <div className="preference-item">
-                  <div className="preference-info">
-                    <h4>Push Notifications</h4>
-                    <p>Browser/app notifications</p>
-                  </div>
-                  <label className="toggle-switch">
-                    <input 
-                      type="checkbox" 
-                      checked={profileData?.notifications?.push || false}
-                      onChange={(e) => setProfileData({
-                        ...profileData,
-                        notifications: {
-                          ...profileData?.notifications,
-                          push: e.target.checked
-                        }
-                      })}
-                    />
-                    <span className="toggle-slider"></span>
-                  </label>
-                </div>
-                
-                <div className="preference-item">
-                  <div className="preference-info">
-                    <h4>Marketing Emails</h4>
-                    <p>Promotions and newsletters</p>
-                  </div>
-                  <label className="toggle-switch">
-                    <input 
-                      type="checkbox" 
-                      checked={profileData?.notifications?.marketing || false}
-                      onChange={(e) => setProfileData({
-                        ...profileData,
-                        notifications: {
-                          ...profileData?.notifications,
-                          marketing: e.target.checked
-                        }
-                      })}
-                    />
-                    <span className="toggle-slider"></span>
-                  </label>
-                </div>
-              </div>
-            </div>
-
-            {/* Social Links */}
-            <div className="profile-form-card">
-              <div className="profile-form-header">
-                <h3>
-                  <i className="fas fa-share-alt"></i>
-                  Social Links
-                </h3>
-                <button 
-                  className="btn btn-primary btn-sm"
-                  onClick={() => updateProfile('social', {
-                    socialLinks: profileData?.socialLinks
-                  })}
-                  disabled={profileLoading}
-                >
-                  {profileLoading ? 'Saving...' : 'Save Changes'}
-                </button>
-              </div>
-              
-              <div className="form-grid">
-                <div className="form-group">
-                  <label>
-                    <i className="fab fa-facebook"></i> Facebook
-                  </label>
-                  <input 
-                    type="url" 
-                    value={profileData?.socialLinks?.facebook || ''}
-                    onChange={(e) => setProfileData({
-                      ...profileData,
-                      socialLinks: {
-                        ...profileData?.socialLinks,
-                        facebook: e.target.value
-                      }
-                    })}
-                    placeholder="https://facebook.com/yourpage"
-                  />
-                </div>
-                
-                <div className="form-group">
-                  <label>
-                    <i className="fab fa-instagram"></i> Instagram
-                  </label>
-                  <input 
-                    type="url" 
-                    value={profileData?.socialLinks?.instagram || ''}
-                    onChange={(e) => setProfileData({
-                      ...profileData,
-                      socialLinks: {
-                        ...profileData?.socialLinks,
-                        instagram: e.target.value
-                      }
-                    })}
-                    placeholder="https://instagram.com/yourprofile"
-                  />
-                </div>
-                
-                <div className="form-group">
-                  <label>
-                    <i className="fab fa-twitter"></i> Twitter
-                  </label>
-                  <input 
-                    type="url" 
-                    value={profileData?.socialLinks?.twitter || ''}
-                    onChange={(e) => setProfileData({
-                      ...profileData,
-                      socialLinks: {
-                        ...profileData?.socialLinks,
-                        twitter: e.target.value
-                      }
-                    })}
-                    placeholder="https://twitter.com/yourhandle"
-                  />
-                </div>
-                
-                <div className="form-group">
-                  <label>
-                    <i className="fas fa-globe"></i> Website
-                  </label>
-                  <input 
-                    type="url" 
-                    value={profileData?.socialLinks?.website || ''}
-                    onChange={(e) => setProfileData({
-                      ...profileData,
-                      socialLinks: {
-                        ...profileData?.socialLinks,
-                        website: e.target.value
-                      }
-                    })}
-                    placeholder="https://yourwebsite.com"
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Account Information */}
-            <div className="profile-info-card">
-              <h3>
-                <i className="fas fa-info-circle"></i>
-                Account Information
-              </h3>
-              
-              <div className="info-grid">
-                <div className="info-item">
-                  <span className="info-label">Member Since</span>
-                  <span className="info-value">{profileData?.joinedDate || 'N/A'}</span>
-                </div>
-                
-                <div className="info-item">
-                  <span className="info-label">Account Status</span>
-                  <span className={`info-value status-${profileData?.verified ? 'verified' : 'pending'}`}>
-                    {profileData?.verified ? 'Verified' : 'Pending Verification'}
-                  </span>
-                </div>
-                
-                <div className="info-item">
-                  <span className="info-label">Phone Verified</span>
-                  <span className={`info-value status-${profileData?.phoneVerified ? 'verified' : 'pending'}`}>
-                    {profileData?.phoneVerified ? 'Verified' : 'Not Verified'}
-                  </span>
-                </div>
-                
-                <div className="info-item">
-                  <span className="info-label">ID Verified</span>
-                  <span className={`info-value status-${profileData?.idVerified ? 'verified' : 'pending'}`}>
-                    {profileData?.idVerified ? 'Verified' : 'Not Verified'}
-                  </span>
-                </div>
-              </div>
-            </div>
           </div>
-        )}
-      </div>
-
-      {/* Bottom Navigation */}
-      <div className="bottom-nav">
-        <button 
-          className={`nav-item ${activeSection === 'dashboard' ? 'active' : ''}`}
-          onClick={() => setActiveSection('dashboard')}
-        >
-          <i className="fas fa-tachometer-alt"></i>
-          <span>Dashboard</span>
-        </button>
-        
-        <button 
-          className={`nav-item ${activeSection === 'profile' ? 'active' : ''}`}
-          onClick={() => setActiveSection('profile')}
-        >
-          <i className="fas fa-user"></i>
-          <span>Profile</span>
-        </button>
-        
-        <button 
-          className="nav-item"
-          onClick={() => handleQuickAction('add_product')}
-        >
-          <i className="fas fa-plus-circle"></i>
-          <span>Add Product</span>
-        </button>
-        
-        <button 
-          className="nav-item"
-          onClick={() => handleQuickAction('view_orders')}
-        >
-          <i className="fas fa-clipboard-list"></i>
-          <span>Orders</span>
-        </button>
+        ) : null}
       </div>
     </div>
   );
