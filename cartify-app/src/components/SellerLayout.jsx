@@ -33,10 +33,10 @@ const SellerLayout = () => {
       path: '/seller/orders' 
     },
     { 
-      id: 'earnings', 
-      label: 'Earnings', 
-      icon: 'fas fa-dollar-sign', 
-      path: '/seller/earnings' 
+      id: 'profile', 
+      label: 'Profile', 
+      icon: 'fas fa-user', 
+      path: '/seller/profile' 
     }
   ];
 
