@@ -2075,7 +2075,7 @@ app.get('/api/seller/profile', async (req, res) => {
         currency: 'USD',
         catalogSort: 'newest',
         emailSignature: ''
-      },
+      },   
       documents: seller.documents || {
         idVerified: seller.idVerified || false,
         agreement: false

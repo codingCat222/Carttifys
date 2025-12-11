@@ -14,7 +14,7 @@ export const ORDER_STATUS = {
   CANCELLED: 'cancelled'
 };
 
-export const PRODUCT_CATEGORIES = [
+export const PRODsUCT_CATEGORIES = [
   'electronics',
   'fashion',
   'home',
