@@ -1,5 +1,5 @@
-// BuyerDashboard.js - JUMIA STYLE (Remodified)
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { buyerAPI, userAPI } from '../services/Api';
 import './BuyerDashboard.css';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
@@ -8,42 +8,67 @@ import {
   faSearch,
   faUser,
   faShoppingCart,
-  faBell,
-  faHeart,
-  faBox,
+  faInbox,
+  faStore,
+  faList,
+  faShoppingBag,
+  faClock,
+  faCheckCircle,
+  faDollarSign,
   faStar,
   faSpinner,
   faExclamationTriangle,
   faRedo,
   faUserCircle,
   faCog,
+  faExchangeAlt,
   faEnvelope,
   faPlus,
   faTimes,
   faMessage,
   faChevronRight,
+  faChevronDown,
   faHeadset,
-  faShoppingBag,
-  faClock,
-  faCheckCircle,
-  faDollarSign,
-  faInbox,
-  faStore,
-  faList,
-  faFire,
-  faPercent,
-  faShippingFast,
-  faMobileAlt,
-  faTshirt,
-  faGem,
-  faHomeAlt,
-  faBaby,
+  faUserPlus,
+  faUsers,
+  faCopy,
+  faCheck,
+  faGift,
+  faShareAlt,
+  faBell,
+  faHeart,
+  faBox,
+  faCreditCard,
+  faMapMarkerAlt,
   faShoppingBasket,
-  faFootballBall,
-  faEllipsisH
+  faMinus,
+  faTrash,
+  faArrowLeft,
+  faBookmark,
+  faHistory,
+  faMapMarkedAlt,
+  faQuestionCircle,
+  faSignOutAlt,
+  faEdit,
+  faLocationDot,
+  faPhone,
+  faCalendar,
+  faLock,
+  faShieldAlt,
+  faVideo,
+  faPause,
+  faPlay,
+  faVolumeUp,
+  faVolumeMute,
+  faShare,
+  faComment,
+  faEllipsisV,
+  faChevronUp,
+  faShoppingBag as faBag
 } from '@fortawesome/free-solid-svg-icons';
 
 const BuyerDashboard = () => {
+  const navigate = useNavigate();
   const [dashboardData, setDashboardData] = useState({
     stats: {
       totalOrders: 0,
@@ -52,9 +77,7 @@ const BuyerDashboard = () => {
       totalSpent: 0
     },
     recentOrders: [],
-    recommendedProducts: [],
-    featuredProducts: [],
-    dailyDeals: []
+    recommendedProducts: []
   });
   
   const [userProfile, setUserProfile] = useState({
@@ -70,32 +93,39 @@ const BuyerDashboard = () => {
     }
   });
   
-  const [activeSection, setActiveSection] = useState('home'); // Changed default to 'home'
+  const [activeSection, setActiveSection] = useState('home');
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [isSearching, setIsSearching] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [cartCount, setCartCount] = useState(0);
-  const [currentBanner, setCurrentBanner] = useState(0);
-
-  // Categories data
-  const categories = [
-    { id: 1, name: 'Electronics', icon: faMobileAlt },
-    { id: 2, name: 'Fashion', icon: faTshirt },
-    { id: 3, name: 'Beauty', icon: faGem },
-    { id: 4, name: 'Home', icon: faHomeAlt },
-    { id: 5, name: 'Baby', icon: faBaby },
-    { id: 6, name: 'Phones', icon: faMobileAlt },
-    { id: 7, name: 'Groceries', icon: faShoppingBasket },
-    { id: 8, name: 'More', icon: faEllipsisH },
-  ];
-
-  // Banner images (empty array - will be populated from API)
-  const [banners, setBanners] = useState([]);
-
-  // ==================== HELPER FUNCTIONS ====================
   
+  const [cartItems, setCartItems] = useState([]);
+  const [savedItems, setSavedItems] = useState([]);
+  const [selectedProduct, setSelectedProduct] = useState(null);
+  const [selectedAddress, setSelectedAddress] = useState(null);
+  const [selectedPayment, setSelectedPayment] = useState(null);
+  
+  const [categories] = useState([
+    'Electronics', 'Fashion', 'Beauty', 'Home', 'Baby', 'Phones', 'Groceries', 'More'
+  ]);
+  
+  const [addresses] = useState([
+    { id: 'address1', type: 'Home', address: '123 Main St, New York, NY 10001', isDefault: true },
+    { id: 'address2', type: 'Work', address: '456 Business Ave, Suite 300, NY 10002', isDefault: false }
+  ]);
+  
+  const [paymentMethods] = useState([
+    { id: 'card1', type: 'Visa', number: '**** 1234', isDefault: true },
+    { id: 'card2', type: 'MasterCard', number: '**** 5678', isDefault: false }
+  ]);
+  
+  const [reels, setReels] = useState([]);
+  const [currentReelIndex, setCurrentReelIndex] = useState(0);
+  const [isMuted, setIsMuted] = useState(true);
+  const [isPlaying, setIsPlaying] = useState(true);
+  const videoRefs = useRef([]);
+
   const getProductImage = (product) => {
     if (!product) return 'https://via.placeholder.com/300?text=No+Image';
     
@@ -111,45 +141,30 @@ const BuyerDashboard = () => {
     
     return 'https://via.placeholder.com/300?text=No+Image';
   };
-
+  
   const formatPrice = (price) => {
     return `$${parseFloat(price).toFixed(2)}`;
   };
 
-  // ==================== DATA FETCHING ====================
-
   useEffect(() => {
     fetchDashboardData();
-    fetchCartCount();
-    
-    // Auto-rotate banners if we have them
-    if (banners.length > 0) {
-      const interval = setInterval(() => {
-        setCurrentBanner(prev => (prev + 1) % banners.length);
-      }, 5000);
-      return () => clearInterval(interval);
-    }
-  }, [banners.length]);
+    fetchCartItems();
+    fetchSavedItems();
+    fetchReels();
+  }, []);
 
   const fetchDashboardData = async () => {
     try {
       setLoading(true);
       setError(null);
       
-      // Fetch dashboard data
       const dashboardResult = await buyerAPI.getDashboard();
       if (dashboardResult.success) {
         setDashboardData(dashboardResult.data);
-        
-        // Set banners if available from API
-        if (dashboardResult.data.banners && dashboardResult.data.banners.length > 0) {
-          setBanners(dashboardResult.data.banners);
-        }
       } else {
         throw new Error(dashboardResult.message || 'Failed to load dashboard');
       }
       
-      // Fetch user profile
       try {
         const profileResult = await userAPI.getProfile();
         if (profileResult.success) {
@@ -165,19 +180,39 @@ const BuyerDashboard = () => {
       setLoading(false);
     }
   };
-
-  const fetchCartCount = async () => {
+  
+  const fetchCartItems = async () => {
     try {
-      const result = await buyerAPI.getCartCount();
+      const result = await buyerAPI.getCart();
       if (result.success) {
-        setCartCount(result.data.count || 0);
+        setCartItems(result.data);
       }
-    } catch (err) {
-      console.error('Failed to fetch cart count:', err);
+    } catch (error) {
+      console.error('Failed to fetch cart:', error);
     }
   };
-
-  // ==================== SEARCH WITH DEBOUNCE ====================
+  
+  const fetchSavedItems = async () => {
+    try {
+      const result = await buyerAPI.getSavedItems();
+      if (result.success) {
+        setSavedItems(result.data);
+      }
+    } catch (error) {
+      console.error('Failed to fetch saved items:', error);
+    }
+  };
+  
+  const fetchReels = async () => {
+    try {
+      const result = await buyerAPI.getReels();
+      if (result.success) {
+        setReels(result.data);
+      }
+    } catch (error) {
+      console.error('Failed to fetch reels:', error);
+    }
+  };
 
   useEffect(() => {
     if (!searchQuery.trim()) {
@@ -201,8 +236,6 @@ const BuyerDashboard = () => {
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
-  // ==================== EVENT HANDLERS ====================
-
   const handleSearch = () => {
     if (searchQuery.trim()) {
       setActiveSection('search');
@@ -211,12 +244,87 @@ const BuyerDashboard = () => {
 
   const handleAddToCart = async (product) => {
     try {
-      await buyerAPI.addToCart(product.id);
-      setCartCount(prev => prev + 1);
-      alert(`Added ${product.name} to cart!`);
+      const result = await buyerAPI.addToCart({ productId: product.id, quantity: 1 });
+      if (result.success) {
+        fetchCartItems();
+        alert(`Added ${product.name} to cart!`);
+      }
     } catch (error) {
       alert('Failed to add to cart');
     }
+  };
+  
+  const handleBuyNow = (product) => {
+    setSelectedProduct(product);
+    setActiveSection('product');
+  };
+  
+  const handleViewProduct = (product) => {
+    setSelectedProduct(product);
+    setActiveSection('product');
+  };
+  
+  const handleToggleSaveItem = async (product) => {
+    try {
+      const result = await buyerAPI.toggleSaveItem(product.id);
+      if (result.success) {
+        fetchSavedItems();
+      }
+    } catch (error) {
+      console.error('Failed to toggle save:', error);
+    }
+  };
+  
+  const handleUpdateQuantity = async (itemId, newQuantity) => {
+    if (newQuantity < 1) {
+      handleRemoveFromCart(itemId);
+      return;
+    }
+    
+    try {
+      await buyerAPI.updateCartItem(itemId, { quantity: newQuantity });
+      fetchCartItems();
+    } catch (error) {
+      console.error('Failed to update quantity:', error);
+    }
+  };
+  
+  const handleRemoveFromCart = async (itemId) => {
+    try {
+      await buyerAPI.removeFromCart(itemId);
+      fetchCartItems();
+    } catch (error) {
+      console.error('Failed to remove item:', error);
+    }
+  };
+  
+  const handleCheckout = () => {
+    setActiveSection('checkout');
+  };
+  
+  const handlePlaceOrder = async () => {
+    try {
+      const result = await buyerAPI.placeOrder({
+        addressId: selectedAddress,
+        paymentMethod: selectedPayment,
+        items: cartItems.map(item => ({
+          productId: item.product.id,
+          quantity: item.quantity
+        }))
+      });
+      if (result.success) {
+        alert('Order placed successfully!');
+        fetchCartItems();
+        fetchDashboardData();
+        setActiveSection('home');
+      }
+    } catch (error) {
+      alert('Failed to place order');
+    }
+  };
+
+  const handleContactSeller = (seller) => {
+    alert(`Contacting ${seller}...`);
   };
 
   const handleNotificationToggle = (type) => {
@@ -228,261 +336,45 @@ const BuyerDashboard = () => {
       }
     }));
   };
-
-  // ==================== JUMIA-STYLE HOME SCREEN ====================
-
-  const renderHomeScreen = () => (
-    <div className="home-screen">
-      {/* Categories Scroll */}
-      <div className="categories-scroll">
-        <div className="categories-container">
-          {categories.map((category) => (
-            <button 
-              key={category.id} 
-              className="category-item"
-              onClick={() => setActiveSection('categories')}
-            >
-              <div className="category-icon">
-                <FontAwesomeIcon icon={category.icon} />
-              </div>
-              <span>{category.name}</span>
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Banner Slider */}
-      {banners.length > 0 && (
-        <div className="banner-slider">
-          <div className="banner-container">
-            <img 
-              src={banners[currentBanner]} 
-              alt={`Promotion ${currentBanner + 1}`}
-              className="banner-image"
-              onError={(e) => {
-                e.target.src = 'https://via.placeholder.com/800x300/3B82F6/FFFFFF?text=Special+Offer';
-              }}
-            />
-          </div>
-          <div className="banner-dots">
-            {banners.map((_, index) => (
-              <button 
-                key={index}
-                className={`dot ${index === currentBanner ? 'active' : ''}`}
-                onClick={() => setCurrentBanner(index)}
-              />
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Product Grid */}
-      <div className="product-grid-section">
-        <div className="section-header">
-          <h3><FontAwesomeIcon icon={faStar} /> Featured Products</h3>
-          <button className="view-all">
-            View All <FontAwesomeIcon icon={faChevronRight} />
-          </button>
-        </div>
-        
-        <div className="product-grid">
-          {dashboardData.recommendedProducts.slice(0, 8).map(product => (
-            <div key={product.id} className="product-card">
-              <div className="product-image">
-                <img 
-                  src={getProductImage(product)} 
-                  alt={product.name}
-                  onError={(e) => {
-                    e.target.src = 'https://via.placeholder.com/300?text=No+Image';
-                  }}
-                />
-                <button className="wishlist-btn">
-                  <FontAwesomeIcon icon={faHeart} />
-                </button>
-              </div>
-              
-              <div className="product-info">
-                <h4 className="product-name">{product.name}</h4>
-                <p className="product-seller">{product.seller || 'Seller'}</p>
-                
-                <div className="product-price-rating">
-                  <span className="product-price">{formatPrice(product.price)}</span>
-                  <div className="product-rating">
-                    <FontAwesomeIcon icon={faStar} />
-                    <span>{product.rating || '4.5'}</span>
-                    <span className="rating-count">({product.reviewCount || '0'})</span>
-                  </div>
-                </div>
-                
-                <button 
-                  className="add-to-cart-btn"
-                  onClick={() => handleAddToCart(product)}
-                >
-                  <FontAwesomeIcon icon={faShoppingCart} /> Add to Cart
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-
-  // ==================== ORIGINAL RENDER FUNCTIONS (UPDATED) ====================
-
-  const renderMarketplace = () => (
-    <div className="marketplace-section">
-      {/* Stats Cards */}
-      <div className="stats-grid">
-        <div className="stat-card">
-          <div className="stat-icon">
-            <FontAwesomeIcon icon={faShoppingBag} />
-          </div>
-          <h3>{dashboardData.stats.totalOrders}</h3>
-          <p>Total Orders</p>
-        </div>
-        
-        <div className="stat-card">
-          <div className="stat-icon">
-            <FontAwesomeIcon icon={faClock} />
-          </div>
-          <h3>{dashboardData.stats.pendingOrders}</h3>
-          <p>Pending Orders</p>
-        </div>
-        
-        <div className="stat-card">
-          <div className="stat-icon">
-            <FontAwesomeIcon icon={faCheckCircle} />
-          </div>
-          <h3>{dashboardData.stats.completedOrders}</h3>
-          <p>Completed Orders</p>
-        </div>
-        
-        <div className="stat-card">
-          <div className="stat-icon">
-            <FontAwesomeIcon icon={faDollarSign} />
-          </div>
-          <h3>${dashboardData.stats.totalSpent.toFixed(2)}</h3>
-          <p>Total Spent</p>
-        </div>
-      </div>
-
-      {/* Recommended Products */}
-      <div className="recommended-section">
-        <h3>
-          <FontAwesomeIcon icon={faStar} /> Recommended For You
-        </h3>
-        <div className="products-grid">
-          {dashboardData.recommendedProducts.slice(0, 4).map(product => (
-            <div key={product.id} className="product-card">
-              <img 
-                src={getProductImage(product)} 
-                alt={product.name}
-                onError={(e) => {
-                  e.target.src = 'https://via.placeholder.com/300?text=No+Image';
-                }}
-              />
-              <div className="product-info">
-                <h4>{formatPrice(product.price)}</h4>
-                <h3>{product.name}</h3>
-                <p>{product.seller}</p>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-
-  const renderSearch = () => (
-    <div className="search-section">
-      <h3>
-        <FontAwesomeIcon icon={faSearch} /> Search Results
-      </h3>
+  
+  const handleLogout = async () => {
+    try {
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      sessionStorage.removeItem('token');
       
-      {isSearching ? (
-        <div className="search-loading">
-          <FontAwesomeIcon icon={faSpinner} spin /> Searching...
-        </div>
-      ) : searchResults.length === 0 ? (
-        <div className="no-results">
-          <p>No results found for "{searchQuery}"</p>
-        </div>
-      ) : (
-        <div className="search-results">
-          {searchResults.map(product => (
-            <div key={product.id} className="product-card">
-              <img src={getProductImage(product)} alt={product.name} />
-              <div className="product-info">
-                <h4>{formatPrice(product.price)}</h4>
-                <h3>{product.name}</h3>
-                <p>{product.seller}</p>
-                <div className="product-actions">
-                  <button onClick={() => handleAddToCart(product)}>
-                    <FontAwesomeIcon icon={faShoppingCart} /> Add to Cart
-                  </button>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-
-  const renderProfile = () => (
-    <div className="profile-section">
-      <div className="profile-header">
-        <FontAwesomeIcon icon={faUserCircle} size="3x" />
-        <div>
-          <h2>{userProfile.name || 'User'}</h2>
-          <p>{userProfile.email}</p>
-          <p>Member since {userProfile.joinedDate}</p>
-        </div>
-      </div>
-
-      {/* Notifications Settings */}
-      <div className="settings-section">
-        <h3><FontAwesomeIcon icon={faCog} /> Settings</h3>
-        
-        <div className="notification-settings">
-          <h4>Notifications</h4>
-          <div className="setting-item">
-            <span>Email Notifications</span>
-            <label className="toggle-switch">
-              <input 
-                type="checkbox" 
-                checked={userProfile.notifications.email}
-                onChange={() => handleNotificationToggle('email')}
-              />
-              <span className="slider"></span>
-            </label>
-          </div>
-          <div className="setting-item">
-            <span>Push Notifications</span>
-            <label className="toggle-switch">
-              <input 
-                type="checkbox" 
-                checked={userProfile.notifications.push}
-                onChange={() => handleNotificationToggle('push')}
-              />
-              <span className="slider"></span>
-            </label>
-          </div>
-        </div>
-
-        {/* Help & Support */}
-        <div className="help-section">
-          <h4><FontAwesomeIcon icon={faHeadset} /> Help & Support</h4>
-          <button className="help-item">
-            <FontAwesomeIcon icon={faEnvelope} /> Contact Support
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-
-  // ==================== LOADING & ERROR ====================
+      navigate('/login');
+      
+    } catch (error) {
+      localStorage.clear();
+      navigate('/login');
+    }
+  };
+  
+  const handleEditProfile = () => {
+    alert('Edit profile functionality would open here');
+  };
+  
+  const handleReelSwipe = (direction) => {
+    if (direction === 'up' && currentReelIndex < reels.length - 1) {
+      setCurrentReelIndex(prev => prev + 1);
+    } else if (direction === 'down' && currentReelIndex > 0) {
+      setCurrentReelIndex(prev => prev - 1);
+    }
+  };
+  
+  const handleReelLike = async (reelId) => {
+    try {
+      await buyerAPI.likeReel(reelId);
+      fetchReels();
+    } catch (error) {
+      console.error('Failed to like reel:', error);
+    }
+  };
+  
+  const handleReelShare = (reel) => {
+    alert(`Sharing reel: ${reel.caption}`);
+  };
 
   if (loading) {
     return (
@@ -505,112 +397,732 @@ const BuyerDashboard = () => {
       </div>
     );
   }
-
-  // ==================== MAIN RENDER ====================
-
-  return (
-    <div className="buyer-dashboard jumia-style">
-      {/* Top Navigation - Jumia Style */}
-      <div className="top-nav jumia-top-nav">
-        <div className="nav-left">
-          <button className="menu-btn">
-            <FontAwesomeIcon icon={faList} />
-          </button>
-        </div>
-        
-        {/* Search Bar - Jumia Style */}
-        <div className="search-bar jumia-search-bar">
-          <FontAwesomeIcon icon={faSearch} className="search-icon" />
+  
+  const renderHomeScreen = () => (
+    <div className="home-section">
+      <div className="home-top-bar">
+        <div className="search-bar">
+          <FontAwesomeIcon icon={faSearch} />
           <input 
             type="text" 
-            placeholder="Search products, brands and categories..."
+            placeholder="Search products..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
           />
-          {searchQuery && (
-            <button onClick={() => setSearchQuery('')} className="clear-search">
-              <FontAwesomeIcon icon={faTimes} />
-            </button>
-          )}
         </div>
-        
-        <div className="nav-right">
-          <button className="notification-btn">
+        <div className="home-top-icons">
+          <button className="icon-button">
             <FontAwesomeIcon icon={faBell} />
-            <span className="badge">3</span>
           </button>
-          
-          <button className="cart-btn" onClick={() => setActiveSection('cart')}>
+          <button 
+            className="icon-button cart-button"
+            onClick={() => setActiveSection('cart')}
+          >
             <FontAwesomeIcon icon={faShoppingCart} />
-            {cartCount > 0 && <span className="cart-badge">{cartCount}</span>}
+            {cartItems.length > 0 && (
+              <span className="cart-badge">{cartItems.length}</span>
+            )}
           </button>
         </div>
       </div>
 
-      {/* Main Content */}
-      <div className="main-content">
-        {/* Dynamic Content */}
-        {activeSection === 'home' && renderHomeScreen()}
-        {activeSection === 'marketplace' && renderMarketplace()}
-        {activeSection === 'search' && renderSearch()}
-        {activeSection === 'profile' && renderProfile()}
+      <div className="categories-scroll">
+        {categories.map((category, index) => (
+          <button 
+            key={index} 
+            className="category-chip"
+            onClick={() => {
+              setSearchQuery(category);
+              setActiveSection('search');
+            }}
+          >
+            {category}
+          </button>
+        ))}
+      </div>
+
+      <div className="banner-sliders">
+        <div className="banner">
+          <h3>Flash Sale! Up to 50% Off</h3>
+          <p>Limited time offer</p>
+        </div>
+      </div>
+
+      <div className="product-grid-section">
+        <div className="section-header">
+          <h3>Trending Products</h3>
+          <button className="view-all">View All</button>
+        </div>
+        <div className="product-grid">
+          {dashboardData.recommendedProducts.slice(0, 8).map(product => (
+            <div key={product.id} className="product-card-grid" onClick={() => handleViewProduct(product)}>
+              <div className="product-image-container">
+                <img 
+                  src={getProductImage(product)} 
+                  alt={product.name}
+                />
+                <button 
+                  className="wishlist-btn"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleToggleSaveItem(product);
+                  }}
+                >
+                  <FontAwesomeIcon icon={faHeart} />
+                </button>
+              </div>
+              <div className="product-card-info">
+                <h4>{product.name}</h4>
+                <p className="product-price">{formatPrice(product.price)}</p>
+                <div className="product-rating">
+                  {[1,2,3,4,5].map(star => (
+                    <FontAwesomeIcon 
+                      key={star} 
+                      icon={faStar} 
+                      className={star <= (product.rating || 4) ? 'star-filled' : 'star-empty'}
+                    />
+                  ))}
+                  <span>({product.reviewCount || 24})</span>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+  
+  const renderProductPage = () => {
+    if (!selectedProduct) {
+      return (
+        <div className="product-page">
+          <button onClick={() => setActiveSection('home')}>
+            <FontAwesomeIcon icon={faArrowLeft} /> Back
+          </button>
+          <p>No product selected</p>
+        </div>
+      );
+    }
+    
+    return (
+      <div className="product-page">
+        <div className="product-page-header">
+          <button onClick={() => setActiveSection('home')}>
+            <FontAwesomeIcon icon={faArrowLeft} />
+          </button>
+          <h2>Product Details</h2>
+          <button onClick={() => handleToggleSaveItem(selectedProduct)}>
+            <FontAwesomeIcon icon={faHeart} />
+          </button>
+        </div>
         
-        {/* Other Sections */}
-        {activeSection === 'inbox' && (
-          <div className="inbox-section">
-            <h3><FontAwesomeIcon icon={faInbox} /> Messages</h3>
-            <p className="empty-state">No messages yet</p>
+        <div className="product-image-slider">
+          <img src={getProductImage(selectedProduct)} alt={selectedProduct.name} />
+        </div>
+        
+        <div className="product-info-details">
+          <h1>{selectedProduct.name}</h1>
+          <p className="product-price-large">{formatPrice(selectedProduct.price)}</p>
+          <p className="product-description">
+            {selectedProduct.description || 'No description available'}
+          </p>
+          
+          <div className="product-ratings-section">
+            <div className="rating-overview">
+              {[1,2,3,4,5].map(star => (
+                <FontAwesomeIcon 
+                  key={star} 
+                  icon={faStar} 
+                  className={star <= (selectedProduct.rating || 4) ? 'star-filled' : 'star-empty'}
+                />
+              ))}
+              <span>{selectedProduct.rating || 4.0} • ({selectedProduct.reviewCount || 24} reviews)</span>
+            </div>
           </div>
-        )}
-        
-        {activeSection === 'sell' && (
-          <div className="sell-section">
-            <h3><FontAwesomeIcon icon={faStore} /> Sell Your Item</h3>
-            <button className="sell-button">
-              <FontAwesomeIcon icon={faPlus} /> List Item for Sale
+          
+          <div className="seller-info">
+            <h4><FontAwesomeIcon icon={faStore} /> Seller Information</h4>
+            <p>{selectedProduct.seller}</p>
+            <p>⭐ 4.8 Seller Rating</p>
+            <button onClick={() => handleContactSeller(selectedProduct.seller)}>
+              Contact Seller
             </button>
           </div>
-        )}
-        
-        {activeSection === 'categories' && (
-          <div className="categories-section">
-            <h3><FontAwesomeIcon icon={faList} /> Categories</h3>
-            <div className="categories-list">
-              {categories.map(cat => (
-                <button key={cat.id} className="category-item">
-                  <FontAwesomeIcon icon={cat.icon} /> {cat.name}
-                </button>
-              ))}
-            </div>
+          
+          <div className="product-action-buttons">
+            <button 
+              className="add-to-cart-btn"
+              onClick={() => handleAddToCart(selectedProduct)}
+            >
+              <FontAwesomeIcon icon={faShoppingCart} /> Add to Cart
+            </button>
+            <button 
+              className="buy-now-btn"
+              onClick={() => {
+                handleAddToCart(selectedProduct);
+                setActiveSection('cart');
+              }}
+            >
+              Buy Now
+            </button>
           </div>
-        )}
-        
-        {activeSection === 'cart' && (
-          <div className="cart-section">
-            <h3><FontAwesomeIcon icon={faShoppingCart} /> Your Cart</h3>
-            <div className="cart-items">
-              {cartCount === 0 ? (
-                <p className="empty-cart">Your cart is empty</p>
-              ) : (
-                <p>You have {cartCount} items in your cart</p>
-              )}
+        </div>
+      </div>
+    );
+  };
+  
+  const renderCartPage = () => (
+    <div className="cart-page">
+      <div className="cart-header">
+        <button onClick={() => setActiveSection('home')}>
+          <FontAwesomeIcon icon={faArrowLeft} />
+        </button>
+        <h2>Your Cart</h2>
+      </div>
+      
+      {cartItems.length === 0 ? (
+        <div className="empty-cart">
+          <FontAwesomeIcon icon={faShoppingBasket} size="3x" />
+          <h3>Your cart is empty</h3>
+          <button onClick={() => setActiveSection('home')}>
+            Continue Shopping
+          </button>
+        </div>
+      ) : (
+        <>
+          <div className="cart-items-list">
+            {cartItems.map(item => (
+              <div key={item.id} className="cart-item">
+                <img src={getProductImage(item.product)} alt={item.product.name} />
+                <div className="cart-item-info">
+                  <h4>{item.product.name}</h4>
+                  <p>{formatPrice(item.product.price)}</p>
+                  <div className="quantity-control">
+                    <button onClick={() => handleUpdateQuantity(item.id, item.quantity - 1)}>
+                      <FontAwesomeIcon icon={faMinus} />
+                    </button>
+                    <span>{item.quantity}</span>
+                    <button onClick={() => handleUpdateQuantity(item.id, item.quantity + 1)}>
+                      <FontAwesomeIcon icon={faPlus} />
+                    </button>
+                  </div>
+                </div>
+                <div className="cart-item-actions">
+                  <p className="item-total">
+                    {formatPrice(item.product.price * item.quantity)}
+                  </p>
+                  <button 
+                    onClick={() => handleRemoveFromCart(item.id)}
+                    className="remove-btn"
+                  >
+                    <FontAwesomeIcon icon={faTrash} />
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+          
+          <div className="cart-summary">
+            <div className="summary-row">
+              <span>Subtotal</span>
+              <span>{formatPrice(cartItems.reduce((sum, item) => sum + (item.product.price * item.quantity), 0))}</span>
             </div>
-            <button className="checkout-btn" disabled={cartCount === 0}>
+            <div className="summary-row">
+              <span>Shipping</span>
+              <span>$5.00</span>
+            </div>
+            <div className="summary-row total">
+              <span>Total</span>
+              <span>{formatPrice(cartItems.reduce((sum, item) => sum + (item.product.price * item.quantity), 0) + 5)}</span>
+            </div>
+            
+            <button className="checkout-btn" onClick={handleCheckout}>
               Proceed to Checkout
             </button>
           </div>
+        </>
+      )}
+    </div>
+  );
+  
+  const renderCheckoutPage = () => (
+    <div className="checkout-page">
+      <div className="checkout-header">
+        <button onClick={() => setActiveSection('cart')}>
+          <FontAwesomeIcon icon={faArrowLeft} />
+        </button>
+        <h2>Checkout</h2>
+      </div>
+      
+      <div className="checkout-section">
+        <h3><FontAwesomeIcon icon={faMapMarkerAlt} /> Delivery Address</h3>
+        <div className="address-options">
+          {addresses.map(address => (
+            <div key={address.id} className="address-card">
+              <input 
+                type="radio" 
+                name="address" 
+                id={address.id}
+                checked={selectedAddress === address.id}
+                onChange={() => setSelectedAddress(address.id)}
+              />
+              <label htmlFor={address.id}>
+                <strong>{address.type} {address.isDefault && <span className="default-badge">Default</span>}</strong>
+                <p>{address.address}</p>
+              </label>
+            </div>
+          ))}
+          <button className="add-address-btn">
+            <FontAwesomeIcon icon={faPlus} /> Add New Address
+          </button>
+        </div>
+      </div>
+      
+      <div className="checkout-section">
+        <h3><FontAwesomeIcon icon={faCreditCard} /> Payment Method</h3>
+        <div className="payment-options">
+          {paymentMethods.map(payment => (
+            <div key={payment.id} className="payment-card">
+              <input 
+                type="radio" 
+                name="payment" 
+                id={payment.id}
+                checked={selectedPayment === payment.id}
+                onChange={() => setSelectedPayment(payment.id)}
+              />
+              <label htmlFor={payment.id}>
+                <FontAwesomeIcon icon={faCreditCard} />
+                <span>{payment.type} {payment.number}</span>
+                {payment.isDefault && <span className="default-badge">Default</span>}
+              </label>
+            </div>
+          ))}
+          <button className="add-payment-btn">
+            <FontAwesomeIcon icon={faPlus} /> Add Payment Method
+          </button>
+        </div>
+      </div>
+      
+      <div className="checkout-section">
+        <h3>Order Summary</h3>
+        <div className="order-summary">
+          {cartItems.map(item => (
+            <div key={item.id} className="order-item">
+              <span>{item.product.name} x {item.quantity}</span>
+              <span>{formatPrice(item.product.price * item.quantity)}</span>
+            </div>
+          ))}
+          <div className="order-total">
+            <span>Total</span>
+            <span>{formatPrice(cartItems.reduce((sum, item) => sum + (item.product.price * item.quantity), 0) + 5)}</span>
+          </div>
+        </div>
+      </div>
+      
+      <button 
+        className="place-order-btn" 
+        onClick={handlePlaceOrder}
+        disabled={!selectedAddress || !selectedPayment}
+      >
+        Place Order
+      </button>
+    </div>
+  );
+  
+  const renderBuyerProfilePage = () => (
+    <div className="buyer-profile-page">
+      <div className="profile-header-section">
+        <div className="profile-avatar">
+          <FontAwesomeIcon icon={faUserCircle} className="avatar-icon" />
+          <button className="edit-avatar-btn" onClick={handleEditProfile}>
+            <FontAwesomeIcon icon={faEdit} />
+          </button>
+        </div>
+        <h2 className="profile-name">{userProfile.name}</h2>
+        <p className="profile-email">{userProfile.email}</p>
+        <button className="edit-profile-btn" onClick={handleEditProfile}>
+          <FontAwesomeIcon icon={faEdit} /> Edit Profile
+        </button>
+      </div>
+      
+      <div className="profile-details-section">
+        <h3><FontAwesomeIcon icon={faUser} /> Personal Information</h3>
+        <div className="detail-item">
+          <FontAwesomeIcon icon={faPhone} />
+          <div>
+            <span className="detail-label">Phone</span>
+            <span className="detail-value">{userProfile.phone}</span>
+          </div>
+        </div>
+        <div className="detail-item">
+          <FontAwesomeIcon icon={faLocationDot} />
+          <div>
+            <span className="detail-label">Location</span>
+            <span className="detail-value">{userProfile.location}</span>
+          </div>
+        </div>
+        <div className="detail-item">
+          <FontAwesomeIcon icon={faCalendar} />
+          <div>
+            <span className="detail-label">Member Since</span>
+            <span className="detail-value">{userProfile.joinedDate}</span>
+          </div>
+        </div>
+      </div>
+      
+      <div className="profile-menu">
+        <button 
+          className="profile-menu-item"
+          onClick={() => {
+            setActiveSection('home');
+          }}
+        >
+          <div className="menu-item-left">
+            <FontAwesomeIcon icon={faHeart} />
+            <span>Saved Items</span>
+          </div>
+          <div className="menu-item-right">
+            <span className="menu-badge">{savedItems.length}</span>
+            <FontAwesomeIcon icon={faChevronRight} />
+          </div>
+        </button>
+        
+        <button 
+          className="profile-menu-item"
+          onClick={() => setActiveSection('orders')}
+        >
+          <div className="menu-item-left">
+            <FontAwesomeIcon icon={faBox} />
+            <span>My Orders</span>
+          </div>
+          <div className="menu-item-right">
+            <span className="menu-badge">{dashboardData.stats.totalOrders}</span>
+            <FontAwesomeIcon icon={faChevronRight} />
+          </div>
+        </button>
+        
+        <button 
+          className="profile-menu-item"
+          onClick={() => alert('Address book would open here')}
+        >
+          <div className="menu-item-left">
+            <FontAwesomeIcon icon={faMapMarkedAlt} />
+            <span>Address Book</span>
+          </div>
+          <div className="menu-item-right">
+            <FontAwesomeIcon icon={faChevronRight} />
+          </div>
+        </button>
+        
+        <button 
+          className="profile-menu-item"
+          onClick={() => alert('Payment methods would open here')}
+        >
+          <div className="menu-item-left">
+            <FontAwesomeIcon icon={faCreditCard} />
+            <span>Payment Methods</span>
+          </div>
+          <div className="menu-item-right">
+            <FontAwesomeIcon icon={faChevronRight} />
+          </div>
+        </button>
+        
+        <button 
+          className="profile-menu-item"
+          onClick={() => alert('Settings would open here')}
+        >
+          <div className="menu-item-left">
+            <FontAwesomeIcon icon={faCog} />
+            <span>Settings</span>
+          </div>
+          <div className="menu-item-right">
+            <FontAwesomeIcon icon={faChevronRight} />
+          </div>
+        </button>
+        
+        <button 
+          className="profile-menu-item"
+          onClick={() => alert('Support would open here')}
+        >
+          <div className="menu-item-left">
+            <FontAwesomeIcon icon={faHeadset} />
+            <span>Support Center</span>
+          </div>
+          <div className="menu-item-right">
+            <FontAwesomeIcon icon={faChevronRight} />
+          </div>
+        </button>
+        
+        <button 
+          className="profile-menu-item logout"
+          onClick={handleLogout}
+        >
+          <div className="menu-item-left">
+            <FontAwesomeIcon icon={faSignOutAlt} />
+            <span>Logout</span>
+          </div>
+          <div className="menu-item-right">
+            <FontAwesomeIcon icon={faChevronRight} />
+          </div>
+        </button>
+      </div>
+    </div>
+  );
+  
+  const renderOrdersPage = () => (
+    <div className="orders-page">
+      <div className="orders-header">
+        <button onClick={() => setActiveSection('profile')}>
+          <FontAwesomeIcon icon={faArrowLeft} />
+        </button>
+        <h2>My Orders</h2>
+      </div>
+      
+      <div className="orders-tabs">
+        <button className="orders-tab active">All Orders</button>
+        <button className="orders-tab">Pending</button>
+        <button className="orders-tab">Completed</button>
+      </div>
+      
+      <div className="orders-list">
+        {dashboardData.recentOrders.length === 0 ? (
+          <div className="empty-orders">
+            <FontAwesomeIcon icon={faBox} size="3x" />
+            <h3>No orders yet</h3>
+            <p>Start shopping to see your orders here</p>
+            <button onClick={() => setActiveSection('home')}>
+              Start Shopping
+            </button>
+          </div>
+        ) : (
+          dashboardData.recentOrders.map(order => (
+            <div key={order.id} className="order-card" onClick={() => alert(`View order ${order.id}`)}>
+              <div className="order-header">
+                <span className="order-id">Order #{order.id}</span>
+                <span className={`order-status ${order.status}`}>
+                  {order.status}
+                </span>
+              </div>
+              <p className="order-date">{order.date}</p>
+              <p className="order-total">Total: {formatPrice(order.total)}</p>
+              <button className="track-order-btn">
+                Track Order
+              </button>
+            </div>
+          ))
         )}
       </div>
+    </div>
+  );
+  
+  const renderReelsPage = () => (
+    <div className="reels-page">
+      {reels.length === 0 ? (
+        <div className="empty-reels">
+          <FontAwesomeIcon icon={faVideo} size="3x" />
+          <h3>No reels available</h3>
+          <p>Sellers haven't posted any content yet</p>
+        </div>
+      ) : (
+        <div className="reels-container">
+          <div className="reel-video-container">
+            {reels.map((reel, index) => (
+              <div 
+                key={reel.id} 
+                className={`reel-item ${index === currentReelIndex ? 'active' : ''}`}
+                style={{ transform: `translateY(-${currentReelIndex * 100}%)` }}
+              >
+                <div className="video-wrapper">
+                  {reel.mediaType === 'video' ? (
+                    <video
+                      ref={(el) => (videoRefs.current[index] = el)}
+                      src={reel.mediaUrl}
+                      loop
+                      muted={isMuted}
+                      autoPlay={index === currentReelIndex}
+                      playsInline
+                      className="reel-video"
+                      onClick={() => {
+                        const video = videoRefs.current[index];
+                        if (video.paused) {
+                          video.play();
+                          setIsPlaying(true);
+                        } else {
+                          video.pause();
+                          setIsPlaying(false);
+                        }
+                      }}
+                    />
+                  ) : (
+                    <img src={reel.mediaUrl} alt={reel.caption} className="reel-image" />
+                  )}
+                  
+                  <div className="reel-overlay">
+                    <div className="reel-top-controls">
+                      <button onClick={() => setActiveSection('home')}>
+                        <FontAwesomeIcon icon={faArrowLeft} />
+                      </button>
+                      <h3>Reels</h3>
+                      <button onClick={() => setIsMuted(!isMuted)}>
+                        <FontAwesomeIcon icon={isMuted ? faVolumeMute : faVolumeUp} />
+                      </button>
+                    </div>
+                    
+                    <div className="reel-side-controls">
+                      <button className="reel-action-btn" onClick={() => handleReelLike(reel.id)}>
+                        <FontAwesomeIcon icon={faHeart} />
+                        <span>{reel.likesCount}</span>
+                      </button>
+                      <button className="reel-action-btn">
+                        <FontAwesomeIcon icon={faComment} />
+                        <span>{reel.commentsCount}</span>
+                      </button>
+                      <button className="reel-action-btn" onClick={() => handleReelShare(reel)}>
+                        <FontAwesomeIcon icon={faShare} />
+                        <span>{reel.sharesCount}</span>
+                      </button>
+                      <button className="reel-action-btn">
+                        <FontAwesomeIcon icon={faEllipsisV} />
+                      </button>
+                    </div>
+                    
+                    <div className="reel-bottom-content">
+                      <div className="seller-info-reel">
+                        <div className="seller-avatar">
+                          <FontAwesomeIcon icon={faUserCircle} />
+                        </div>
+                        <div>
+                          <h4>{reel.sellerName}</h4>
+                          <p>{reel.caption}</p>
+                        </div>
+                      </div>
+                      
+                      <div className="product-card-reel">
+                        <img src={getProductImage(reel.product)} alt={reel.productName} />
+                        <div className="product-info-reel">
+                          <h5>{reel.productName}</h5>
+                          <p className="product-price">{formatPrice(reel.productPrice)}</p>
+                          <button 
+                            className="buy-btn-reel"
+                            onClick={() => handleViewProduct(reel.product)}
+                          >
+                            <FontAwesomeIcon icon={faShoppingCart} /> View Product
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+          
+          <div className="reel-navigation">
+            <button 
+              className="nav-arrow up"
+              onClick={() => handleReelSwipe('down')}
+              disabled={currentReelIndex === 0}
+            >
+              <FontAwesomeIcon icon={faChevronUp} />
+            </button>
+            <div className="reel-indicators">
+              {reels.map((_, index) => (
+                <div 
+                  key={index} 
+                  className={`reel-indicator ${index === currentReelIndex ? 'active' : ''}`}
+                  onClick={() => setCurrentReelIndex(index)}
+                />
+              ))}
+            </div>
+            <button 
+              className="nav-arrow down"
+              onClick={() => handleReelSwipe('up')}
+              disabled={currentReelIndex === reels.length - 1}
+            >
+              <FontAwesomeIcon icon={faChevronDown} />
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
 
-      {/* Bottom Navigation - Jumia Style */}
-      <div className="bottom-nav jumia-bottom-nav">
+  const renderSearch = () => (
+    <div className="search-section">
+      <div className="search-header">
+        <button onClick={() => setActiveSection('home')}>
+          <FontAwesomeIcon icon={faArrowLeft} />
+        </button>
+        <h3>Search Results</h3>
+      </div>
+      
+      {isSearching ? (
+        <div className="search-loading">
+          <FontAwesomeIcon icon={faSpinner} spin /> Searching...
+        </div>
+      ) : searchResults.length === 0 ? (
+        <div className="no-results">
+          <FontAwesomeIcon icon={faSearch} size="3x" />
+          <h3>No results found</h3>
+          <p>No results found for "{searchQuery}"</p>
+        </div>
+      ) : (
+        <div className="search-results">
+          {searchResults.map(product => (
+            <div key={product.id} className="product-card" onClick={() => handleViewProduct(product)}>
+              <img src={getProductImage(product)} alt={product.name} />
+              <div className="product-info">
+                <h4>{formatPrice(product.price)}</h4>
+                <h3>{product.name}</h3>
+                <p>{product.seller}</p>
+                <div className="product-actions">
+                  <button onClick={(e) => {
+                    e.stopPropagation();
+                    handleAddToCart(product);
+                  }}>
+                    <FontAwesomeIcon icon={faShoppingCart} /> Add to Cart
+                  </button>
+                  <button onClick={(e) => {
+                    e.stopPropagation();
+                    handleContactSeller(product.seller);
+                  }}>
+                    <FontAwesomeIcon icon={faMessage} /> Message
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+
+  return (
+    <div className="buyer-dashboard">
+      <div className="top-nav">
         <button 
-          className={`nav-item ${activeSection === 'home' ? 'active' : ''}`}
-          onClick={() => setActiveSection('home')}
+          className={`nav-item ${activeSection === 'inbox' ? 'active' : ''}`}
+          onClick={() => setActiveSection('inbox')}
         >
-          <FontAwesomeIcon icon={faHome} />
-          <span>Home</span>
+          <FontAwesomeIcon icon={faInbox} />
+          <span>Inbox</span>
+        </button>
+        
+        <button 
+          className={`nav-item ${activeSection === 'sell' ? 'active' : ''}`}
+          onClick={() => setActiveSection('sell')}
+        >
+          <FontAwesomeIcon icon={faStore} />
+          <span>Sell</span>
+        </button>
+        
+        <button 
+          className={`nav-item ${activeSection === 'categories' ? 'active' : ''}`}
+          onClick={() => setActiveSection('categories')}
+        >
+          <FontAwesomeIcon icon={faList} />
+          <span>Categories</span>
         </button>
         
         <button 
@@ -620,21 +1132,103 @@ const BuyerDashboard = () => {
           <FontAwesomeIcon icon={faSearch} />
           <span>Search</span>
         </button>
+      </div>
+
+      <div className="main-content">
+        {activeSection === 'home' && (
+          <div className="search-bar home-search">
+            <FontAwesomeIcon icon={faSearch} />
+            <input 
+              type="text" 
+              placeholder="Search products..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
+            />
+            {searchQuery && (
+              <button onClick={() => setSearchQuery('')}>
+                <FontAwesomeIcon icon={faTimes} />
+              </button>
+            )}
+          </div>
+        )}
+
+        {activeSection === 'home' && renderHomeScreen()}
+        {activeSection === 'reels' && renderReelsPage()}
+        {activeSection === 'search' && renderSearch()}
+        {activeSection === 'profile' && renderBuyerProfilePage()}
+        {activeSection === 'product' && renderProductPage()}
+        {activeSection === 'cart' && renderCartPage()}
+        {activeSection === 'checkout' && renderCheckoutPage()}
+        {activeSection === 'orders' && renderOrdersPage()}
+        {activeSection === 'inbox' && (
+          <div className="inbox-section">
+            <h3><FontAwesomeIcon icon={faInbox} /> Messages</h3>
+            <p className="empty-state">No messages yet</p>
+          </div>
+        )}
+        {activeSection === 'sell' && (
+          <div className="sell-section">
+            <h3><FontAwesomeIcon icon={faStore} /> Sell Your Item</h3>
+            <button className="sell-button">
+              <FontAwesomeIcon icon={faPlus} /> List Item for Sale
+            </button>
+          </div>
+        )}
+        {activeSection === 'categories' && (
+          <div className="categories-section">
+            <h3><FontAwesomeIcon icon={faList} /> Categories</h3>
+            <div className="categories-list">
+              {categories.slice(0, 8).map(cat => (
+                <button key={cat} className="category-item" onClick={() => {
+                  setSearchQuery(cat);
+                  setActiveSection('search');
+                }}>
+                  {cat}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div className="bottom-nav">
+        <button 
+          className={`nav-item ${activeSection === 'home' ? 'active' : ''}`}
+          onClick={() => setActiveSection('home')}
+        >
+          <FontAwesomeIcon icon={faHome} />
+          <span>Home</span>
+        </button>
         
         <button 
-          className={`nav-item ${activeSection === 'wishlist' ? 'active' : ''}`}
-          onClick={() => alert('Wishlist coming soon!')}
+          className={`nav-item ${activeSection === 'reels' ? 'active' : ''}`}
+          onClick={() => setActiveSection('reels')}
         >
-          <FontAwesomeIcon icon={faHeart} />
-          <span>Saved</span>
+          <FontAwesomeIcon icon={faVideo} />
+          <span>Reels</span>
         </button>
         
         <button 
           className={`nav-item ${activeSection === 'orders' ? 'active' : ''}`}
-          onClick={() => setActiveSection('marketplace')}
+          onClick={() => setActiveSection('orders')}
         >
           <FontAwesomeIcon icon={faBox} />
           <span>Orders</span>
+          {dashboardData.stats.pendingOrders > 0 && (
+            <span className="nav-badge">{dashboardData.stats.pendingOrders}</span>
+          )}
+        </button>
+        
+        <button 
+          className={`nav-item ${activeSection === 'cart' ? 'active' : ''}`}
+          onClick={() => setActiveSection('cart')}
+        >
+          <FontAwesomeIcon icon={faShoppingCart} />
+          <span>Cart</span>
+          {cartItems.length > 0 && (
+            <span className="nav-badge">{cartItems.length}</span>
+          )}
         </button>
         
         <button 
