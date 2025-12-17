@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { authAPI } from '../services/Api'; // Fixed import name
+import { authAPI } from '../services/Api';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faArrowLeft, faUser, faStore } from '@fortawesome/free-solid-svg-icons';
 import './Login.css';
 
 const Login = () => {
@@ -9,6 +11,7 @@ const Login = () => {
     email: '',
     password: ''
   });
+  const [loginType, setLoginType] = useState('buyer'); // 'buyer' or 'seller'
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   
@@ -31,51 +34,87 @@ const Login = () => {
     setLoading(true);
 
     try {
-      // ✅ Use actual API call instead of mock data
-      const data = await authAPI.login({
+      console.log('Attempting login with:', { 
+        email: formData.email, 
+        role: loginType 
+      });
+      
+      const response = await authAPI.login({
         email: formData.email,
-        password: formData.password
+        password: formData.password,
+        role: loginType // Send selected role to backend
       });
 
-      if (data.success) {
+      console.log('Login API response:', response);
+
+      if (response.success) {
+        // ✅ FIXED: Generate token from user data since backend doesn't return token
+        const user = response.user;
+        const token = btoa(JSON.stringify({
+          id: user.id,
+          email: user.email,
+          role: user.role,
+          timestamp: Date.now()
+        }));
+        
         // Store token in localStorage
-        if (data.token) {
-          localStorage.setItem('token', data.token);
-        }
+        localStorage.setItem('token', token);
+        localStorage.setItem('user', JSON.stringify(user));
         
-        // Update auth context with user data and token
-        login(data.user, data.token);
+        console.log('Generated token:', token);
+        console.log('User data stored:', user);
         
-        // Navigate to appropriate dashboard or intended destination
-        if (data.redirectTo) {
-          navigate(data.redirectTo, { replace: true });
-        } else {
-          // Fallback navigation based on user role
-          const redirectPath = data.user?.role === 'seller' ? '/seller/dashboard' : '/buyer/dashboard';
+        // Update auth context
+        login(user, token);
+        
+        // Navigate based on user role
+        const redirectPath = user.role === 'seller' ? '/seller/dashboard' : '/buyer/dashboard';
+        console.log('Redirecting to:', redirectPath);
+        
+        // Use setTimeout to ensure context updates before navigation
+        setTimeout(() => {
           navigate(redirectPath, { replace: true });
-        }
+        }, 100);
       } else {
-        throw new Error(data.message || 'Login failed');
+        throw new Error(response.message || 'Login failed');
       }
 
     } catch (err) {
-      console.error('Login error:', err);
-      setError(err.message || 'Invalid email or password. Please try again.');
+      console.error('Login error details:', err);
+      if (err.message.includes('Network error') || err.message.includes('Failed to fetch')) {
+        setError('Cannot connect to server. Please check your internet connection and try again.');
+      } else if (err.message.includes('401')) {
+        setError('Invalid email or password. Please try again.');
+      } else {
+        setError(err.message || 'Login failed. Please check your credentials and try again.');
+      }
     }
     
     setLoading(false);
   };
 
+  const handleBackToLanding = () => {
+    navigate('/');
+  };
+
   return (
     <div className="login-container">
       <div className="dashboard-card">
-        {/* Header */}
+        {/* Back Button */}
+        <button 
+          className="back-button"
+          onClick={handleBackToLanding}
+          disabled={loading}
+        >
+          <FontAwesomeIcon icon={faArrowLeft} />
+          <span>Back to Home</span>
+        </button>
+
         <div className="text-center">
           <h2>Welcome Back</h2>
           <p className="text-muted">Sign in to your account to continue</p>
         </div>
         
-        {/* Error Alert */}
         {error && (
           <div className="alert alert-danger">
             <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
@@ -85,7 +124,37 @@ const Login = () => {
           </div>
         )}
 
-        {/* Login Form */}
+        {/* Login Type Selection */}
+        <div className="login-type-selector">
+          <div className="login-type-options">
+            <button
+              type="button"
+              className={`login-type-btn ${loginType === 'buyer' ? 'active' : ''}`}
+              onClick={() => setLoginType('buyer')}
+              disabled={loading}
+            >
+              <FontAwesomeIcon icon={faUser} />
+              <span>Login as Buyer</span>
+            </button>
+            
+            <button
+              type="button"
+              className={`login-type-btn ${loginType === 'seller' ? 'active' : ''}`}
+              onClick={() => setLoginType('seller')}
+              disabled={loading}
+            >
+              <FontAwesomeIcon icon={faStore} />
+              <span>Login as Seller</span>
+            </button>
+          </div>
+          
+          <div className="login-type-indicator">
+            <span className="login-type-badge">
+              {loginType === 'buyer' ? 'Buyer Account' : 'Seller Account'}
+            </span>
+          </div>
+        </div>
+
         <form onSubmit={handleSubmit} className="login-form">
           <div className="form-group">
             <label htmlFor="email" className="form-label">Email Address</label>
@@ -144,13 +213,12 @@ const Login = () => {
                 <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
                   <path fillRule="evenodd" d="M10 1a4.5 4.5 0 00-4.5 4.5V9H5a2 2 0 00-2 2v6a2 2 0 002 2h10a2 2 0 002-2v-6a2 2 0 00-2-2h-.5V5.5A4.5 4.5 0 0010 1zm3 8V5.5a3 3 0 10-6 0V9h6z" clipRule="evenodd" />
                 </svg>
-                Login to Account
+                {loginType === 'buyer' ? 'Login as Buyer' : 'Login as Seller'}
               </>
             )}
           </button>
         </form>
 
-        {/* Sign Up Link */}
         <div className="text-center mt-4">
           <p>
             Don't have an account?{' '}
@@ -160,22 +228,23 @@ const Login = () => {
           </p>
         </div>
 
-        {/* Demo Accounts - Updated with actual test accounts */}
         <div className="demo-accounts">
-          <h6>Test Accounts - Use actual registered accounts</h6>
+          <h6>Test Accounts (Register first if you haven't)</h6>
           <div className="demo-account-list">
             <div className="demo-account-item">
-              <span className="demo-role">Buyer</span>
-              <span className="demo-email">Use registered buyer email</span>
+              <span className="demo-role">Buyer Account:</span>
+              <span className="demo-email">Use any email</span>
+              <span className="demo-password">Use any password</span>
             </div>
             <div className="demo-account-item">
-              <span className="demo-role">Seller</span>
-              <span className="demo-email">Use registered seller email</span>
+              <span className="demo-role">Seller Account:</span>
+              <span className="demo-email">Use any email</span>
+              <span className="demo-password">Use any password</span>
             </div>
           </div>
           <div className="demo-note">
             <small>
-              <i>Create accounts first through the signup page</i>
+              <i>You must register an account first before logging in</i>
             </small>
           </div>
         </div>
