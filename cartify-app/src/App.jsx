@@ -41,55 +41,59 @@ function App() {
         <CartProvider>
           <div className="App">
             <Routes>
-              {/* Public Routes - NO Navbar/Footer */}
-              <Route path="/login" element={
-                <Layout showNavbar={false} showFooter={false}>
-                  <Login />
-                </Layout>
-              } />
-              
-              <Route path="/signup" element={
-                <Layout showNavbar={false} showFooter={false}>
-                  <Signup />
-                </Layout>
-              } />
-              
-              {/* Landing Page - WITH Navbar/Footer */}
               <Route path="/" element={
-                <Layout>
+                <Layout> 
                   <Landing />
                 </Layout>
               } />
 
-              {/* Buyer Routes - WITH Navbar/Footer */}
+              <Route path="/login" element={<Login />} />
+              <Route path="/signup" element={<Signup />} />
+
+
               <Route path="/buyer/dashboard" element={
                 <ProtectedRoute role="buyer">
-                  <Layout>
-                    <BuyerDashboard />
-                  </Layout>
+                  <BuyerDashboard /> {/* No Layout wrapper */}
                 </ProtectedRoute>
               } />
               
               <Route path="/buyer/products" element={
                 <ProtectedRoute role="buyer">
-                  <Layout>
-                    <ProductList />
-                  </Layout>
+                  <ProductList /> {/* No Layout wrapper */}
                 </ProtectedRoute>
               } />
               
+              {/* Product Detail - NO navbar */}
               <Route path="/buyer/products/:id" element={
                 <ProtectedRoute role="buyer">
-                  <Layout>
-                    <ProductDetail />
-                  </Layout>
+                  <ProductDetail /> 
                 </ProtectedRoute>
               } />
 
-              {/* Seller Routes - Using SellerLayout (check if it has its own navbar) */}
+              <Route path="/buyer/cart" element={
+                <ProtectedRoute role="buyer">
+                  <Cart /> 
+                </ProtectedRoute>
+              } />
+
+              <Route path="/buyer/checkout" element={
+                <ProtectedRoute role="buyer">
+                  <Checkout /> 
+                </ProtectedRoute>
+              } />
+
+              {/* Orders - NO navbar */}
+              <Route path="/buyer/orders" element={
+                <ProtectedRoute role="buyer">
+                  <BuyerOrders /> {/* No Layout wrapper */}
+                </ProtectedRoute>
+              } />
+
+              {/* ====== SELLER ROUTES ====== */}
+              {/* Seller Layout should handle its own navbar if needed */}
               <Route path="/seller" element={
                 <ProtectedRoute role="seller">
-                  <SellerLayout />
+                  <SellerLayout /> {/* SellerLayout manages its own navbar */}
                 </ProtectedRoute>
               }>
                 <Route path="dashboard" element={<SellerDashboard />} />
@@ -101,32 +105,26 @@ function App() {
               {/* Temporary route for the wrong path */}
               <Route path="/seller/add-product" element={
                 <ProtectedRoute role="seller">
-                  <AddProduct />
+                  <AddProduct /> {/* No Layout wrapper */}
                 </ProtectedRoute>
               } />
 
-              {/* Admin Routes - WITH Navbar/Footer */}
+              {/* ====== ADMIN ROUTES - NO NAVBAR ====== */}
               <Route path="/admin/dashboard" element={
                 <ProtectedRoute role="admin">
-                  <Layout>
-                    <AdminDashboard />
-                  </Layout>
+                  <AdminDashboard /> {/* No Layout wrapper */}
                 </ProtectedRoute>
               } />
               
               <Route path="/admin/users" element={
                 <ProtectedRoute role="admin">
-                  <Layout>
-                    <UserManagement />
-                  </Layout>
+                  <UserManagement /> {/* No Layout wrapper */}
                 </ProtectedRoute>
               } />
               
               <Route path="/admin/earnings" element={
                 <ProtectedRoute role="admin">
-                  <Layout>
-                    <AdminEarnings />
-                  </Layout>
+                  <AdminEarnings /> {/* No Layout wrapper */}
                 </ProtectedRoute>
               } />
 
