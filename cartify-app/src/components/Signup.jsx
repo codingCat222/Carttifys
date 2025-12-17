@@ -8,7 +8,6 @@ const Signup = () => {
   const [searchParams] = useSearchParams();
   const urlRole = searchParams.get('role');
   
-  // Force the role from URL, don't allow changing
   const forcedRole = urlRole === 'seller' ? 'seller' : 'buyer';
   
   const [formData, setFormData] = useState({
@@ -32,14 +31,12 @@ const Signup = () => {
   const { login } = useAuth();
   const navigate = useNavigate();
 
-  // Check server status on component mount
   useEffect(() => {
     const checkServer = async () => {
       try {
         setServerStatus('checking');
         console.log('🔍 Checking server status...');
         
-        // Simple health check
         const response = await fetch('https://carttifys-1.onrender.com/health', {
           method: 'GET',
           headers: { 'Content-Type': 'application/json' },
@@ -70,11 +67,8 @@ const Signup = () => {
   const handleChange = (e) => {
     const { name, value } = e.target;
     
-    // Phone number validation - only allow numbers and limit to 11 digits
     if (name === 'phone') {
-      // Remove any non-digit characters
       const phoneValue = value.replace(/\D/g, '');
-      // Limit to 11 characters
       const limitedValue = phoneValue.slice(0, 11);
       setFormData({
         ...formData,
@@ -95,12 +89,10 @@ const Signup = () => {
   };
 
   const validatePhoneNumber = (phone) => {
-    // Check if phone number is exactly 11 digits
     if (phone.length !== 11) {
       return 'Phone number must be exactly 11 digits';
     }
     
-    // Check if it starts with a valid prefix (common phone number patterns)
     const validPrefixes = ['09', '08', '07', '01'];
     const startsWithValidPrefix = validPrefixes.some(prefix => phone.startsWith(prefix));
     
@@ -109,6 +101,10 @@ const Signup = () => {
     }
     
     return null;
+  };
+
+  const handleBackToHome = () => {
+    navigate('/');
   };
 
   const handleSubmit = async (e) => {
@@ -172,7 +168,6 @@ const Signup = () => {
         setError('Server is waking up... This may take 20-30 seconds. Please wait.');
       }
 
-      // Use DIRECT FETCH instead of authAPI to avoid timeout issues
       const response = await fetch('https://carttifys-1.onrender.com/api/auth/register', {
         method: 'POST',
         headers: {
@@ -180,12 +175,10 @@ const Signup = () => {
           'Accept': 'application/json'
         },
         body: JSON.stringify(userData),
-        // NO abort signal - let it take as long as needed
       });
 
       console.log('📥 Response status:', response.status);
       
-      // Handle HTTP errors
       if (!response.ok) {
         let errorMessage = `HTTP ${response.status}: `;
         
@@ -268,7 +261,6 @@ const Signup = () => {
     }
   };
 
-  // Form validation state
   const isFormValid = () => {
     const basicFields = formData.email && formData.password && formData.confirmPassword;
     
@@ -306,6 +298,16 @@ const Signup = () => {
   return (
     <div className="signup-container">
       <div className="signup-card">
+        {/* Back to Home Button - ADDED HERE */}
+        <button 
+          className="back-to-home-button"
+          onClick={handleBackToHome}
+          disabled={loading}
+        >
+          <i className="fas fa-arrow-left"></i>
+          <span>Back to Home</span>
+        </button>
+
         <div className="signup-header">
           <i className="fas fa-user-plus signup-icon"></i>
           <h1>
