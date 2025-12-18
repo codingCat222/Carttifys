@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { authAPI } from '../services/Api';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faArrowLeft, faUser, faStore } from '@fortawesome/free-solid-svg-icons';
 import './Login.css';
 
 const Login = () => {
@@ -9,6 +11,7 @@ const Login = () => {
     email: '',
     password: ''
   });
+  const [loginType, setLoginType] = useState('buyer'); // 'buyer' or 'seller'
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   
@@ -31,11 +34,15 @@ const Login = () => {
     setLoading(true);
 
     try {
-      console.log('Attempting login with:', { email: formData.email });
+      console.log('Attempting login with:', { 
+        email: formData.email, 
+        role: loginType 
+      });
       
       const response = await authAPI.login({
         email: formData.email,
-        password: formData.password
+        password: formData.password,
+        role: loginType // Send selected role to backend
       });
 
       console.log('Login API response:', response);
@@ -86,9 +93,23 @@ const Login = () => {
     setLoading(false);
   };
 
+  const handleBackToLanding = () => {
+    navigate('/');
+  };
+
   return (
     <div className="login-container">
       <div className="dashboard-card">
+        {/* Back Button */}
+        <button 
+          className="back-button"
+          onClick={handleBackToLanding}
+          disabled={loading}
+        >
+          <FontAwesomeIcon icon={faArrowLeft} />
+          <span>Back to Home</span>
+        </button>
+
         <div className="text-center">
           <h2>Welcome Back</h2>
           <p className="text-muted">Sign in to your account to continue</p>
@@ -102,6 +123,37 @@ const Login = () => {
             {error}
           </div>
         )}
+
+        {/* Login Type Selection */}
+        <div className="login-type-selector">
+          <div className="login-type-options">
+            <button
+              type="button"
+              className={`login-type-btn ${loginType === 'buyer' ? 'active' : ''}`}
+              onClick={() => setLoginType('buyer')}
+              disabled={loading}
+            >
+              <FontAwesomeIcon icon={faUser} />
+              <span>Login as Buyer</span>
+            </button>
+            
+            <button
+              type="button"
+              className={`login-type-btn ${loginType === 'seller' ? 'active' : ''}`}
+              onClick={() => setLoginType('seller')}
+              disabled={loading}
+            >
+              <FontAwesomeIcon icon={faStore} />
+              <span>Login as Seller</span>
+            </button>
+          </div>
+          
+          <div className="login-type-indicator">
+            <span className="login-type-badge">
+              {loginType === 'buyer' ? 'Buyer Account' : 'Seller Account'}
+            </span>
+          </div>
+        </div>
 
         <form onSubmit={handleSubmit} className="login-form">
           <div className="form-group">
@@ -161,7 +213,7 @@ const Login = () => {
                 <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
                   <path fillRule="evenodd" d="M10 1a4.5 4.5 0 00-4.5 4.5V9H5a2 2 0 00-2 2v6a2 2 0 002 2h10a2 2 0 002-2v-6a2 2 0 00-2-2h-.5V5.5A4.5 4.5 0 0010 1zm3 8V5.5a3 3 0 10-6 0V9h6z" clipRule="evenodd" />
                 </svg>
-                Login to Account
+                {loginType === 'buyer' ? 'Login as Buyer' : 'Login as Seller'}
               </>
             )}
           </button>
@@ -202,4 +254,3 @@ const Login = () => {
 };
 
 export default Login;
-
