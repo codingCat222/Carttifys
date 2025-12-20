@@ -405,7 +405,7 @@ const BuyerDashboard = () => {
           <FontAwesomeIcon icon={faSearch} />
           <input 
             type="text" 
-            placeholder="Search products..."
+            placeholder="Search products, brands"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
@@ -1057,6 +1057,23 @@ const BuyerDashboard = () => {
         <h3>Search Results</h3>
       </div>
       
+      <div className="search-bar focused-search">
+        <FontAwesomeIcon icon={faSearch} />
+        <input 
+          type="text" 
+          placeholder="Search products, brands"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
+          autoFocus
+        />
+        {searchQuery && (
+          <button onClick={() => setSearchQuery('')}>
+            <FontAwesomeIcon icon={faTimes} />
+          </button>
+        )}
+      </div>
+      
       {isSearching ? (
         <div className="search-loading">
           <FontAwesomeIcon icon={faSpinner} spin /> Searching...
@@ -1140,7 +1157,7 @@ const BuyerDashboard = () => {
             <FontAwesomeIcon icon={faSearch} />
             <input 
               type="text" 
-              placeholder="Search products..."
+              placeholder="Search products, brands"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               onKeyPress={(e) => e.key === 'Enter' && handleSearch()}

@@ -1765,3 +1765,95 @@ button:active:not(:disabled) {
     padding: 15px;
   }
 }
+
+/* Top Navigation Search Bar */
+.top-nav {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  padding: 10px 15px;
+  background: white;
+  border-bottom: 1px solid #e0e0e0;
+  gap: 10px;
+  overflow-x: auto;
+  white-space: nowrap;
+}
+
+.top-nav-search {
+  flex: 1;
+  min-width: 200px;
+  max-width: 400px;
+  margin: 0;
+  background: linear-gradient(135deg, #f6d365 0%, #fda085 100%);
+  order: -1; /* Ensures it comes first */
+}
+
+.top-nav .nav-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 8px 12px;
+  background: transparent;
+  border: none;
+  color: #666;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  min-width: 60px;
+}
+
+.top-nav .nav-item.active {
+  color: #fda085;
+  font-weight: bold;
+}
+
+.top-nav .nav-item svg {
+  font-size: 20px;
+  margin-bottom: 4px;
+}
+
+.top-nav .nav-item span {
+  font-size: 12px;
+}
+
+.top-nav .nav-item:hover {
+  color: #fda085;
+  transform: translateY(-2px);
+}
+
+/* Make sure top nav is responsive */
+@media (max-width: 768px) {
+  .top-nav {
+    gap: 5px;
+    padding: 8px 10px;
+  }
+  
+  .top-nav-search {
+    min-width: 150px;
+    flex: 2;
+  }
+  
+  .top-nav .nav-item {
+    padding: 6px 8px;
+    min-width: 50px;
+  }
+  
+  .top-nav .nav-item svg {
+    font-size: 18px;
+  }
+  
+  .top-nav .nav-item span {
+    font-size: 10px;
+  }
+}
+
+@media (max-width: 480px) {
+  .top-nav-search {
+    min-width: 120px;
+    flex: 3;
+  }
+  
+  .top-nav .nav-item {
+    padding: 4px 6px;
+    min-width: 45px;
+  }
+}
