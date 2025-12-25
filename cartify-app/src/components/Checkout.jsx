@@ -130,8 +130,9 @@ const Checkout = () => {
       if (activeStep === 'shipping') setActiveStep('payment');
       else if (activeStep === 'payment') setActiveStep('review');
     } else {
-      alert('Please fix the form errors before proceeding.');
-      console.log('Form errors:', errors);
+      // Show specific error messages
+      const errorMessage = Object.values(errors).join('\n');
+      alert(`Please fix the following errors:\n\n${errorMessage}`);
     }
   };
 
@@ -142,10 +143,19 @@ const Checkout = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    // Check terms agreement
+    const termsCheckbox = document.getElementById('termsAgreement');
+    if (!termsCheckbox?.checked) {
+      alert('Please agree to the Terms and Conditions to proceed.');
+      return;
+    }
+    
     setLoading(true);
 
     try {
-      await new Promise(resolve => setTimeout(resolve, 3000));
+      // Simulate API call
+      await new Promise(resolve => setTimeout(resolve, 2000));
       
       const order = {
         id: 'ORD-' + Math.random().toString(36).substr(2, 9).toUpperCase(),
@@ -158,7 +168,6 @@ const Checkout = () => {
       };
 
       console.log('Order created:', order);
-      alert(`Payment successful! Your order #${order.id} has been placed.`);
       
       clearCart();
       navigate('/buyer/orders', { 
@@ -188,6 +197,16 @@ const Checkout = () => {
     return parts.length ? parts.join(' ') : value;
   };
 
+  // Format expiry date as MM/YY
+  const handleExpiryDateChange = (e) => {
+    let value = e.target.value.replace(/\D/g, '');
+    if (value.length >= 2) {
+      value = value.substring(0, 2) + '/' + value.substring(2, 4);
+    }
+    setFormData(prev => ({ ...prev, expiryDate: value }));
+  };
+
+  // Empty cart handler
   if (cartItems.length === 0) {
     return (
       <div className="container mt-4">
@@ -211,7 +230,7 @@ const Checkout = () => {
     <div className="container mt-4">
       <div className="row">
         <div className="col-12">
-          <h1>Checkout </h1>
+          <h1>Checkout</h1>
           <p className="text-muted">Complete your purchase securely</p>
         </div>
       </div>
@@ -495,7 +514,7 @@ const Checkout = () => {
                               id="expiryDate"
                               name="expiryDate"
                               value={formData.expiryDate}
-                              onChange={handleChange}
+                              onChange={handleExpiryDateChange}
                               placeholder="MM/YY"
                               maxLength="5"
                               required
@@ -506,7 +525,7 @@ const Checkout = () => {
                           <div className="mb-3">
                             <label htmlFor="cvv" className="form-label">CVV *</label>
                             <input
-                              type="text"
+                              type="password"
                               className="form-control"
                               id="cvv"
                               name="cvv"
@@ -799,13 +818,15 @@ const Checkout = () => {
                   </span>
                 </div>
                 <div className="d-flex justify-content-between">
-                  <span>Tax:</span>
+                  <span>Tax (8%):</span>
                   <span>${tax.toFixed(2)}</span>
                 </div>
-                <div className="d-flex justify-content-between text-danger small commission-fee">
-                  <span>Platform Commission (5%):</span>
-                  <span>-${commission.toFixed(2)}</span>
-                </div>
+                {commission > 0 && (
+                  <div className="d-flex justify-content-between text-danger small commission-fee">
+                    <span>Platform Commission (5%):</span>
+                    <span>-${commission.toFixed(2)}</span>
+                  </div>
+                )}
               </div>
 
               <hr />
@@ -832,9 +853,9 @@ const Checkout = () => {
                 <strong>Note:</strong> 5% platform commission supports marketplace operations and seller services.
               </div>
 
-              {/* Security Badge */}
+              {/* Security Badge - FIXED: Changed size="lg" to className="fa-2x" */}
               <div className="text-center mt-3 security-badge">
-                <FontAwesomeIcon icon={faShieldAlt} className="text-muted mb-2" size="lg" />
+                <FontAwesomeIcon icon={faShieldAlt} className="text-muted mb-2 fa-2x" />
                 <div className="text-muted small">
                   <div>Secure Checkout</div>
                   <div>Your payment information is encrypted</div>

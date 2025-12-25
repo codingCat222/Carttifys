@@ -229,7 +229,7 @@ export const sellerAPI = {
     return response.json();
   },
   
-  // ✅ FIXED: Upload business logo
+
   updateBusinessLogo: async (file) => {
     const formData = new FormData();
     formData.append('logo', file);
@@ -380,4 +380,5 @@ export const isBuyer = () => {
 };
 
 export { API_BASE };
-export default apiCall;
+
+export default apiCall

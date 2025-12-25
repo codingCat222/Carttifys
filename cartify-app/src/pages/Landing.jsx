@@ -138,9 +138,7 @@ const Landing = () => {
 
   return (
     <div className="landing-page">
-      {/* REMOVED NAVIGATION - Using the shared Navbar component instead */}
-      
-      {/* Home/Hero Section */}
+    
       <section id="home" className="hero-section">
         <div className="container">
           <div className="hero-content">

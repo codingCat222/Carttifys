@@ -405,7 +405,9 @@ const BuyerDashboard = () => {
           <FontAwesomeIcon icon={faSearch} />
           <input 
             type="text" 
-            placeholder="Search products, brands"
+
+            placeholder="Search products..."
+
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
@@ -1056,8 +1058,7 @@ const BuyerDashboard = () => {
         </button>
         <h3>Search Results</h3>
       </div>
-      
-      <div className="search-bar focused-search">
+    <div className="search-bar focused-search">
         <FontAwesomeIcon icon={faSearch} />
         <input 
           type="text" 
@@ -1073,7 +1074,7 @@ const BuyerDashboard = () => {
           </button>
         )}
       </div>
-      
+
       {isSearching ? (
         <div className="search-loading">
           <FontAwesomeIcon icon={faSpinner} spin /> Searching...
@@ -1157,7 +1158,9 @@ const BuyerDashboard = () => {
             <FontAwesomeIcon icon={faSearch} />
             <input 
               type="text" 
-              placeholder="Search products, brands"
+
+              placeholder="Search products..."
+
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
@@ -1261,3 +1264,4 @@ const BuyerDashboard = () => {
 };
 
 export default BuyerDashboard;
+

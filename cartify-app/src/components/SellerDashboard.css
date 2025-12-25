@@ -1,6 +1,10 @@
+<<<<<<< HEAD
 /* SellerDashboard.css */
 
 /* Reset and Base Styles */
+=======
+
+>>>>>>> c2101a68649d9082e9cf568fcbc35984d7a3ac6b
 .seller-dashboard {
   background-color: #f8f9fa;
   min-height: 100vh;
@@ -771,4 +775,8 @@
   select {
     font-size: 16px !important;
   }
+<<<<<<< HEAD
 }
+=======
+}
+>>>>>>> c2101a68649d9082e9cf568fcbc35984d7a3ac6b

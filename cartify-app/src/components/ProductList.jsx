@@ -30,18 +30,62 @@ import {
 } from '@fortawesome/free-solid-svg-icons';
 import './ProductList.css';
 
-// Add this image helper function
+const API_BASE = 'https://carttifys-1.onrender.com';
+
 const getProductImage = (product) => {
-  if (product.image && product.image.startsWith('http')) {
+  if (product.images && product.images.length > 0) {
+    const firstImage = product.images[0];
+    
+    if (firstImage.data) {
+      return `data:${firstImage.contentType || 'image/jpeg'};base64,${firstImage.data}`;
+    }
+    
+    if (firstImage.url) {
+      if (firstImage.url.startsWith('http')) {
+        return firstImage.url;
+      }
+      if (firstImage.url.startsWith('/')) {
+        return `${API_BASE}${firstImage.url}`;
+      }
+      return firstImage.url;
+    }
+    
+    if (firstImage.path) {
+      if (firstImage.path.startsWith('http')) {
+        return firstImage.path;
+      }
+      if (firstImage.path.startsWith('/')) {
+        return `${API_BASE}${firstImage.path}`;
+      }
+      return `${API_BASE}/uploads/${firstImage.path}`;
+    }
+    
+    if (firstImage.filename) {
+      return `${API_BASE}/uploads/${firstImage.filename}`;
+    }
+  }
+
+  if (product.image) {
+    if (product.image.startsWith('http')) {
+      return product.image;
+    }
+    if (product.image.startsWith('/')) {
+      return `${API_BASE}${product.image}`;
+    }
     return product.image;
   }
-  if (product.images && product.images.length > 0 && product.images[0].data) {
-    return `data:${product.images[0].contentType};base64,${product.images[0].data}`;
+
+  if (product.imageUrl) {
+    if (product.imageUrl.startsWith('http')) {
+      return product.imageUrl;
+    }
+    if (product.imageUrl.startsWith('/')) {
+      return `${API_BASE}${product.imageUrl}`;
+    }
+    return product.imageUrl;
   }
-  if (product.images && product.images.length > 0) {
-    return `https://picsum.photos/300/200?random=${product.images[0]._id}`;
-  }
-  return 'https://picsum.photos/300/200?text=No+Image';
+
+  return `https://picsum.photos/300/200?random=${product._id || product.id || Math.random()}`;
 };
 
 const ProductList = () => {
@@ -55,15 +99,11 @@ const ProductList = () => {
   const [error, setError] = useState(null);
   const { addToCart } = useCart();
 
-  // ✅ REAL API CALL TO GET PRODUCTS FROM DEPLOYED BACKEND
   const fetchProducts = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
 
-      console.log('🔄 Fetching real products from backend...');
-
-      // Build query string from filters
       const queryParams = new URLSearchParams();
       if (selectedCategory && selectedCategory !== 'all') {
         queryParams.append('category', selectedCategory);
@@ -94,8 +134,6 @@ const ProductList = () => {
         }
       }
 
-      // ✅ FIXED: Use your Render backend URL instead of localhost
-      const API_BASE = 'https://carttifys-1.onrender.com';
       const response = await fetch(`${API_BASE}/api/buyer/products?${queryParams}`);
       
       if (!response.ok) {
@@ -103,19 +141,16 @@ const ProductList = () => {
       }
       
       const result = await response.json();
-      console.log('📦 Products API Response:', result);
 
       if (result.success) {
         setProducts(result.data);
         setFilteredProducts(result.data);
-        console.log('✅ Set real products:', result.data);
       } else {
         throw new Error(result.message || 'Failed to load products');
       }
 
       setLoading(false);
     } catch (err) {
-      console.error('❌ Error fetching products:', err);
       setError(err.message || 'Failed to load products from server.');
       setLoading(false);
     }
@@ -125,7 +160,6 @@ const ProductList = () => {
     fetchProducts();
   }, [fetchProducts]);
 
-  // ✅ REAL-TIME SEARCH FILTERING
   useEffect(() => {
     if (!searchTerm) {
       setFilteredProducts(products);
@@ -185,7 +219,6 @@ const ProductList = () => {
     }
   };
 
-  // Loading state
   if (loading) {
     return (
       <div className="products-loading">
@@ -212,7 +245,6 @@ const ProductList = () => {
 
   return (
     <div className="product-list-container">
-      {/* Header */}
       <div className="product-list-header">
         <h1 className="product-list-title">
           <FontAwesomeIcon icon={faCube} className="title-icon" />
@@ -221,7 +253,6 @@ const ProductList = () => {
         <p className="product-list-subtitle">Find amazing products from our trusted sellers</p>
       </div>
 
-      {/* Search and Filters */}
       <div className="filters-section">
         <div className="search-container">
           <FontAwesomeIcon icon={faSearch} className="search-icon" />
@@ -294,12 +325,10 @@ const ProductList = () => {
         </div>
       </div>
 
-      {/* Products Grid */}
       <div className="products-grid">
         {filteredProducts.map(product => (
           <div key={product.id} className="product-card">
             <div className="product-image-container">
-              {/* ✅ FIXED: Use the proper image helper function */}
               <img 
                 src={getProductImage(product)}
                 className="product-image" 

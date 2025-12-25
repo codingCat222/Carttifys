@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { sellerAPI } from '../services/Api'; // ✅ Removed userAPI, only need sellerAPI
+import { sellerAPI } from '../services/Api'; 
 import './SellerProfile.css';
 
 const SellerProfile = () => {
@@ -1063,5 +1063,6 @@ const SellerProfile = () => {
     </div>
   );
 };
+
 
 export default SellerProfile;

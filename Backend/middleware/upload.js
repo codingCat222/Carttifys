@@ -1,7 +1,11 @@
 const multer = require('multer');
 const path = require('path');
 
+<<<<<<< HEAD
 // Storage configuration      for both images and videos
+=======
+// Storage configuration for both images and videos
+>>>>>>> c2101a68649d9082e9cf568fcbc35984d7a3ac6b
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
     cb(null, 'uploads/');
@@ -41,4 +45,8 @@ const upload = multer({
     fileSize: 50 * 1024 * 1024 // 50MB limit for videos
   }
 });
+<<<<<<< HEAD
+=======
+
+>>>>>>> c2101a68649d9082e9cf568fcbc35984d7a3ac6b
 module.exports = upload;

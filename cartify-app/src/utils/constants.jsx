@@ -14,7 +14,11 @@ export const ORDER_STATUS = {
   CANCELLED: 'cancelled'
 };
 
+<<<<<<< HEAD
 export const PRODsUCT_CATEGORIES = [
+=======
+export const PRODUCT_CATEGORIES = [
+>>>>>>> c2101a68649d9082e9cf568fcbc35984d7a3ac6b
   'electronics',
   'fashion',
   'home',

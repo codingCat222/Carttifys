@@ -2,7 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const path = require('path');
 const helmet = require('helmet');
-const morgan = require('morgan');  // FIXED: Changed from 'morghan' to 'morgan'
+const morgan = require('morgan');  
 require('dotenv').config();
 
 const app = express();

@@ -57,14 +57,14 @@ const Navbar = memo(() => {
         clearCart();
       }
       
-      // Force clear any remaining storage
+
       localStorage.removeItem('cart');
       localStorage.removeItem('userPreferences');
       
-      // Navigate to home
+    
       navigate('/');
       
-      // Force page reload after a short delay to ensure clean state
+   
       setTimeout(() => {
         window.location.reload();
       }, 50);

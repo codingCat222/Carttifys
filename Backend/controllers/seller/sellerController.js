@@ -186,13 +186,21 @@ const getProducts = async (req, res) => {
 const createProduct = async (req, res) => {
   try {
     const userId = req.user.id;
+    
+    console.log('📦 Product creation request:', {
+      bodyFields: Object.keys(req.body),
+      filesCount: req.files ? req.files.length : 0
+    });
+
     const {
       name,
       description,
       price,
       category,
       stock,
-      features
+      features,
+      images: imagesJson,
+      videos: videosJson
     } = req.body;
 
     if (!name || !description || !price || !category || stock === undefined) {
@@ -202,8 +210,26 @@ const createProduct = async (req, res) => {
       });
     }
 
-    const images = [];
-    const videos = [];
+    const productImages = [];
+    const productVideos = [];
+
+    let parsedImages = [];
+    let parsedVideos = [];
+
+    try {
+      if (imagesJson) {
+        parsedImages = typeof imagesJson === 'string' 
+          ? JSON.parse(imagesJson) 
+          : imagesJson;
+      }
+      if (videosJson) {
+        parsedVideos = typeof videosJson === 'string'
+          ? JSON.parse(videosJson)
+          : videosJson;
+      }
+    } catch (parseError) {
+      console.error('Error parsing JSON:', parseError);
+    }
 
     if (req.files && req.files.length > 0) {
       req.files.forEach(file => {
@@ -213,17 +239,58 @@ const createProduct = async (req, res) => {
           contentType: file.mimetype,
           size: file.size,
           path: `/uploads/${file.filename}`,
-          url: `${process.env.BASE_URL || 'http://localhost:5000'}/uploads/${file.filename}`,
+          url: `${process.env.BASE_URL || 'https://carttifys-1.onrender.com'}/uploads/${file.filename}`,
           uploadedAt: new Date()
         };
 
         if (file.mimetype.startsWith('image/')) {
-          images.push(fileData);
+          productImages.push(fileData);
         } else if (file.mimetype.startsWith('video/')) {
-          videos.push(fileData);
+          productVideos.push(fileData);
         }
       });
     }
+
+    if (parsedImages && Array.isArray(parsedImages) && parsedImages.length > 0) {
+      parsedImages.forEach((img, index) => {
+        if (img && img.data) {
+          productImages.push({
+            data: img.data,
+            contentType: img.contentType || 'image/jpeg',
+            isMain: index === 0,
+            uploadedAt: new Date()
+          });
+        }
+      });
+    }
+
+    if (parsedVideos && Array.isArray(parsedVideos) && parsedVideos.length > 0) {
+      parsedVideos.forEach(vid => {
+        if (vid && vid.data) {
+          productVideos.push({
+            data: vid.data,
+            contentType: vid.contentType || 'video/mp4',
+            name: vid.name || 'product-video',
+            size: vid.size || 0,
+            uploadedAt: new Date()
+          });
+        }
+      });
+    }
+
+    if (productImages.length === 0) {
+      productImages.push({
+        data: null,
+        contentType: 'image/jpeg',
+        url: 'https://via.placeholder.com/300',
+        isMain: true,
+        uploadedAt: new Date()
+      });
+    }
+
+    const processedFeatures = features ? 
+      (Array.isArray(features) ? features : [features]).filter(feature => feature && feature.trim() !== '') 
+      : [];
 
     const product = await Product.create({
       name,
@@ -231,15 +298,17 @@ const createProduct = async (req, res) => {
       price: parseFloat(price),
       category,
       stock: parseInt(stock),
-      features: features ? (Array.isArray(features) ? features : [features]).filter(feature => feature.trim() !== '') : [],
-      images,
-      videos,
+      features: processedFeatures,
+      images: productImages,
+      videos: productVideos,
       seller: userId,
       status: 'active',
       featured: false,
       salesCount: 0,
       averageRating: 0
     });
+
+    console.log('✅ Product created with images:', productImages.length, 'videos:', productVideos.length);
 
     res.status(201).json({
       success: true,
@@ -276,7 +345,9 @@ const createProductWithMedia = async (req, res) => {
       price,
       category,
       stock,
-      features
+      features,
+      images: imagesJson,
+      videos: videosJson
     } = req.body;
 
     if (!name || !description || !price || !category || stock === undefined) {
@@ -286,8 +357,26 @@ const createProductWithMedia = async (req, res) => {
       });
     }
 
-    const images = [];
-    const videos = [];
+    const productImages = [];
+    const productVideos = [];
+
+    let parsedImages = [];
+    let parsedVideos = [];
+
+    try {
+      if (imagesJson) {
+        parsedImages = typeof imagesJson === 'string' 
+          ? JSON.parse(imagesJson) 
+          : imagesJson;
+      }
+      if (videosJson) {
+        parsedVideos = typeof videosJson === 'string'
+          ? JSON.parse(videosJson)
+          : videosJson;
+      }
+    } catch (parseError) {
+      console.error('Error parsing JSON:', parseError);
+    }
 
     if (req.files && req.files.length > 0) {
       req.files.forEach(file => {
@@ -297,17 +386,48 @@ const createProductWithMedia = async (req, res) => {
           contentType: file.mimetype,
           size: file.size,
           path: `/uploads/${file.filename}`,
-          url: `${process.env.BASE_URL || 'http://localhost:5000'}/uploads/${file.filename}`,
+          url: `${process.env.BASE_URL || 'https://carttifys-1.onrender.com'}/uploads/${file.filename}`,
           uploadedAt: new Date()
         };
 
         if (file.mimetype.startsWith('image/')) {
-          images.push(fileData);
+          productImages.push(fileData);
         } else if (file.mimetype.startsWith('video/')) {
-          videos.push(fileData);
+          productVideos.push(fileData);
         }
       });
     }
+
+    if (parsedImages && Array.isArray(parsedImages) && parsedImages.length > 0) {
+      parsedImages.forEach((img, index) => {
+        if (img && img.data) {
+          productImages.push({
+            data: img.data,
+            contentType: img.contentType || 'image/jpeg',
+            isMain: index === 0,
+            uploadedAt: new Date()
+          });
+        }
+      });
+    }
+
+    if (parsedVideos && Array.isArray(parsedVideos) && parsedVideos.length > 0) {
+      parsedVideos.forEach(vid => {
+        if (vid && vid.data) {
+          productVideos.push({
+            data: vid.data,
+            contentType: vid.contentType || 'video/mp4',
+            name: vid.name || 'product-video',
+            size: vid.size || 0,
+            uploadedAt: new Date()
+          });
+        }
+      });
+    }
+
+    const processedFeatures = features ? 
+      (Array.isArray(features) ? features : [features]).filter(feature => feature && feature.trim() !== '') 
+      : [];
 
     const product = await Product.create({
       name,
@@ -315,9 +435,9 @@ const createProductWithMedia = async (req, res) => {
       price: parseFloat(price),
       category,
       stock: parseInt(stock),
-      features: features ? (Array.isArray(features) ? features : [features]).filter(feature => feature.trim() !== '') : [],
-      images,
-      videos,
+      features: processedFeatures,
+      images: productImages,
+      videos: productVideos,
       seller: userId,
       status: 'active',
       featured: false,
@@ -389,7 +509,8 @@ const updateProductStatus = async (req, res) => {
     console.error('Update product error:', error);
     res.status(500).json({
       success: false,
-      message: 'Error updating product'
+      message: 'Error updating product',
+      error: error.message
     });
   }
 };

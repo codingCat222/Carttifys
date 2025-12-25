@@ -2,6 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import './ManageProducts.css';
 
+// ✅ PRODUCTION API BASE URL
+const API_BASE = 'https://carttifys-1.onrender.com';
+
 const ManageProducts = () => {
   const [products, setProducts] = useState([]);
   const [filter, setFilter] = useState('all');
@@ -28,12 +31,12 @@ const ManageProducts = () => {
     return () => window.removeEventListener('resize', checkMobile);
   }, [filter]);
 
-  // ✅ REAL API CALL TO GET PRODUCTS
+  // ✅ REAL API CALL TO GET PRODUCTS - USING PRODUCTION URL
   const fetchProducts = async () => {
     try {
       setLoading(true);
       
-      const response = await fetch(`http://localhost:5000/api/seller/products?filter=${filter}`, {
+      const response = await fetch(`${API_BASE}/api/seller/products?filter=${filter}`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -45,11 +48,16 @@ const ManageProducts = () => {
         const data = await response.json();
         
         if (data.success) {
-          setProducts(data.data.products);
-          setStats(data.data.stats);
+          setProducts(data.data?.products || []);
+          setStats(data.data?.stats || {
+            totalProducts: 0,
+            activeProducts: 0,
+            featuredProducts: 0,
+            totalSales: 0
+          });
         }
       } else {
-        // If API fails, show empty state
+        console.error('API Error:', response.status, response.statusText);
         setProducts([]);
         setStats({
           totalProducts: 0,
@@ -67,10 +75,10 @@ const ManageProducts = () => {
     }
   };
 
-  // ✅ REAL API CALL TO UPDATE PRODUCT STATUS
+  // ✅ REAL API CALL TO UPDATE PRODUCT STATUS - USING PRODUCTION URL
   const handleStatusChange = async (productId, newStatus) => {
     try {
-      const response = await fetch(`http://localhost:5000/api/seller/products/${productId}/status`, {
+      const response = await fetch(`${API_BASE}/api/seller/products/${productId}/status`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -84,15 +92,15 @@ const ManageProducts = () => {
       if (response.ok) {
         const data = await response.json();
         if (data.success) {
-          // Update local state
           setProducts(prev => prev.map(product =>
             product.id === productId ? { ...product, status: newStatus } : product
           ));
           alert('Product status updated successfully!');
-          fetchProducts(); // Refresh data
+          fetchProducts();
         }
       } else {
-        alert('Failed to update product status');
+        const errorData = await response.json();
+        alert(errorData.message || 'Failed to update product status');
       }
     } catch (error) {
       console.error('Error updating product status:', error);
@@ -100,10 +108,10 @@ const ManageProducts = () => {
     }
   };
 
-  // ✅ REAL API CALL TO TOGGLE FEATURED
+  // ✅ REAL API CALL TO TOGGLE FEATURED - USING PRODUCTION URL
   const toggleFeatured = async (productId, currentFeatured) => {
     try {
-      const response = await fetch(`http://localhost:5000/api/seller/products/${productId}/status`, {
+      const response = await fetch(`${API_BASE}/api/seller/products/${productId}/status`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -117,15 +125,15 @@ const ManageProducts = () => {
       if (response.ok) {
         const data = await response.json();
         if (data.success) {
-          // Update local state
           setProducts(prev => prev.map(product =>
             product.id === productId ? { ...product, featured: !currentFeatured } : product
           ));
           alert('Product featured status updated!');
-          fetchProducts(); // Refresh data
+          fetchProducts();
         }
       } else {
-        alert('Failed to update featured status');
+        const errorData = await response.json();
+        alert(errorData.message || 'Failed to update featured status');
       }
     } catch (error) {
       console.error('Error updating featured status:', error);
@@ -133,11 +141,11 @@ const ManageProducts = () => {
     }
   };
 
-  // ✅ REAL API CALL TO DELETE PRODUCT
+  // ✅ REAL API CALL TO DELETE PRODUCT - USING PRODUCTION URL
   const handleDelete = async (productId) => {
     if (window.confirm('Are you sure you want to delete this product? This action cannot be undone.')) {
       try {
-        const response = await fetch(`http://localhost:5000/api/seller/products/${productId}`, {
+        const response = await fetch(`${API_BASE}/api/seller/products/${productId}`, {
           method: 'DELETE',
           headers: {
             'Content-Type': 'application/json',
@@ -148,13 +156,13 @@ const ManageProducts = () => {
         if (response.ok) {
           const data = await response.json();
           if (data.success) {
-            // Remove from local state
             setProducts(prev => prev.filter(product => product.id !== productId));
             alert('Product deleted successfully!');
-            fetchProducts(); // Refresh data
+            fetchProducts();
           }
         } else {
-          alert('Failed to delete product');
+          const errorData = await response.json();
+          alert(errorData.message || 'Failed to delete product');
         }
       } catch (error) {
         console.error('Error deleting product:', error);
@@ -227,7 +235,7 @@ const ManageProducts = () => {
             <div className="alert alert-info d-flex align-items-center">
               <i className="fas fa-database me-2"></i>
               <div>
-                <strong>Connected to Real Database</strong> - Showing {products.length} products from MongoDB
+                <strong>Connected to Production Database</strong> - Showing {products.length} products from MongoDB
               </div>
             </div>
           </div>
@@ -330,9 +338,9 @@ const ManageProducts = () => {
                           </div>
                           
                           <div className="action-buttons">
-                            <button className="btn btn-outline-primary btn-sm">
+                            <Link to={`/seller/products/edit/${product.id}`} className="btn btn-outline-primary btn-sm">
                               <i className="fas fa-edit"></i>
-                            </button>
+                            </Link>
                             <button 
                               className="btn btn-outline-warning btn-sm"
                               onClick={() => handleStatusChange(
@@ -426,9 +434,9 @@ const ManageProducts = () => {
                                 </button>
                                 <ul className="dropdown-menu">
                                   <li>
-                                    <button className="dropdown-item">
+                                    <Link to={`/seller/products/edit/${product.id}`} className="dropdown-item">
                                       <i className="fas fa-edit me-2"></i>Edit
-                                    </button>
+                                    </Link>
                                   </li>
                                   <li>
                                     <button 
@@ -537,6 +545,10 @@ const ManageProducts = () => {
               <i className="fas fa-sync-alt me-2"></i>
               {loading ? 'Refreshing...' : 'Refresh Data'}
             </button>
+            <div className="mt-2 text-muted small">
+              <i className="fas fa-info-circle me-1"></i>
+              API: {API_BASE}
+            </div>
           </div>
         </div>
       </div>
