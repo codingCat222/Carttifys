@@ -16,6 +16,7 @@ const AddProduct = () => {
 
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [debugInfo, setDebugInfo] = useState(null);
   const navigate = useNavigate();
 
   const handleChange = (e) => {
@@ -52,7 +53,7 @@ const AddProduct = () => {
     }));
   };
 
-  // ✅ FIXED: Image Upload with Base64
+  // ✅ FIXED: Improved Base64 conversion with error handling
   const handleImageUpload = async (e) => {
     const files = Array.from(e.target.files);
     
@@ -66,16 +67,36 @@ const AddProduct = () => {
     try {
       const imagePromises = files.map(file => {
         return new Promise((resolve, reject) => {
+          // Validate file size (5MB max for images)
+          const maxSize = 5 * 1024 * 1024; // 5MB
+          if (file.size > maxSize) {
+            reject(new Error(`Image ${file.name} exceeds 5MB limit`));
+            return;
+          }
+
           const reader = new FileReader();
           reader.onloadend = () => {
-            // Extract base64 data without data URL prefix
-            const base64 = reader.result.split(',')[1];
-            resolve({
-              data: base64, // Pure base64 string
-              contentType: file.type || 'image/jpeg'
-            });
+            try {
+              const result = reader.result;
+              // Extract base64 data properly
+              const base64 = result.includes(',') ? result.split(',')[1] : result;
+              
+              if (!base64) {
+                reject(new Error('Failed to convert image to base64'));
+                return;
+              }
+
+              resolve({
+                data: base64,
+                contentType: file.type || 'image/jpeg',
+                name: file.name,
+                size: file.size
+              });
+            } catch (error) {
+              reject(error);
+            }
           };
-          reader.onerror = reject;
+          reader.onerror = () => reject(new Error(`Failed to read file: ${file.name}`));
           reader.readAsDataURL(file);
         });
       });
@@ -87,15 +108,16 @@ const AddProduct = () => {
         images: [...prev.images, ...processedImages]
       }));
 
+      console.log(`✅ Added ${processedImages.length} images`);
     } catch (error) {
-      console.error('Error uploading images:', error);
-      alert('Error uploading images');
+      console.error('❌ Error uploading images:', error);
+      alert(`Error uploading images: ${error.message}`);
     } finally {
       setUploading(false);
     }
   };
 
-  // ✅ FIXED: Video Upload with Base64
+  // ✅ FIXED: Video upload with better validation
   const handleVideoUpload = async (e) => {
     const files = Array.from(e.target.files);
     
@@ -104,41 +126,48 @@ const AddProduct = () => {
       return;
     }
 
-    // Validate video files
-    const validFiles = files.filter(file => {
-      const validTypes = ['video/mp4', 'video/webm', 'video/ogg', 'video/quicktime'];
-      const maxSize = 100 * 1024 * 1024; // 100MB
-      
-      if (!validTypes.includes(file.type)) {
-        alert(`Invalid video format: ${file.name}. Supported formats: MP4, WebM, OGG, MOV`);
-        return false;
-      }
-      
-      if (file.size > maxSize) {
-        alert(`Video file too large: ${file.name}. Maximum size: 100MB`);
-        return false;
-      }
-      
-      return true;
-    });
-
     setUploading(true);
 
     try {
-      const videoPromises = validFiles.map(file => {
+      const videoPromises = files.map(file => {
         return new Promise((resolve, reject) => {
+          // Validate video files
+          const validTypes = ['video/mp4', 'video/webm', 'video/ogg', 'video/quicktime'];
+          const maxSize = 50 * 1024 * 1024; // 50MB (reduced from 100MB)
+          
+          if (!validTypes.includes(file.type)) {
+            reject(new Error(`Invalid video format: ${file.name}. Supported: MP4, WebM, OGG, MOV`));
+            return;
+          }
+          
+          if (file.size > maxSize) {
+            reject(new Error(`Video ${file.name} exceeds 50MB limit (${formatFileSize(file.size)})`));
+            return;
+          }
+
           const reader = new FileReader();
           reader.onloadend = () => {
-            // Extract base64 data without data URL prefix
-            const base64 = reader.result.split(',')[1];
-            resolve({
-              data: base64, // Pure base64 string
-              contentType: file.type,
-              name: file.name,
-              size: file.size
-            });
+            try {
+              const result = reader.result;
+              const base64 = result.includes(',') ? result.split(',')[1] : result;
+              
+              if (!base64) {
+                reject(new Error('Failed to convert video to base64'));
+                return;
+              }
+
+              resolve({
+                data: base64,
+                contentType: file.type,
+                name: file.name,
+                size: file.size,
+                originalName: file.name
+              });
+            } catch (error) {
+              reject(error);
+            }
           };
-          reader.onerror = reject;
+          reader.onerror = () => reject(new Error(`Failed to read video: ${file.name}`));
           reader.readAsDataURL(file);
         });
       });
@@ -150,9 +179,10 @@ const AddProduct = () => {
         videos: [...prev.videos, ...processedVideos]
       }));
 
+      console.log(`✅ Added ${processedVideos.length} videos`);
     } catch (error) {
-      console.error('Error uploading videos:', error);
-      alert('Error uploading videos');
+      console.error('❌ Error uploading videos:', error);
+      alert(`Error uploading videos: ${error.message}`);
     } finally {
       setUploading(false);
     }
@@ -222,7 +252,7 @@ const AddProduct = () => {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
 
-  // ✅ FIXED: Submit with proper API URL and data format
+  // ✅ FIXED: Complete handleSubmit with detailed error handling
   const handleSubmit = async (e) => {
     e.preventDefault();
     
@@ -231,6 +261,7 @@ const AddProduct = () => {
     }
 
     setLoading(true);
+    setDebugInfo(null);
 
     try {
       // Prepare product data
@@ -241,77 +272,202 @@ const AddProduct = () => {
         category: formData.category,
         stock: parseInt(formData.stock),
         features: formData.features.filter(feature => feature.trim() !== ''),
-        images: formData.images,
-        videos: formData.videos
+        images: formData.images.map(img => ({
+          data: img.data,
+          contentType: img.contentType
+        })),
+        videos: formData.videos.map(vid => ({
+          data: vid.data,
+          contentType: vid.contentType,
+          name: vid.name || vid.originalName,
+          size: vid.size
+        }))
       };
 
+      // Calculate data size
+      const jsonString = JSON.stringify(productData);
+      const dataSize = jsonString.length;
+      const dataSizeMB = (dataSize / (1024 * 1024)).toFixed(2);
+
       console.log('🔄 Sending product data:', {
-        ...productData,
-        images: productData.images.map(img => ({ 
-          hasData: !!img.data, 
-          contentType: img.contentType,
-          dataLength: img.data.length 
-        })),
-        videos: productData.videos.map(vid => ({ 
-          hasData: !!vid.data, 
-          contentType: vid.contentType 
-        }))
+        name: productData.name,
+        price: productData.price,
+        images: `${productData.images.length} images`,
+        videos: `${productData.videos.length} videos`,
+        totalSize: `${dataSizeMB} MB`,
+        features: productData.features.length
       });
 
-      // ✅ FIXED: Use Render backend URL
-      const API_BASE = 'https://carttifys-1.onrender.com';
-      const response = await fetch(`${API_BASE}/api/seller/products`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        },
-        body: JSON.stringify(productData)
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || `Failed to create product: ${response.status}`);
+      // Check if data is too large
+      if (dataSize > 10 * 1024 * 1024) { // 10MB limit
+        alert(`Product data is too large (${dataSizeMB}MB). Maximum is 10MB. Please reduce image/video sizes.`);
+        setLoading(false);
+        return;
       }
 
-      if (data.success) {
-        alert('Product added successfully!');
-        console.log('✅ Product created:', data.data);
-        
-        // Reset form
-        setFormData({
-          name: '',
-          description: '',
-          price: '',
-          category: '',
-          stock: '',
-          images: [],
-          videos: [],
-          features: ['']
+      // Check authentication token
+      const token = localStorage.getItem('token');
+      if (!token) {
+        alert('Please login first');
+        navigate('/login');
+        setLoading(false);
+        return;
+      }
+
+      // ✅ API endpoint
+      const API_BASE = 'https://carttifys-1.onrender.com';
+      const endpoint = `${API_BASE}/api/seller/products`;
+      
+      console.log('📤 Calling API:', endpoint);
+
+      // Make the request with timeout
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+
+      try {
+        const response = await fetch(endpoint, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: jsonString,
+          signal: controller.signal
         });
+
+        clearTimeout(timeoutId);
+
+        // Log response details
+        console.log('📥 Response status:', response.status, response.statusText);
+
+        // Get response text
+        const responseText = await response.text();
+        console.log('📥 Raw response:', responseText.substring(0, 500) + '...');
+
+        let data;
+        try {
+          data = JSON.parse(responseText);
+        } catch (parseError) {
+          console.error('❌ Failed to parse JSON response:', responseText);
+          throw new Error(`Server returned invalid JSON. Status: ${response.status}`);
+        }
+
+        // Store debug info
+        setDebugInfo({
+          requestSize: dataSize,
+          requestSizeMB: dataSizeMB,
+          responseStatus: response.status,
+          responseData: data
+        });
+
+        if (!response.ok) {
+          console.error('❌ Server error response:', {
+            status: response.status,
+            statusText: response.statusText,
+            data: data
+          });
+
+          let errorMessage = `HTTP ${response.status}: `;
+          
+          if (data && data.message) {
+            errorMessage += data.message;
+          } else if (data && data.error) {
+            errorMessage += data.error;
+          } else {
+            errorMessage += response.statusText;
+          }
+
+          // Specific handling for common errors
+          if (response.status === 401) {
+            errorMessage += '\nPlease login again.';
+            localStorage.removeItem('token');
+            navigate('/login');
+          } else if (response.status === 413) {
+            errorMessage += '\nData too large. Please reduce image/video sizes.';
+          } else if (response.status === 500) {
+            errorMessage += '\nServer error. Please try again later.';
+          }
+
+          throw new Error(errorMessage);
+        }
+
+        if (data.success) {
+          alert('✅ Product added successfully!');
+          console.log('✅ Product created:', data.data);
+          
+          // Reset form
+          setFormData({
+            name: '',
+            description: '',
+            price: '',
+            category: '',
+            stock: '',
+            images: [],
+            videos: [],
+            features: ['']
+          });
+          
+          // Navigate back to seller dashboard
+          navigate('/seller/dashboard');
+        } else {
+          throw new Error(data.message || 'Product creation failed');
+        }
         
-        // Navigate back to seller dashboard
-        navigate('/seller/dashboard');
-      } else {
-        throw new Error(data.message || 'Product creation failed');
+      } catch (fetchError) {
+        if (fetchError.name === 'AbortError') {
+          throw new Error('Request timeout. Server is taking too long to respond.');
+        }
+        throw fetchError;
       }
       
     } catch (error) {
-      console.error('❌ Error adding product:', error);
-      alert(`Error adding product: ${error.message}`);
+      console.error('❌ Error adding product:', {
+        message: error.message,
+        stack: error.stack
+      });
+      
+      // User-friendly error message
+      let userMessage = error.message;
+      if (error.message.includes('Failed to fetch')) {
+        userMessage = 'Network error. Please check your internet connection.';
+      } else if (error.message.includes('timeout')) {
+        userMessage = 'Server timeout. Please try again.';
+      }
+      
+      alert(`❌ Error adding product:\n${userMessage}`);
+      
+      // Log detailed error for debugging
+      console.log('🔍 Debug info:', debugInfo);
     }
     
     setLoading(false);
   };
 
-  // For image preview, we need to reconstruct data URL
+  // For image preview
   const getImagePreviewUrl = (image) => {
     return `data:${image.contentType};base64,${image.data}`;
   };
 
+  // For video preview
   const getVideoPreviewUrl = (video) => {
     return `data:${video.contentType};base64,${video.data}`;
+  };
+
+  // Clear all data
+  const clearForm = () => {
+    if (window.confirm('Are you sure you want to clear all form data?')) {
+      setFormData({
+        name: '',
+        description: '',
+        price: '',
+        category: '',
+        stock: '',
+        images: [],
+        videos: [],
+        features: ['']
+      });
+      setDebugInfo(null);
+    }
   };
 
   return (
@@ -322,6 +478,22 @@ const AddProduct = () => {
           Add New Product
         </h1>
         <p>List a new product to start selling</p>
+        
+        {debugInfo && (
+          <div className="debug-info">
+            <h4>
+              <i className="fas fa-bug"></i>
+              Debug Information
+            </h4>
+            <div className="debug-details">
+              <p><strong>Request Size:</strong> {debugInfo.requestSizeMB} MB</p>
+              <p><strong>Response Status:</strong> {debugInfo.responseStatus}</p>
+              {debugInfo.responseData && (
+                <p><strong>Server Message:</strong> {JSON.stringify(debugInfo.responseData.message || debugInfo.responseData.error)}</p>
+              )}
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="add-product-content">
@@ -515,10 +687,15 @@ const AddProduct = () => {
                       onChange={handleImageUpload}
                       disabled={formData.images.length >= 5 || uploading}
                       className="file-input"
+                      id="image-upload"
                     />
+                    <label htmlFor="image-upload" className="upload-button">
+                      <i className="fas fa-cloud-upload-alt"></i>
+                      {uploading ? 'Uploading...' : 'Select Images'}
+                    </label>
                     <div className="upload-hint">
                       <i className="fas fa-info-circle"></i>
-                      {uploading ? 'Uploading images...' : `Upload product images (${formData.images.length}/5)`}
+                      Max 5 images, 5MB each. Current: {formData.images.length}/5
                     </div>
                   </div>
 
@@ -530,14 +707,17 @@ const AddProduct = () => {
                           alt={`Product preview ${index + 1}`}
                           className="preview-image"
                         />
-                        <button
-                          type="button"
-                          className="remove-image-btn"
-                          onClick={() => removeImage(index)}
-                          title="Remove image"
-                        >
-                          <i className="fas fa-times"></i>
-                        </button>
+                        <div className="image-info">
+                          <span className="image-size">{formatFileSize(image.size)}</span>
+                          <button
+                            type="button"
+                            className="remove-image-btn"
+                            onClick={() => removeImage(index)}
+                            title="Remove image"
+                          >
+                            <i className="fas fa-times"></i>
+                          </button>
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -548,7 +728,7 @@ const AddProduct = () => {
               <div className="form-section">
                 <h3 className="section-title">
                   <i className="fas fa-video"></i>
-                  Product Videos
+                  Product Videos (Optional)
                 </h3>
                 
                 <div className="video-upload-section">
@@ -560,10 +740,15 @@ const AddProduct = () => {
                       onChange={handleVideoUpload}
                       disabled={formData.videos.length >= 3 || uploading}
                       className="file-input"
+                      id="video-upload"
                     />
+                    <label htmlFor="video-upload" className="upload-button">
+                      <i className="fas fa-video"></i>
+                      {uploading ? 'Uploading...' : 'Select Videos'}
+                    </label>
                     <div className="upload-hint">
                       <i className="fas fa-info-circle"></i>
-                      {uploading ? 'Uploading videos...' : `Upload product videos (${formData.videos.length}/3, Max 100MB each)`}
+                      Max 3 videos, 50MB each. Current: {formData.videos.length}/3
                     </div>
                   </div>
 
@@ -579,53 +764,75 @@ const AddProduct = () => {
                           <div className="video-info">
                             <div className="video-name">{video.name}</div>
                             <div className="video-size">{formatFileSize(video.size)}</div>
-                            <div className="video-type">{video.contentType}</div>
+                            <button
+                              type="button"
+                              className="remove-video-btn"
+                              onClick={() => removeVideo(index)}
+                              title="Remove video"
+                            >
+                              <i className="fas fa-times"></i>
+                            </button>
                           </div>
                         </div>
-                        <button
-                          type="button"
-                          className="remove-video-btn"
-                          onClick={() => removeVideo(index)}
-                          title="Remove video"
-                        >
-                          <i className="fas fa-times"></i>
-                        </button>
                       </div>
                     ))}
                   </div>
                 </div>
               </div>
 
-              {/* Submit Button */}
+              {/* Submit Buttons */}
               <div className="form-submit-section">
-                <button
-                  type="submit"
-                  className="submit-btn"
-                  disabled={loading || uploading}
-                >
-                  {loading ? (
-                    <>
-                      <i className="fas fa-spinner fa-spin"></i>
-                      Adding Product...
-                    </>
-                  ) : uploading ? (
-                    <>
-                      <i className="fas fa-spinner fa-spin"></i>
-                      Uploading Media...
-                    </>
-                  ) : (
-                    <>
-                      <i className="fas fa-plus"></i>
-                      Add Product
-                    </>
-                  )}
-                </button>
+                <div className="button-group">
+                  <button
+                    type="submit"
+                    className="submit-btn primary"
+                    disabled={loading || uploading}
+                  >
+                    {loading ? (
+                      <>
+                        <i className="fas fa-spinner fa-spin"></i>
+                        Adding Product...
+                      </>
+                    ) : uploading ? (
+                      <>
+                        <i className="fas fa-spinner fa-spin"></i>
+                        Uploading Media...
+                      </>
+                    ) : (
+                      <>
+                        <i className="fas fa-plus"></i>
+                        Add Product
+                      </>
+                    )}
+                  </button>
+                  
+                  <button
+                    type="button"
+                    className="submit-btn secondary"
+                    onClick={clearForm}
+                    disabled={loading || uploading}
+                  >
+                    <i className="fas fa-eraser"></i>
+                    Clear Form
+                  </button>
+                </div>
                 
                 {(loading || uploading) && (
                   <div className="upload-progress">
                     <div className="progress-text">
+                      <i className="fas fa-sync fa-spin"></i>
                       Processing {formData.images.length} images and {formData.videos.length} videos...
                     </div>
+                    <div className="form-hint">
+                      This may take a while for large files. Please don't close the page.
+                    </div>
+                  </div>
+                )}
+                
+                {debugInfo && debugInfo.responseStatus === 500 && (
+                  <div className="error-hint">
+                    <i className="fas fa-exclamation-triangle"></i>
+                    Server error occurred. Check console for details.
                   </div>
                 )}
               </div>
@@ -642,20 +849,55 @@ const AddProduct = () => {
             </h4>
             <ul className="tips-list">
               <li>
-                <i className="fas fa-check-circle text-success"></i>
-                <strong>Base64 encoding</strong>
+                <i className="fas fa-check-circle"></i>
+                <strong>Use clear, high-quality images</strong>
               </li>
               <li>
-                <i className="fas fa-database"></i>
-                Stored in database
+                <i className="fas fa-info-circle"></i>
+                Images: Max 5 images, 5MB each
               </li>
               <li>
-                <i className="fas fa-images"></i>
-                {formData.images.length}/5 images
+                <i className="fas fa-info-circle"></i>
+                Videos: Max 3 videos, 50MB each
               </li>
               <li>
-                <i className="fas fa-video"></i>
-                {formData.videos.length}/3 videos
+                <i className="fas fa-clock"></i>
+                Large files take longer to process
+              </li>
+              <li>
+                <i className="fas fa-wifi"></i>
+                Ensure stable internet connection
+              </li>
+            </ul>
+          </div>
+          
+          <div className="sidebar-card stats-card">
+            <h4>
+              <i className="fas fa-chart-bar"></i>
+              Current Stats
+            </h4>
+            <ul className="stats-list">
+              <li>
+                <span className="stat-label">Images:</span>
+                <span className="stat-value">{formData.images.length}/5</span>
+              </li>
+              <li>
+                <span className="stat-label">Videos:</span>
+                <span className="stat-value">{formData.videos.length}/3</span>
+              </li>
+              <li>
+                <span className="stat-label">Features:</span>
+                <span className="stat-value">{formData.features.filter(f => f.trim() !== '').length}/10</span>
+              </li>
+              <li>
+                <span className="stat-label">Data Size:</span>
+                <span className="stat-value">
+                  {(() => {
+                    const totalSize = formData.images.reduce((sum, img) => sum + (img.size || 0), 0) +
+                                     formData.videos.reduce((sum, vid) => sum + (vid.size || 0), 0);
+                    return formatFileSize(totalSize);
+                  })()}
+                </span>
               </li>
             </ul>
           </div>
