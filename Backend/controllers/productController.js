@@ -1,13 +1,11 @@
-// controllers/productController.js
 const Product = require('../models/Product');
 const mongoose = require('mongoose');
 
-// ✅ CREATE PRODUCT
 const createProduct = async (req, res) => {
     try {
         const { name, description, price, category, stock, features, images, videos } = req.body;
 
-        console.log('🔄 Creating product with:', {
+        console.log('Creating product:', {
             name,
             category,
             price,
@@ -16,18 +14,15 @@ const createProduct = async (req, res) => {
             videosCount: videos ? videos.length : 0
         });
 
-        // Extract user ID from auth middleware
         const sellerId = req.user._id;
 
-        // Validate required fields
         if (!name || !description || !price || !category || !stock) {
             return res.status(400).json({
                 success: false,
-                message: 'All required fields (name, description, price, category, stock) must be provided'
+                message: 'All required fields must be provided'
             });
         }
 
-        // Validate images
         if (!images || images.length === 0) {
             return res.status(400).json({
                 success: false,
@@ -35,9 +30,7 @@ const createProduct = async (req, res) => {
             });
         }
 
-        // Process images properly
         const processedImages = images.map((image, index) => {
-            // If image is in correct format { data, contentType }
             if (image.data && image.contentType) {
                 return {
                     data: image.data,
@@ -46,7 +39,6 @@ const createProduct = async (req, res) => {
                 };
             }
             
-            // If image is just a base64 string (fallback)
             if (typeof image === 'string') {
                 return {
                     data: image,
@@ -61,11 +53,10 @@ const createProduct = async (req, res) => {
         if (processedImages.length === 0) {
             return res.status(400).json({
                 success: false,
-                message: 'No valid images provided. Images must have data and contentType.'
+                message: 'No valid images provided'
             });
         }
 
-        // Process videos properly
         const processedVideos = videos ? videos.map((video, index) => {
             if (video.data && video.contentType) {
                 return {
@@ -79,7 +70,6 @@ const createProduct = async (req, res) => {
             return null;
         }).filter(vid => vid !== null) : [];
 
-        // Create product with processed data
         const product = new Product({
             name: name.trim(),
             description: description.trim(),
@@ -95,7 +85,7 @@ const createProduct = async (req, res) => {
 
         await product.save();
         
-        console.log('✅ Product created successfully:', product._id);
+        console.log('Product created:', product._id);
         
         res.status(201).json({
             success: true,
@@ -104,7 +94,7 @@ const createProduct = async (req, res) => {
         });
         
     } catch (error) {
-        console.error('❌ Error creating product:', error);
+        console.error('Error creating product:', error);
         res.status(500).json({
             success: false,
             message: 'Server error while creating product',
@@ -113,7 +103,6 @@ const createProduct = async (req, res) => {
     }
 };
 
-// ✅ GET ALL PRODUCTS (with filtering, sorting, and pagination)
 const getProducts = async (req, res) => {
     try {
         const {
@@ -128,7 +117,6 @@ const getProducts = async (req, res) => {
             inStock = true
         } = req.query;
 
-        // Build filter object
         const filter = {};
         
         if (category && category !== 'all') {
@@ -141,7 +129,6 @@ const getProducts = async (req, res) => {
             if (maxPrice) filter.price.$lte = parseFloat(maxPrice);
         }
 
-        // Only show products in stock by default
         if (inStock === 'true' || inStock === true) {
             filter.stock = { $gt: 0 };
         }
@@ -154,50 +141,53 @@ const getProducts = async (req, res) => {
             ];
         }
 
-        // Calculate pagination
         const skip = (parseInt(page) - 1) * parseInt(limit);
 
-        // Get products with pagination
         const products = await Product.find(filter)
             .populate('seller', 'name email businessName rating')
             .sort({ [sortBy]: sortOrder === 'asc' ? 1 : -1 })
             .skip(skip)
             .limit(parseInt(limit));
 
-        // Get total count for pagination
         const totalProducts = await Product.countDocuments(filter);
 
-        // Process products to include image URLs and formatted data
         const processedProducts = products.map(product => {
             const productObj = product.toObject();
             
-            // Add image URL for the first image
-            if (product.images && product.images.length > 0) {
-                productObj.imageUrl = `/api/products/${product._id}/image/${product.images[0]._id}`;
-                productObj.image = productObj.imageUrl; // For backward compatibility
-            } else {
-                productObj.imageUrl = 'https://via.placeholder.com/300?text=No+Image';
-                productObj.image = productObj.imageUrl;
-            }
-
-            // Add seller name
-            productObj.sellerName = product.seller?.businessName || product.seller?.name || 'Unknown Seller';
-            
-            // Remove sensitive data
-            delete productObj.images; // Remove full images array to reduce response size
-            delete productObj.videos;
-            
-            return {
+            const productData = {
                 id: productObj._id,
                 name: productObj.name,
                 price: productObj.price,
                 category: productObj.category,
                 stock: productObj.stock,
-                seller: productObj.sellerName,
-                image: productObj.image,
+                sellerName: product.seller?.businessName || product.seller?.name || 'Unknown Seller',
                 averageRating: productObj.averageRating || 0,
-                createdAt: productObj.createdAt
+                createdAt: productObj.createdAt,
+                // Always include images array, even if empty
+                images: []
             };
+
+            // FIXED: Properly handle images with data URLs for frontend
+            if (product.images && product.images.length > 0) {
+                productData.images = product.images.map((img, index) => {
+                    const imageObj = {
+                        _id: img._id,
+                        isPrimary: img.isPrimary || index === 0,
+                        contentType: img.contentType || 'image/jpeg',
+                        // Create data URL for frontend
+                        dataUrl: `data:${img.contentType || 'image/jpeg'};base64,${img.data}`
+                    };
+                    
+                    // Also include the original data for backward compatibility
+                    if (img.data) {
+                        imageObj.data = img.data;
+                    }
+                    
+                    return imageObj;
+                });
+            }
+
+            return productData;
         });
 
         res.json({
@@ -214,7 +204,7 @@ const getProducts = async (req, res) => {
         });
 
     } catch (error) {
-        console.error('❌ Error fetching products:', error);
+        console.error('Error fetching products:', error);
         res.status(500).json({
             success: false,
             message: 'Error fetching products',
@@ -223,7 +213,6 @@ const getProducts = async (req, res) => {
     }
 };
 
-// ✅ GET SINGLE PRODUCT
 const getProductById = async (req, res) => {
     try {
         const product = await Product.findById(req.params.id)
@@ -237,24 +226,24 @@ const getProductById = async (req, res) => {
             });
         }
 
-        // Process product to include image URLs
         const productObj = product.toObject();
-        
-        // Add image URLs for all images
-        if (product.images && product.images.length > 0) {
-            productObj.images = product.images.map(img => ({
-                ...img.toObject(),
-                url: `/api/products/${product._id}/image/${img._id}`
-            }));
-        }
 
-        // Add seller name
         productObj.sellerName = product.seller?.businessName || product.seller?.name;
         
-        // Add related fields for frontend
         productObj.formattedPrice = `$${product.price.toFixed(2)}`;
         productObj.inStock = product.stock > 0;
         productObj.lowStock = product.stock > 0 && product.stock <= 10;
+
+        // FIXED: Add proper image data URLs
+        if (product.images && product.images.length > 0) {
+            productObj.images = product.images.map((img, index) => ({
+                _id: img._id,
+                isPrimary: img.isPrimary || index === 0,
+                contentType: img.contentType || 'image/jpeg',
+                dataUrl: `data:${img.contentType || 'image/jpeg'};base64,${img.data}`,
+                data: img.data
+            }));
+        }
 
         res.json({
             success: true,
@@ -262,7 +251,7 @@ const getProductById = async (req, res) => {
         });
 
     } catch (error) {
-        console.error('❌ Error fetching product details:', error);
+        console.error('Error fetching product details:', error);
         res.status(500).json({
             success: false,
             message: 'Error fetching product details',
@@ -271,12 +260,10 @@ const getProductById = async (req, res) => {
     }
 };
 
-// ✅ SERVE PRODUCT IMAGE
 const getProductImage = async (req, res) => {
     try {
         const { productId, imageId } = req.params;
 
-        // Validate ObjectId
         if (!mongoose.Types.ObjectId.isValid(productId) || !mongoose.Types.ObjectId.isValid(imageId)) {
             return res.status(400).json({ 
                 success: false, 
@@ -300,10 +287,8 @@ const getProductImage = async (req, res) => {
             });
         }
 
-        // Convert base64 to buffer
         const imageBuffer = Buffer.from(image.data, 'base64');
         
-        // Set appropriate headers
         res.set({
             'Content-Type': image.contentType || 'image/jpeg',
             'Content-Length': imageBuffer.length,
@@ -313,7 +298,7 @@ const getProductImage = async (req, res) => {
         res.send(imageBuffer);
 
     } catch (error) {
-        console.error('❌ Error serving image:', error);
+        console.error('Error serving image:', error);
         res.status(500).json({ 
             success: false, 
             message: 'Error serving image' 
@@ -321,7 +306,6 @@ const getProductImage = async (req, res) => {
     }
 };
 
-// ✅ UPDATE PRODUCT
 const updateProduct = async (req, res) => {
     try {
         const { productId } = req.params;
@@ -335,7 +319,6 @@ const updateProduct = async (req, res) => {
             });
         }
 
-        // Check if user owns the product
         if (product.seller.toString() !== req.user._id.toString()) {
             return res.status(403).json({
                 success: false,
@@ -356,7 +339,7 @@ const updateProduct = async (req, res) => {
         });
 
     } catch (error) {
-        console.error('❌ Error updating product:', error);
+        console.error('Error updating product:', error);
         res.status(500).json({
             success: false,
             message: 'Server error while updating product',
@@ -365,7 +348,6 @@ const updateProduct = async (req, res) => {
     }
 };
 
-// ✅ DELETE PRODUCT
 const deleteProduct = async (req, res) => {
     try {
         const { productId } = req.params;
@@ -378,7 +360,6 @@ const deleteProduct = async (req, res) => {
             });
         }
 
-        // Check if user owns the product
         if (product.seller.toString() !== req.user._id.toString()) {
             return res.status(403).json({
                 success: false,
@@ -394,7 +375,7 @@ const deleteProduct = async (req, res) => {
         });
 
     } catch (error) {
-        console.error('❌ Error deleting product:', error);
+        console.error('Error deleting product:', error);
         res.status(500).json({
             success: false,
             message: 'Server error while deleting product',
@@ -403,7 +384,6 @@ const deleteProduct = async (req, res) => {
     }
 };
 
-// ✅ GET PRODUCTS BY SELLER
 const getProductsBySeller = async (req, res) => {
     try {
         const { sellerId } = req.params;
@@ -412,18 +392,31 @@ const getProductsBySeller = async (req, res) => {
             .populate('seller', 'name businessName')
             .sort({ createdAt: -1 });
 
-        const processedProducts = products.map(product => ({
-            id: product._id,
-            name: product.name,
-            price: product.price,
-            category: product.category,
-            stock: product.stock,
-            image: product.images && product.images.length > 0 
-                ? `/api/products/${product._id}/image/${product.images[0]._id}`
-                : 'https://via.placeholder.com/300',
-            averageRating: product.averageRating || 0,
-            createdAt: product.createdAt
-        }));
+        const processedProducts = products.map(product => {
+            const productData = {
+                id: product._id,
+                name: product.name,
+                price: product.price,
+                category: product.category,
+                stock: product.stock,
+                averageRating: product.averageRating || 0,
+                createdAt: product.createdAt,
+                images: []
+            };
+
+            // FIXED: Add data URLs for frontend
+            if (product.images && product.images.length > 0) {
+                productData.images = product.images.map((img, index) => ({
+                    _id: img._id,
+                    isPrimary: img.isPrimary || index === 0,
+                    contentType: img.contentType || 'image/jpeg',
+                    dataUrl: `data:${img.contentType || 'image/jpeg'};base64,${img.data}`,
+                    data: img.data
+                }));
+            }
+
+            return productData;
+        });
 
         res.json({
             success: true,
@@ -431,7 +424,7 @@ const getProductsBySeller = async (req, res) => {
             data: processedProducts
         });
     } catch (error) {
-        console.error('❌ Error fetching seller products:', error);
+        console.error('Error fetching seller products:', error);
         res.status(500).json({
             success: false,
             message: 'Error fetching seller products'

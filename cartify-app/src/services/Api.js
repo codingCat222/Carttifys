@@ -1,6 +1,7 @@
 const API_BASE = 'https://carttifys-1.onrender.com';
 
-// ✅ ADDED: Token management helper
+let authInterceptor = null;
+
 export const setAuthToken = (token) => {
   if (token) {
     localStorage.setItem('token', token);
@@ -9,32 +10,40 @@ export const setAuthToken = (token) => {
   }
 };
 
-// ✅ ADDED: Get current token
 export const getAuthToken = () => {
   return localStorage.getItem('token');
 };
 
-// ✅ ADDED: Get current user from localStorage
 export const getCurrentUser = () => {
   const userStr = localStorage.getItem('user');
   if (userStr) {
     try {
       return JSON.parse(userStr);
-    } catch (error) {
-      console.error('Error parsing user from localStorage:', error);
+    } catch {
       return null;
     }
   }
   return null;
 };
 
-// ✅ ADDED: Store user in localStorage
 export const setCurrentUser = (user) => {
   if (user) {
     localStorage.setItem('user', JSON.stringify(user));
   } else {
     localStorage.removeItem('user');
   }
+};
+
+const handleAuthRedirect = () => {
+  const currentPath = window.location.pathname;
+  const authRoutes = ['/login', '/auth/login', '/register', '/auth/register'];
+  
+  if (authRoutes.includes(currentPath)) {
+    return;
+  }
+  
+  sessionStorage.setItem('redirectAfterLogin', currentPath);
+  window.location.href = '/auth/login';
 };
 
 export const apiCall = async (endpoint, options = {}) => {
@@ -49,7 +58,6 @@ export const apiCall = async (endpoint, options = {}) => {
     ...options
   };
 
-  // ✅ FIXED: Use getAuthToken() helper
   const token = getAuthToken();
   if (token) {
     config.headers['Authorization'] = `Bearer ${token}`;
@@ -63,19 +71,24 @@ export const apiCall = async (endpoint, options = {}) => {
     const response = await fetch(url, config);
     
     if (response.status === 401) {
-      // Token expired or invalid
       setAuthToken(null);
       setCurrentUser(null);
-      throw new Error('Authentication failed. Please login again.');
+      
+      if (authInterceptor) {
+        authInterceptor();
+      } else {
+        handleAuthRedirect();
+      }
+      
+      throw new Error('Authentication required');
     }
     
     if (response.status === 404) {
-      throw new Error(`Endpoint not found: ${url}. Check if the route exists on the server.`);
+      throw new Error(`Endpoint not found: ${url}`);
     }
     
     if (response.status === 500) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.message || 'Server error. Please try again later.');
+      throw new Error('Server error');
     }
 
     if (!response.ok) {
@@ -85,24 +98,22 @@ export const apiCall = async (endpoint, options = {}) => {
 
     const contentType = response.headers.get('content-type');
     if (contentType && contentType.includes('application/json')) {
-      const data = await response.json();
-      return data;
+      return await response.json();
     }
     
-    const textData = await response.text();
-    return textData;
+    return await response.text();
     
   } catch (error) {
     if (error.name === 'TypeError' && error.message.includes('Failed to fetch')) {
-      throw new Error('Network error: Cannot connect to server.');
-    }
-    
-    if (error.message.includes('NetworkError')) {
-      throw new Error('Network request failed. The server may be down or blocking the request.');
+      throw new Error('Network error');
     }
     
     throw error;
   }
+};
+
+export const setAuthInterceptor = (interceptor) => {
+  authInterceptor = interceptor;
 };
 
 export const authAPI = {
@@ -112,7 +123,6 @@ export const authAPI = {
       body: userData
     });
     
-    // ✅ FIXED: Store token and user when registering
     if (response.token) {
       setAuthToken(response.token);
     }
@@ -129,7 +139,6 @@ export const authAPI = {
       body: credentials
     });
     
-    // ✅ FIXED: Store token and user when logging in
     if (response.token) {
       setAuthToken(response.token);
     }
@@ -145,11 +154,9 @@ export const authAPI = {
       const response = await apiCall('/api/auth/me');
       if (response.data) {
         setCurrentUser(response.data);
-        return response;
       }
       return response;
     } catch (error) {
-      // If auth fails, clear stored data
       setAuthToken(null);
       setCurrentUser(null);
       throw error;
@@ -159,11 +166,8 @@ export const authAPI = {
   logout: () => {
     setAuthToken(null);
     setCurrentUser(null);
-    // Optional: Call server logout endpoint if you add one
-    // return apiCall('/api/auth/logout', { method: 'POST' });
   },
   
-  // ✅ ADDED: Check if user is authenticated
   isAuthenticated: () => {
     return !!getAuthToken();
   }
@@ -209,7 +213,6 @@ export const sellerAPI = {
     body: sectionData
   }),
   
-  // ✅ FIXED: Profile picture upload
   updateProfilePicture: async (file) => {
     const formData = new FormData();
     formData.append('profileImage', file);
@@ -229,7 +232,6 @@ export const sellerAPI = {
     return response.json();
   },
   
-
   updateBusinessLogo: async (file) => {
     const formData = new FormData();
     formData.append('logo', file);
@@ -277,7 +279,6 @@ export const userAPI = {
     body: profileData
   }),
   
-  // ✅ FIXED: Image upload - use FormData
   uploadImage: async (formData) => {
     const response = await fetch(`${API_BASE}/api/images/upload`, {
       method: 'POST',
@@ -349,36 +350,19 @@ export const healthAPI = {
   check: () => apiCall('/api/health')
 };
 
-export const testAPI = {
-  testAll: async () => {
-    const results = {};
-    
-    try {
-      results.health = await healthAPI.check();
-      results.sellerDashboard = await sellerAPI.getDashboard();
-      return results;
-    } catch (error) {
-      throw error;
-    }
-  }
-};
-
-// ✅ ADDED: Helper to check user role
 export const getUserRole = () => {
   const user = getCurrentUser();
   return user ? user.role : null;
 };
 
-// ✅ ADDED: Helper to check if user is seller
 export const isSeller = () => {
   return getUserRole() === 'seller';
 };
 
-// ✅ ADDED: Helper to check if user is buyer
 export const isBuyer = () => {
   return getUserRole() === 'buyer';
 };
 
 export { API_BASE };
 
-export default apiCall
+export default apiCall;

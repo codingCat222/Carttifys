@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useCart } from '../contexts/CartContext';
 import './ProductDetail.css';
-import { buyerAPI, productAPI, orderAPI } from '../services/Api';
+import { buyerAPI, productAPI } from '../services/Api'; // REMOVED: orderAPI import
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
   faStar,
@@ -632,4 +632,4 @@ const ProductDetail = () => {
   );
 };
 
-export default ProductDetail
+export default ProductDetail;

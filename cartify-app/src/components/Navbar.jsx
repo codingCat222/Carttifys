@@ -30,7 +30,7 @@ const Navbar = memo(() => {
   const navigate = useNavigate();
   const location = useLocation();
 
-  // 🎯 OPTIMIZED: useCallback for scroll handler
+  
   useEffect(() => {
     const handleScroll = () => {
       const isScrolled = window.scrollY > 10;
@@ -41,11 +41,10 @@ const Navbar = memo(() => {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  // 🎯 OPTIMIZED: useCallback for logout
+
   const handleLogout = useCallback(async () => {
     console.log('Logout button clicked');
-    
-    // Close mobile menu first
+
     setIsMobileMenuOpen(false);
     
     try {
@@ -71,7 +70,7 @@ const Navbar = memo(() => {
       
     } catch (error) {
       console.error('Logout error:', error);
-      // Force cleanup even if there's an error
+      
       localStorage.clear();
       sessionStorage.clear();
       navigate('/');
@@ -79,7 +78,7 @@ const Navbar = memo(() => {
     }
   }, [logout, clearCart, navigate]);
 
-  // 🎯 OPTIMIZED: useCallback for mobile menu
+
   const toggleMobileMenu = useCallback(() => {
     setIsMobileMenuOpen(prev => !prev);
   }, []);
@@ -88,7 +87,6 @@ const Navbar = memo(() => {
     setIsMobileMenuOpen(false);
   }, []);
 
-  // 🎯 OPTIMIZED: useCallback for scroll to section
   const scrollToSection = useCallback((sectionId) => {
     closeMobileMenu();
     
@@ -108,7 +106,7 @@ const Navbar = memo(() => {
     }
   }, [location.pathname, navigate, closeMobileMenu]);
 
-  // 🎯 OPTIMIZED: Memoize cart items count
+
   const cartItemsCount = useMemo(() => getCartItemsCount(), [getCartItemsCount]);
 
   return (
@@ -133,14 +131,28 @@ const Navbar = memo(() => {
         
         {/* Navigation Menu */}
         <div className={`collapse navbar-collapse ${isMobileMenuOpen ? 'show' : ''}`} id="navbarNav">
-          {/* Left Navigation */}
           <ul className="navbar-nav me-auto">
+
+              
             <li className="nav-item">
+              <button 
+                className="nav-link btn btn-link" 
+                onClick={() => scrollToSection('home')}
+                style={{ border: 'none', background: 'none', color: 'inherit', textDecoration: 'none' }}
+                aria-label="Scroll to about section"
+              >
+                <FontAwesomeIcon icon={faHome} className="me-1" />
+                
+                {/* <FontAwesomeIcon icon={faInfoCircle} className="me-1" /> */}
+                Home
+              </button>
+            </li>
+            {/* <li className="nav-item">
               <Link className="nav-link" to="/" onClick={closeMobileMenu}>
                 <FontAwesomeIcon icon={faHome} className="me-1" />
                 Home
               </Link>
-            </li>
+            </li> */}
             
             <li className="nav-item">
               <button 
@@ -151,6 +163,19 @@ const Navbar = memo(() => {
               >
                 <FontAwesomeIcon icon={faInfoCircle} className="me-1" />
                 About
+              </button>
+            </li>
+
+                   
+            <li className="nav-item">
+              <button 
+                className="nav-link btn btn-link" 
+                onClick={() => scrollToSection('faq')}
+                style={{ border: 'none', background: 'none', color: 'inherit', textDecoration: 'none' }}
+                aria-label="Scroll to about section"
+              >
+                <FontAwesomeIcon icon={faInfoCircle} className="me-1" />
+                FAQ
               </button>
             </li>
             

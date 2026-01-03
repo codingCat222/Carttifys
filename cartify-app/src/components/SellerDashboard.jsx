@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { sellerAPI, healthAPI } from '../services/Api';
+import { sellerAPI, healthAPI, API_BASE } from '../services/Api';
 import './SellerDashboard.css';
 
 const SellerDashboard = () => {
@@ -15,7 +15,6 @@ const SellerDashboard = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
-  // Determine active section from URL
   const getActiveSection = () => {
     if (location.pathname === '/seller/dashboard') return 'dashboard';
     if (location.pathname === '/seller/analytics') return 'analytics';
@@ -62,11 +61,39 @@ const SellerDashboard = () => {
       const response = await sellerAPI.getDashboard();
       
       if (response?.success && response.data) {
-        setDashboardData(response.data);
+        console.log('RAW Dashboard data:', response.data);
+        
+        // Deep clean the data
+        const cleanedData = {
+          ...response.data,
+          topProducts: response.data.topProducts?.map(product => {
+            const cleanProduct = { ...product };
+            
+            // Remove ANY field that contains "undefined" in the ENTIRE product object
+            Object.keys(cleanProduct).forEach(key => {
+              const value = cleanProduct[key];
+              if (typeof value === 'string' && value.includes('undefined')) {
+                console.log('REMOVING undefined from field:', key, 'value:', value);
+                delete cleanProduct[key];
+              }
+            });
+            
+            // Ensure images array exists
+            if (!cleanProduct.images) {
+              cleanProduct.images = [];
+            }
+            
+            return cleanProduct;
+          }) || []
+        };
+        
+        console.log('CLEANED Dashboard data:', cleanedData);
+        setDashboardData(cleanedData);
       } else {
         throw new Error('No dashboard data received');
       }
     } catch (error) {
+      console.error('Error fetching dashboard:', error);
       setError('Failed to load dashboard data');
     }
   };
@@ -79,6 +106,7 @@ const SellerDashboard = () => {
         setProfileData(response.data);
       }
     } catch (error) {
+      console.error('Error fetching profile:', error);
     }
   };
 
@@ -166,9 +194,111 @@ const SellerDashboard = () => {
         fetchProfile()
       ]);
     } catch (error) {
+      console.error('Error refreshing data:', error);
     } finally {
       setLoading(false);
     }
+  };
+
+  const getProductImageSrc = (product) => {
+    if (!product) return null;
+
+    console.log('Checking product:', product.name);
+    console.log('Product full data:', JSON.stringify(product, null, 2));
+
+    // CRITICAL FIX: Check if ANY image field contains "undefined" - if yes, return null immediately
+    const checkAllFieldsForUndefined = () => {
+      const fieldsToCheck = ['imageUrl', 'image'];
+      
+      for (const field of fieldsToCheck) {
+        if (product[field] && typeof product[field] === 'string' && product[field].includes('undefined')) {
+          console.log('FOUND undefined in field:', field, 'value:', product[field]);
+          return true;
+        }
+      }
+      
+      // Also check images array
+      if (product.images && Array.isArray(product.images)) {
+        for (const img of product.images) {
+          if (img && typeof img === 'object') {
+            if (img.url && typeof img.url === 'string' && img.url.includes('undefined')) {
+              console.log('FOUND undefined in images.url:', img.url);
+              return true;
+            }
+            if (img.path && typeof img.path === 'string' && img.path.includes('undefined')) {
+              console.log('FOUND undefined in images.path:', img.path);
+              return true;
+            }
+          }
+        }
+      }
+      
+      return false;
+    };
+
+    // If ANY field contains "undefined", return null immediately
+    if (checkAllFieldsForUndefined()) {
+      console.log('RETURNING NULL - product has undefined image fields');
+      return null;
+    }
+
+    // Now safely check for valid images
+    // 1. Check images array first
+    if (product.images && Array.isArray(product.images) && product.images.length > 0) {
+      const primaryImage = product.images.find(img => img.isPrimary) || product.images[0];
+      
+      // Check for full URL
+      if (primaryImage.url && typeof primaryImage.url === 'string') {
+        console.log('Using URL from images array:', primaryImage.url);
+        if (primaryImage.url.startsWith('http') || primaryImage.url.startsWith('data:')) {
+          return primaryImage.url;
+        }
+        return `${API_BASE}${primaryImage.url}`;
+      }
+      
+      // Check for path
+      if (primaryImage.path && typeof primaryImage.path === 'string') {
+        console.log('Using path from images array:', primaryImage.path);
+        return `${API_BASE}${primaryImage.path}`;
+      }
+      
+      // Check for dataUrl
+      if (primaryImage.dataUrl && typeof primaryImage.dataUrl === 'string') {
+        console.log('Using dataUrl from images array');
+        return primaryImage.dataUrl;
+      }
+      
+      // Check for base64 data
+      if (primaryImage.data) {
+        console.log('Using base64 data from images array');
+        const base64Data = typeof primaryImage.data === 'string' 
+          ? primaryImage.data 
+          : primaryImage.data.toString('base64');
+        const contentType = primaryImage.contentType || 'image/jpeg';
+        return `data:${contentType};base64,${base64Data}`;
+      }
+    }
+
+    // 2. Check imageUrl field
+    if (product.imageUrl && typeof product.imageUrl === 'string') {
+      console.log('Using imageUrl field:', product.imageUrl);
+      if (product.imageUrl.startsWith('http') || product.imageUrl.startsWith('data:')) {
+        return product.imageUrl;
+      }
+      return `${API_BASE}${product.imageUrl}`;
+    }
+
+    // 3. Check image field
+    if (product.image && typeof product.image === 'string') {
+      console.log('Using image field:', product.image);
+      if (product.image.startsWith('http') || product.image.startsWith('data:')) {
+        return product.image;
+      }
+      return `${API_BASE}${product.image}`;
+    }
+
+    console.log('No valid image found for product:', product.name);
+    return null;
   };
 
   if (loading) {
@@ -361,36 +491,51 @@ const SellerDashboard = () => {
               
               {dashboardData?.topProducts?.length > 0 ? (
                 <div className="products-grid">
-                  {dashboardData.topProducts.slice(0, 3).map(product => (
-                    <div key={product.id} className="product-card">
-                      <div className="product-image">
-                        {product.image ? (
-                          <img 
-                            src={product.image} 
-                            alt={product.name}
-                            onError={(e) => {
-                              e.target.style.display = 'none';
-                              e.target.nextElementSibling.style.display = 'flex';
-                            }}
-                          />
-                        ) : null}
-                        <div className="image-placeholder">
-                          <i className="fas fa-box"></i>
+                  {dashboardData.topProducts.slice(0, 3).map(product => {
+                    const imageSrc = getProductImageSrc(product);
+                    console.log(`Product "${product.name}" - imageSrc:`, imageSrc);
+                    
+                    return (
+                      <div key={product.id} className="product-card">
+                        <div className="product-image">
+                          {imageSrc ? (
+                            <img 
+                              src={imageSrc}
+                              alt={product.name}
+                              className="product-img"
+                              onError={(e) => {
+                                console.error('IMAGE ERROR - Failed to load:', e.target.src);
+                                e.target.style.display = 'none';
+                                const placeholder = e.target.parentElement.querySelector('.image-placeholder');
+                                if (placeholder) placeholder.style.display = 'flex';
+                              }}
+                              style={{ 
+                                width: '100%', 
+                                height: '100%', 
+                                objectFit: 'cover',
+                                display: 'block'
+                              }}
+                            />
+                          ) : (
+                            <div className="image-placeholder" style={{ display: 'flex' }}>
+                              <i className="fas fa-box"></i>
+                            </div>
+                          )}
+                        </div>
+                        <div className="product-info">
+                          <h4 className="product-name">{product.name}</h4>
+                          <div className="product-details">
+                            <span className="product-price">{formatCurrency(product.price)}</span>
+                            <span className="product-sales">{product.salesCount || 0} sales</span>
+                          </div>
+                          <div className="product-rating">
+                            <i className="fas fa-star"></i>
+                            <span>{product.rating || '0.0'}</span>
+                          </div>
                         </div>
                       </div>
-                      <div className="product-info">
-                        <h4 className="product-name">{product.name}</h4>
-                        <div className="product-details">
-                          <span className="product-price">{formatCurrency(product.price)}</span>
-                          <span className="product-sales">{product.salesCount || 0} sales</span>
-                        </div>
-                        <div className="product-rating">
-                          <i className="fas fa-star"></i>
-                          <span>{product.rating || '0.0'}</span>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               ) : (
                 <div className="empty-state">
@@ -428,7 +573,15 @@ const SellerDashboard = () => {
                 <div className="profile-picture-section">
                   <div className="profile-picture">
                     {profileData?.profileImage ? (
-                      <img src={profileData.profileImage} alt={profileData.name} />
+                      <img 
+                        src={profileData.profileImage} 
+                        alt={profileData.name} 
+                        onError={(e) => {
+                          e.target.style.display = 'none';
+                          const placeholder = e.target.parentElement.querySelector('.profile-picture-placeholder');
+                          if (placeholder) placeholder.style.display = 'flex';
+                        }}
+                      />
                     ) : (
                       <div className="profile-picture-placeholder">
                         <i className="fas fa-user"></i>
@@ -645,4 +798,3 @@ const SellerDashboard = () => {
 };
 
 export default SellerDashboard;
-

@@ -93,13 +93,29 @@ const Footer = () => {
                   </Link>
                 </li>
                 <li>
-                  <Link to="/signup?role=seller" className="footer-link">
+                  <Link to="/signup?role=buyer" className="footer-link">
                     <FontAwesomeIcon icon={faUserTie} className="link-icon" />
-                    Become a Seller
+                    Become a Buyer
+                  </Link>
+                </li>
+              </ul>
+                <h5 className="footer-title">For Buyers</h5>
+              <ul className="footer-links">
+                <li>
+                  <Link to="/seller/dashboard" className="footer-link">
+                    <FontAwesomeIcon icon={faStore} className="link-icon" />
+                    Buyer Dashboard
+                  </Link>
+                </li>
+                <li>
+                  <Link to="/signup?role=buyer" className="footer-link">
+                    <FontAwesomeIcon icon={faUserTie} className="link-icon" />
+                    Become a Buyer
                   </Link>
                 </li>
               </ul>
             </div>
+            
 
             {/* Contact Us */}
             <div className="footer-section">
@@ -111,11 +127,11 @@ const Footer = () => {
                 </li>
                 <li className="contact-item">
                   <FontAwesomeIcon icon={faPhone} className="contact-icon" />
-                  <span>+1 (555) 123-4567</span>
+                  <span>+234 (905) 239-8815</span>
                 </li>
                 <li className="contact-item">
                   <FontAwesomeIcon icon={faMapMarkerAlt} className="contact-icon" />
-                  <span>123 Market St, City, Country</span>
+                  <span>5, Lekki, Lagos State, Nigeria</span>
                 </li>
               </ul>
             </div>

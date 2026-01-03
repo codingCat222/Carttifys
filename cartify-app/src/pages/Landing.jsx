@@ -107,13 +107,13 @@ const Landing = () => {
       rating: 5
     },
     {
-      name: "Mike Chen",
+      name: "John Samuel",
       role: "Frequent Buyer",
       text: "I love how easy it is to find quality products from trusted sellers. Highly recommended!",
       rating: 5
     },
     {
-      name: "Emily Davis",
+      name: "Emmanuel  Davis",
       role: "Small Business Owner",
       text: "The seller tools and analytics have transformed how I manage my online store.",
       rating: 4
@@ -126,7 +126,7 @@ const Landing = () => {
     { icon: faStore, number: `${stats.sellers}+`, label: "Verified Sellers" },
     { icon: faChartLine, number: `${stats.transactions}+`, label: "Transactions" }
   ];
-
+        
   if (loading) {
     return (
       <div className="preloader">

@@ -33,59 +33,44 @@ import './ProductList.css';
 const API_BASE = 'https://carttifys-1.onrender.com';
 
 const getProductImage = (product) => {
-  if (product.images && product.images.length > 0) {
+  // Check images array first
+  if (product.images && Array.isArray(product.images) && product.images.length > 0) {
     const firstImage = product.images[0];
     
-    if (firstImage.data) {
+    // Handle base64 images from database
+    if (firstImage && firstImage.data) {
       return `data:${firstImage.contentType || 'image/jpeg'};base64,${firstImage.data}`;
     }
     
-    if (firstImage.url) {
-      if (firstImage.url.startsWith('http')) {
-        return firstImage.url;
-      }
-      if (firstImage.url.startsWith('/')) {
-        return `${API_BASE}${firstImage.url}`;
-      }
-      return firstImage.url;
+    // Handle URL in images array
+    if (firstImage && firstImage.url) {
+      return firstImage.url.startsWith('http') ? firstImage.url : `${API_BASE}${firstImage.url}`;
     }
     
-    if (firstImage.path) {
-      if (firstImage.path.startsWith('http')) {
-        return firstImage.path;
-      }
-      if (firstImage.path.startsWith('/')) {
-        return `${API_BASE}${firstImage.path}`;
-      }
-      return `${API_BASE}/uploads/${firstImage.path}`;
-    }
-    
-    if (firstImage.filename) {
-      return `${API_BASE}/uploads/${firstImage.filename}`;
+    // Handle direct string URL in images array
+    if (typeof firstImage === 'string' && firstImage) {
+      return firstImage.startsWith('http') ? firstImage : `${API_BASE}${firstImage}`;
     }
   }
-
+  
+  // Check main image field
   if (product.image) {
     if (product.image.startsWith('http')) {
       return product.image;
     }
-    if (product.image.startsWith('/')) {
-      return `${API_BASE}${product.image}`;
-    }
-    return product.image;
+    return `${API_BASE}${product.image}`;
   }
-
+  
+  // Check imageUrl field
   if (product.imageUrl) {
     if (product.imageUrl.startsWith('http')) {
       return product.imageUrl;
     }
-    if (product.imageUrl.startsWith('/')) {
-      return `${API_BASE}${product.imageUrl}`;
-    }
-    return product.imageUrl;
+    return `${API_BASE}${product.imageUrl}`;
   }
-
-  return `https://picsum.photos/300/200?random=${product._id || product.id || Math.random()}`;
+  
+  // Default placeholder
+  return `https://picsum.photos/300/200?random=${product._id || product.id || Date.now()}`;
 };
 
 const ProductList = () => {
@@ -143,8 +128,17 @@ const ProductList = () => {
       const result = await response.json();
 
       if (result.success) {
-        setProducts(result.data);
-        setFilteredProducts(result.data);
+        // Process products to ensure image structure
+        const processedProducts = result.data.map(product => ({
+          ...product,
+          // Ensure images is always an array
+          images: Array.isArray(product.images) ? product.images : [],
+          // Ensure image field exists
+          image: product.image || product.imageUrl || null
+        }));
+        
+        setProducts(processedProducts);
+        setFilteredProducts(processedProducts);
       } else {
         throw new Error(result.message || 'Failed to load products');
       }
@@ -335,7 +329,7 @@ const ProductList = () => {
                 alt={product.name}
                 loading="lazy"
                 onError={(e) => {
-                  e.target.src = 'https://picsum.photos/300/200?text=Image+Error';
+                  e.target.src = `https://picsum.photos/300/200?text=${encodeURIComponent(product.name.substring(0, 20))}`;
                 }}
               />
               <div className="product-badges">
