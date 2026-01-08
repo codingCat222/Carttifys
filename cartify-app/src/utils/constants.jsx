@@ -1,4 +1,4 @@
-export const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+export const API_BASE_URL = 'https://carttifys-1.onrender.com/api';
 
 export const USER_ROLES = {
   BUYER: 'buyer',
@@ -14,11 +14,7 @@ export const ORDER_STATUS = {
   CANCELLED: 'cancelled'
 };
 
-<<<<<<< HEAD
-export const PRODsUCT_CATEGORIES = [
-=======
 export const PRODUCT_CATEGORIES = [
->>>>>>> c2101a68649d9082e9cf568fcbc35984d7a3ac6b
   'electronics',
   'fashion',
   'home',
@@ -28,6 +24,5 @@ export const PRODUCT_CATEGORIES = [
   'other'
 ];
 
-export const COMMISSION_RATE = 0.05; // 5%
-
+export const COMMISSION_RATE = 0.05;
 export const VERIFICATION_FEE = 20.00;

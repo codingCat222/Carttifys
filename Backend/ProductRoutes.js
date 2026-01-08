@@ -38,6 +38,19 @@ const upload = multer({
   limits: { fileSize: 10 * 1024 * 1024 } // 10MB
 });
 
+// Helper function to get image URL
+const getImageUrl = (imagePath) => {
+  if (!imagePath) return 'https://via.placeholder.com/300';
+  
+  // If it's already a full URL (from database), return as-is
+  if (imagePath.startsWith('http')) {
+    return imagePath;
+  }
+  
+  // Otherwise return relative path - frontend will prepend the base URL
+  return imagePath;
+};
+
 // ✅ GET ALL PRODUCTS (Public)
 router.get('/', async (req, res) => {
   try {
@@ -86,7 +99,7 @@ router.get('/', async (req, res) => {
 
     const formattedProducts = products.map(product => {
       const imageUrl = product.images && product.images[0] 
-        ? `${process.env.API_URL || 'http://localhost:5000'}${product.images[0].path}`
+        ? getImageUrl(product.images[0].path)
         : 'https://via.placeholder.com/300';
 
       return {
@@ -102,7 +115,7 @@ router.get('/', async (req, res) => {
           rating: product.seller?.rating
         },
         images: product.images?.map(img => ({
-          url: `${process.env.API_URL || 'http://localhost:5000'}${img.path}`,
+          url: getImageUrl(img.path),
           alt: product.name
         })) || [],
         mainImage: imageUrl,
@@ -165,7 +178,7 @@ router.get('/:id', async (req, res) => {
         businessType: product.seller?.businessType
       },
       images: product.images?.map(img => ({
-        url: `${process.env.API_URL || 'http://localhost:5000'}${img.path}`,
+        url: getImageUrl(img.path),
         alt: product.name
       })) || [],
       features: product.features || [],
@@ -218,14 +231,13 @@ router.post('/', upload.array('images', 10), async (req, res) => {
       });
     }
 
-    // Process uploaded images
+    // Process uploaded images - store only relative path
     const images = req.files?.map(file => ({
       filename: file.filename,
       originalName: file.originalname,
       contentType: file.mimetype,
       size: file.size,
       path: `/uploads/products/${file.filename}`,
-      url: `${process.env.API_URL || 'http://localhost:5000'}/uploads/products/${file.filename}`,
       uploadedAt: new Date()
     })) || [];
 
@@ -252,7 +264,7 @@ router.post('/', upload.array('images', 10), async (req, res) => {
       category: product.category,
       stock: product.stock,
       images: product.images.map(img => ({
-        url: `${process.env.API_URL || 'http://localhost:5000'}${img.path}`,
+        url: getImageUrl(img.path),
         alt: product.name
       })),
       features: product.features,
@@ -310,7 +322,6 @@ router.put('/:id', upload.array('images', 10), async (req, res) => {
         contentType: file.mimetype,
         size: file.size,
         path: `/uploads/products/${file.filename}`,
-        url: `${process.env.API_URL || 'http://localhost:5000'}/uploads/products/${file.filename}`,
         uploadedAt: new Date()
       }));
       product.images = [...product.images, ...newImages];
@@ -339,7 +350,7 @@ router.put('/:id', upload.array('images', 10), async (req, res) => {
       category: product.category,
       stock: product.stock,
       images: product.images.map(img => ({
-        url: `${process.env.API_URL || 'http://localhost:5000'}${img.path}`,
+        url: getImageUrl(img.path),
         alt: product.name
       })),
       features: product.features,
@@ -383,9 +394,6 @@ router.delete('/:id', async (req, res) => {
       });
     }
 
-    // Delete product images from server (optional)
-    // ...
-
     await Product.findByIdAndDelete(id);
 
     res.json({
@@ -425,7 +433,7 @@ router.get('/category/:category', async (req, res) => {
 
     const formattedProducts = products.map(product => {
       const imageUrl = product.images && product.images[0] 
-        ? `${process.env.API_URL || 'http://localhost:5000'}${product.images[0].path}`
+        ? getImageUrl(product.images[0].path)
         : 'https://via.placeholder.com/300';
 
       return {
@@ -491,7 +499,7 @@ router.get('/search/:query', async (req, res) => {
       category: product.category,
       seller: product.seller?.businessName || product.seller?.name,
       image: product.images && product.images[0] 
-        ? `${process.env.API_URL || 'http://localhost:5000'}${product.images[0].path}`
+        ? getImageUrl(product.images[0].path)
         : 'https://via.placeholder.com/300',
       averageRating: product.averageRating || 0
     }));

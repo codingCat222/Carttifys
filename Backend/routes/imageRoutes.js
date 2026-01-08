@@ -4,13 +4,11 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 
-// ✅ Create uploads directory if it doesn't exist
 const uploadsDir = path.join(__dirname, '../uploads');
 if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true });
 }
 
-// ✅ Multer Storage Configuration
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
     cb(null, uploadsDir);
@@ -22,7 +20,6 @@ const storage = multer.diskStorage({
   }
 });
 
-// ✅ File Filter
 const fileFilter = (req, file, cb) => {
   const allowedMimes = [
     'image/jpeg', 
@@ -42,20 +39,18 @@ const fileFilter = (req, file, cb) => {
   if (allowedMimes.includes(file.mimetype)) {
     cb(null, true);
   } else {
-    cb(new Error(`Invalid file type. Only images, videos and PDFs are allowed. Received: ${file.mimetype}`), false);
+    cb(new Error(`Invalid file type. Received: ${file.mimetype}`), false);
   }
 };
 
-// ✅ Multer Instance
 const upload = multer({
   storage: storage,
   fileFilter: fileFilter,
   limits: {
-    fileSize: 50 * 1024 * 1024 // 50MB
+    fileSize: 50 * 1024 * 1024
   }
 });
 
-// ✅ Handle Multer Errors
 const handleMulterError = (err, req, res, next) => {
   if (err instanceof multer.MulterError) {
     if (err.code === 'LIMIT_FILE_SIZE') {
@@ -77,9 +72,6 @@ const handleMulterError = (err, req, res, next) => {
   next();
 };
 
-// ==================== IMAGE ROUTES ====================
-
-// ✅ UPLOAD SINGLE IMAGE
 router.post('/upload/single', upload.single('file'), handleMulterError, async (req, res) => {
   try {
     if (!req.file) {
@@ -95,7 +87,7 @@ router.post('/upload/single', upload.single('file'), handleMulterError, async (r
       mimetype: req.file.mimetype,
       size: req.file.size,
       path: `/uploads/${req.file.filename}`,
-      url: `${process.env.API_URL || 'http://localhost:5000'}/uploads/${req.file.filename}`,
+      url: `/uploads/${req.file.filename}`,
       type: req.file.mimetype.startsWith('image/') ? 'image' : 
             req.file.mimetype.startsWith('video/') ? 'video' : 'document',
       uploadedAt: new Date()
@@ -111,13 +103,11 @@ router.post('/upload/single', upload.single('file'), handleMulterError, async (r
     console.error('Single upload error:', error);
     res.status(500).json({
       success: false,
-      message: 'Error uploading file',
-      error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+      message: 'Error uploading file'
     });
   }
 });
 
-// ✅ UPLOAD MULTIPLE IMAGES
 router.post('/upload/multiple', upload.array('files', 10), handleMulterError, async (req, res) => {
   try {
     if (!req.files || req.files.length === 0) {
@@ -133,7 +123,7 @@ router.post('/upload/multiple', upload.array('files', 10), handleMulterError, as
       mimetype: file.mimetype,
       size: file.size,
       path: `/uploads/${file.filename}`,
-      url: `${process.env.API_URL || 'http://localhost:5000'}/uploads/${file.filename}`,
+      url: `/uploads/${file.filename}`,
       type: file.mimetype.startsWith('image/') ? 'image' : 
             file.mimetype.startsWith('video/') ? 'video' : 'document',
       uploadedAt: new Date()
@@ -149,13 +139,11 @@ router.post('/upload/multiple', upload.array('files', 10), handleMulterError, as
     console.error('Multiple upload error:', error);
     res.status(500).json({
       success: false,
-      message: 'Error uploading files',
-      error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+      message: 'Error uploading files'
     });
   }
 });
 
-// ✅ GET ALL UPLOADED FILES
 router.get('/', async (req, res) => {
   try {
     const files = fs.readdirSync(uploadsDir)
@@ -167,14 +155,14 @@ router.get('/', async (req, res) => {
         return {
           filename,
           path: `/uploads/${filename}`,
-          url: `${process.env.API_URL || 'http://localhost:5000'}/uploads/${filename}`,
+          url: `/uploads/${filename}`,
           size: stats.size,
           uploadedAt: stats.birthtime,
           type: ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg'].includes(ext) ? 'image' :
                 ['mp4', 'mpeg', 'webm', 'avi', 'mov'].includes(ext) ? 'video' : 'document'
         };
       })
-      .sort((a, b) => b.uploadedAt - a.uploadedAt); // Sort by newest first
+      .sort((a, b) => b.uploadedAt - a.uploadedAt);
 
     res.json({
       success: true,
@@ -186,13 +174,11 @@ router.get('/', async (req, res) => {
     console.error('Get uploads error:', error);
     res.status(500).json({
       success: false,
-      message: 'Error fetching uploaded files',
-      error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+      message: 'Error fetching uploaded files'
     });
   }
 });
 
-// ✅ GET SINGLE FILE INFO
 router.get('/:filename', async (req, res) => {
   try {
     const filename = req.params.filename;
@@ -211,7 +197,7 @@ router.get('/:filename', async (req, res) => {
     const fileInfo = {
       filename,
       path: `/uploads/${filename}`,
-      url: `${process.env.API_URL || 'http://localhost:5000'}/uploads/${filename}`,
+      url: `/uploads/${filename}`,
       size: stats.size,
       uploadedAt: stats.birthtime,
       lastModified: stats.mtime,
@@ -228,13 +214,11 @@ router.get('/:filename', async (req, res) => {
     console.error('Get file error:', error);
     res.status(500).json({
       success: false,
-      message: 'Error fetching file info',
-      error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+      message: 'Error fetching file info'
     });
   }
 });
 
-// ✅ DELETE FILE
 router.delete('/:filename', async (req, res) => {
   try {
     const filename = req.params.filename;
@@ -258,13 +242,11 @@ router.delete('/:filename', async (req, res) => {
     console.error('Delete file error:', error);
     res.status(500).json({
       success: false,
-      message: 'Error deleting file',
-      error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+      message: 'Error deleting file'
     });
   }
 });
 
-// ✅ BULK DELETE FILES
 router.delete('/', async (req, res) => {
   try {
     const { filenames } = req.body;
@@ -307,13 +289,11 @@ router.delete('/', async (req, res) => {
     console.error('Bulk delete error:', error);
     res.status(500).json({
       success: false,
-      message: 'Error deleting files',
-      error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+      message: 'Error deleting files'
     });
   }
 });
 
-// ✅ UPLOAD PROFILE PICTURE
 router.post('/profile', upload.single('profileImage'), handleMulterError, async (req, res) => {
   try {
     if (!req.file) {
@@ -323,9 +303,7 @@ router.post('/profile', upload.single('profileImage'), handleMulterError, async 
       });
     }
 
-    // Validate it's an image
     if (!req.file.mimetype.startsWith('image/')) {
-      // Delete the uploaded file if it's not an image
       fs.unlinkSync(path.join(uploadsDir, req.file.filename));
       
       return res.status(400).json({
@@ -340,7 +318,7 @@ router.post('/profile', upload.single('profileImage'), handleMulterError, async 
       mimetype: req.file.mimetype,
       size: req.file.size,
       path: `/uploads/${req.file.filename}`,
-      url: `${process.env.API_URL || 'http://localhost:5000'}/uploads/${req.file.filename}`,
+      url: `/uploads/${req.file.filename}`,
       type: 'image',
       uploadedAt: new Date()
     };
@@ -355,13 +333,11 @@ router.post('/profile', upload.single('profileImage'), handleMulterError, async 
     console.error('Profile upload error:', error);
     res.status(500).json({
       success: false,
-      message: 'Error uploading profile picture',
-      error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+      message: 'Error uploading profile picture'
     });
   }
 });
 
-// ✅ UPLOAD PRODUCT IMAGES
 router.post('/product', upload.array('productImages', 10), handleMulterError, async (req, res) => {
   try {
     if (!req.files || req.files.length === 0) {
@@ -371,11 +347,9 @@ router.post('/product', upload.array('productImages', 10), handleMulterError, as
       });
     }
 
-    // Filter only image files
     const imageFiles = req.files.filter(file => file.mimetype.startsWith('image/'));
     
     if (imageFiles.length === 0) {
-      // Delete all uploaded files if none are images
       req.files.forEach(file => {
         fs.unlinkSync(path.join(uploadsDir, file.filename));
       });
@@ -392,7 +366,7 @@ router.post('/product', upload.array('productImages', 10), handleMulterError, as
       mimetype: file.mimetype,
       size: file.size,
       path: `/uploads/${file.filename}`,
-      url: `${process.env.API_URL || 'http://localhost:5000'}/uploads/${file.filename}`,
+      url: `/uploads/${file.filename}`,
       type: 'image',
       uploadedAt: new Date()
     }));
@@ -407,8 +381,7 @@ router.post('/product', upload.array('productImages', 10), handleMulterError, as
     console.error('Product images upload error:', error);
     res.status(500).json({
       success: false,
-      message: 'Error uploading product images',
-      error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+      message: 'Error uploading product images'
     });
   }
 });

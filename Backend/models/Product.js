@@ -44,8 +44,8 @@ const productSchema = new mongoose.Schema({
     },
     
     images: [{
-        data: { type: String, required: true },
-        contentType: { type: String, required: true, default: 'image/jpeg' },
+        data: { type: String },  // FIXED: Removed required: true
+        contentType: { type: String, default: 'image/jpeg' },  // FIXED: Removed required: true
         filename: String,
         size: Number,
         isPrimary: { type: Boolean, default: false },
@@ -72,8 +72,6 @@ const productSchema = new mongoose.Schema({
         ref: 'User',
         required: true
     },
-    
-    sellerId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
     
     status: {
         type: String,
@@ -167,7 +165,7 @@ productSchema.methods.updateStock = async function(newStock) {
 };
 
 productSchema.pre('save', function(next) {
-    if (this.images.length > 0 && !this.images.some(img => img.isPrimary)) {
+    if (this.images && this.images.length > 0 && !this.images.some(img => img.isPrimary)) {
         this.images[0].isPrimary = true;
     }
     if (!this.sku) {
