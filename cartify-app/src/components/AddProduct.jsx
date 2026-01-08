@@ -53,7 +53,11 @@ const AddProduct = () => {
     }));
   };
 
+<<<<<<< HEAD
   // ✅ FIXED: Store File objects instead of base64
+=======
+  // ✅ FIXED: Improved Base64 conversion with error handling
+>>>>>>> b1e54950bd10febf3bbf0f34feda858f1b0a03c0
   const handleImageUpload = async (e) => {
     const files = Array.from(e.target.files);
     
@@ -65,6 +69,7 @@ const AddProduct = () => {
     setUploading(true);
 
     try {
+<<<<<<< HEAD
       const validImages = [];
       
       for (const file of files) {
@@ -74,6 +79,43 @@ const AddProduct = () => {
           alert(`Image ${file.name} exceeds 5MB limit`);
           continue;
         }
+=======
+      const imagePromises = files.map(file => {
+        return new Promise((resolve, reject) => {
+          // Validate file size (5MB max for images)
+          const maxSize = 5 * 1024 * 1024; // 5MB
+          if (file.size > maxSize) {
+            reject(new Error(`Image ${file.name} exceeds 5MB limit`));
+            return;
+          }
+
+          const reader = new FileReader();
+          reader.onloadend = () => {
+            try {
+              const result = reader.result;
+              // Extract base64 data properly
+              const base64 = result.includes(',') ? result.split(',')[1] : result;
+              
+              if (!base64) {
+                reject(new Error('Failed to convert image to base64'));
+                return;
+              }
+
+              resolve({
+                data: base64,
+                contentType: file.type || 'image/jpeg',
+                name: file.name,
+                size: file.size
+              });
+            } catch (error) {
+              reject(error);
+            }
+          };
+          reader.onerror = () => reject(new Error(`Failed to read file: ${file.name}`));
+          reader.readAsDataURL(file);
+        });
+      });
+>>>>>>> b1e54950bd10febf3bbf0f34feda858f1b0a03c0
 
         // Create preview URL for display
         const previewUrl = URL.createObjectURL(file);
@@ -92,7 +134,11 @@ const AddProduct = () => {
         images: [...prev.images, ...validImages]
       }));
 
+<<<<<<< HEAD
       console.log(`✅ Added ${validImages.length} images`);
+=======
+      console.log(`✅ Added ${processedImages.length} images`);
+>>>>>>> b1e54950bd10febf3bbf0f34feda858f1b0a03c0
     } catch (error) {
       console.error('❌ Error uploading images:', error);
       alert(`Error uploading images: ${error.message}`);
@@ -101,7 +147,11 @@ const AddProduct = () => {
     }
   };
 
+<<<<<<< HEAD
   // ✅ FIXED: Store File objects for videos
+=======
+  // ✅ FIXED: Video upload with better validation
+>>>>>>> b1e54950bd10febf3bbf0f34feda858f1b0a03c0
   const handleVideoUpload = async (e) => {
     const files = Array.from(e.target.files);
     
@@ -113,6 +163,7 @@ const AddProduct = () => {
     setUploading(true);
 
     try {
+<<<<<<< HEAD
       const validVideos = [];
       
       for (const file of files) {
@@ -129,6 +180,50 @@ const AddProduct = () => {
           alert(`Video ${file.name} exceeds 50MB limit (${formatFileSize(file.size)})`);
           continue;
         }
+=======
+      const videoPromises = files.map(file => {
+        return new Promise((resolve, reject) => {
+          // Validate video files
+          const validTypes = ['video/mp4', 'video/webm', 'video/ogg', 'video/quicktime'];
+          const maxSize = 50 * 1024 * 1024; // 50MB (reduced from 100MB)
+          
+          if (!validTypes.includes(file.type)) {
+            reject(new Error(`Invalid video format: ${file.name}. Supported: MP4, WebM, OGG, MOV`));
+            return;
+          }
+          
+          if (file.size > maxSize) {
+            reject(new Error(`Video ${file.name} exceeds 50MB limit (${formatFileSize(file.size)})`));
+            return;
+          }
+
+          const reader = new FileReader();
+          reader.onloadend = () => {
+            try {
+              const result = reader.result;
+              const base64 = result.includes(',') ? result.split(',')[1] : result;
+              
+              if (!base64) {
+                reject(new Error('Failed to convert video to base64'));
+                return;
+              }
+
+              resolve({
+                data: base64,
+                contentType: file.type,
+                name: file.name,
+                size: file.size,
+                originalName: file.name
+              });
+            } catch (error) {
+              reject(error);
+            }
+          };
+          reader.onerror = () => reject(new Error(`Failed to read video: ${file.name}`));
+          reader.readAsDataURL(file);
+        });
+      });
+>>>>>>> b1e54950bd10febf3bbf0f34feda858f1b0a03c0
 
         // Create preview URL
         const previewUrl = URL.createObjectURL(file);
@@ -147,7 +242,11 @@ const AddProduct = () => {
         videos: [...prev.videos, ...validVideos]
       }));
 
+<<<<<<< HEAD
       console.log(`✅ Added ${validVideos.length} videos`);
+=======
+      console.log(`✅ Added ${processedVideos.length} videos`);
+>>>>>>> b1e54950bd10febf3bbf0f34feda858f1b0a03c0
     } catch (error) {
       console.error('❌ Error uploading videos:', error);
       alert(`Error uploading videos: ${error.message}`);
@@ -226,7 +325,11 @@ const AddProduct = () => {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
 
+<<<<<<< HEAD
   // ✅ FIXED: Send FormData with actual files
+=======
+  // ✅ FIXED: Complete handleSubmit with detailed error handling
+>>>>>>> b1e54950bd10febf3bbf0f34feda858f1b0a03c0
   const handleSubmit = async (e) => {
     e.preventDefault();
     
@@ -238,6 +341,7 @@ const AddProduct = () => {
     setDebugInfo(null);
 
     try {
+<<<<<<< HEAD
       // Check authentication token
       const token = localStorage.getItem('token');
       if (!token) {
@@ -361,12 +465,162 @@ const AddProduct = () => {
           images: [],
           videos: [],
           features: ['']
+=======
+      // Prepare product data
+      const productData = {
+        name: formData.name.trim(),
+        description: formData.description.trim(),
+        price: parseFloat(formData.price),
+        category: formData.category,
+        stock: parseInt(formData.stock),
+        features: formData.features.filter(feature => feature.trim() !== ''),
+        images: formData.images.map(img => ({
+          data: img.data,
+          contentType: img.contentType
+        })),
+        videos: formData.videos.map(vid => ({
+          data: vid.data,
+          contentType: vid.contentType,
+          name: vid.name || vid.originalName,
+          size: vid.size
+        }))
+      };
+
+      // Calculate data size
+      const jsonString = JSON.stringify(productData);
+      const dataSize = jsonString.length;
+      const dataSizeMB = (dataSize / (1024 * 1024)).toFixed(2);
+
+      console.log('🔄 Sending product data:', {
+        name: productData.name,
+        price: productData.price,
+        images: `${productData.images.length} images`,
+        videos: `${productData.videos.length} videos`,
+        totalSize: `${dataSizeMB} MB`,
+        features: productData.features.length
+      });
+
+      // Check if data is too large
+      if (dataSize > 10 * 1024 * 1024) { // 10MB limit
+        alert(`Product data is too large (${dataSizeMB}MB). Maximum is 10MB. Please reduce image/video sizes.`);
+        setLoading(false);
+        return;
+      }
+
+      // Check authentication token
+      const token = localStorage.getItem('token');
+      if (!token) {
+        alert('Please login first');
+        navigate('/login');
+        setLoading(false);
+        return;
+      }
+
+      // ✅ API endpoint
+      const API_BASE = 'https://carttifys-1.onrender.com';
+      const endpoint = `${API_BASE}/api/seller/products`;
+      
+      console.log('📤 Calling API:', endpoint);
+
+      // Make the request with timeout
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+
+      try {
+        const response = await fetch(endpoint, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: jsonString,
+          signal: controller.signal
+>>>>>>> b1e54950bd10febf3bbf0f34feda858f1b0a03c0
         });
+
+        clearTimeout(timeoutId);
+
+        // Log response details
+        console.log('📥 Response status:', response.status, response.statusText);
+
+        // Get response text
+        const responseText = await response.text();
+        console.log('📥 Raw response:', responseText.substring(0, 500) + '...');
+
+        let data;
+        try {
+          data = JSON.parse(responseText);
+        } catch (parseError) {
+          console.error('❌ Failed to parse JSON response:', responseText);
+          throw new Error(`Server returned invalid JSON. Status: ${response.status}`);
+        }
+
+        // Store debug info
+        setDebugInfo({
+          requestSize: dataSize,
+          requestSizeMB: dataSizeMB,
+          responseStatus: response.status,
+          responseData: data
+        });
+
+        if (!response.ok) {
+          console.error('❌ Server error response:', {
+            status: response.status,
+            statusText: response.statusText,
+            data: data
+          });
+
+          let errorMessage = `HTTP ${response.status}: `;
+          
+          if (data && data.message) {
+            errorMessage += data.message;
+          } else if (data && data.error) {
+            errorMessage += data.error;
+          } else {
+            errorMessage += response.statusText;
+          }
+
+          // Specific handling for common errors
+          if (response.status === 401) {
+            errorMessage += '\nPlease login again.';
+            localStorage.removeItem('token');
+            navigate('/login');
+          } else if (response.status === 413) {
+            errorMessage += '\nData too large. Please reduce image/video sizes.';
+          } else if (response.status === 500) {
+            errorMessage += '\nServer error. Please try again later.';
+          }
+
+          throw new Error(errorMessage);
+        }
+
+        if (data.success) {
+          alert('✅ Product added successfully!');
+          console.log('✅ Product created:', data.data);
+          
+          // Reset form
+          setFormData({
+            name: '',
+            description: '',
+            price: '',
+            category: '',
+            stock: '',
+            images: [],
+            videos: [],
+            features: ['']
+          });
+          
+          // Navigate back to seller dashboard
+          navigate('/seller/dashboard');
+        } else {
+          throw new Error(data.message || 'Product creation failed');
+        }
         
-        // Navigate back to seller dashboard
-        navigate('/seller/dashboard');
-      } else {
-        throw new Error(data.message || 'Product creation failed');
+      } catch (fetchError) {
+        if (fetchError.name === 'AbortError') {
+          throw new Error('Request timeout. Server is taking too long to respond.');
+        }
+        throw fetchError;
       }
       
     } catch (error) {
@@ -379,6 +633,11 @@ const AddProduct = () => {
       let userMessage = error.message;
       if (error.message.includes('Failed to fetch')) {
         userMessage = 'Network error. Please check your internet connection.';
+<<<<<<< HEAD
+=======
+      } else if (error.message.includes('timeout')) {
+        userMessage = 'Server timeout. Please try again.';
+>>>>>>> b1e54950bd10febf3bbf0f34feda858f1b0a03c0
       }
       
       alert(`❌ Error adding product:\n${userMessage}`);
@@ -390,6 +649,7 @@ const AddProduct = () => {
     setLoading(false);
   };
 
+<<<<<<< HEAD
   // Clear all data
   const clearForm = () => {
     if (window.confirm('Are you sure you want to clear all form data?')) {
@@ -397,6 +657,33 @@ const AddProduct = () => {
       formData.images.forEach(img => URL.revokeObjectURL(img.preview));
       formData.videos.forEach(vid => URL.revokeObjectURL(vid.preview));
       
+      setFormData({
+        name: '',
+        description: '',
+        price: '',
+        category: '',
+        stock: '',
+        images: [],
+        videos: [],
+        features: ['']
+      });
+      setDebugInfo(null);
+    }
+=======
+  // For image preview
+  const getImagePreviewUrl = (image) => {
+    return `data:${image.contentType};base64,${image.data}`;
+  };
+
+  // For video preview
+  const getVideoPreviewUrl = (video) => {
+    return `data:${video.contentType};base64,${video.data}`;
+>>>>>>> b1e54950bd10febf3bbf0f34feda858f1b0a03c0
+  };
+
+  // Clear all data
+  const clearForm = () => {
+    if (window.confirm('Are you sure you want to clear all form data?')) {
       setFormData({
         name: '',
         description: '',
@@ -427,6 +714,10 @@ const AddProduct = () => {
               Debug Information
             </h4>
             <div className="debug-details">
+<<<<<<< HEAD
+=======
+              <p><strong>Request Size:</strong> {debugInfo.requestSizeMB} MB</p>
+>>>>>>> b1e54950bd10febf3bbf0f34feda858f1b0a03c0
               <p><strong>Response Status:</strong> {debugInfo.responseStatus}</p>
               {debugInfo.responseData && (
                 <p><strong>Server Message:</strong> {JSON.stringify(debugInfo.responseData.message || debugInfo.responseData.error)}</p>

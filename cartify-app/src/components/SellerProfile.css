@@ -1085,9 +1085,18 @@ input:checked + .toggle-slider:before {
   
   .profile-sidebar {
     margin-bottom: 2rem;
+<<<<<<< HEAD
   }
   
   .profile-summary {
     border: 1px solid #ddd;
   }
 }
+=======
+  }
+  
+  .profile-summary {
+    border: 1px solid #ddd;
+  }
+}
+>>>>>>> b1e54950bd10febf3bbf0f34feda858f1b0a03c0
