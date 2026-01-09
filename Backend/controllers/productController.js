@@ -1,7 +1,8 @@
+// Complete productController.js with Cloudinary Integration
+
 const Product = require('../models/Product');
 const mongoose = require('mongoose');
-const fs = require('fs');
-const path = require('path');
+const cloudinary = require('../config/cloudinary');
 
 const createProduct = async (req, res) => {
     try {
@@ -9,12 +10,6 @@ const createProduct = async (req, res) => {
         console.log('Files received:', {
             images: req.files?.images?.length || 0,
             videos: req.files?.videos?.length || 0
-        });
-        console.log('Body fields:', {
-            name: req.body.name,
-            category: req.body.category,
-            price: req.body.price,
-            features: req.body.features
         });
 
         const { name, description, price, category, stock, features } = req.body;
@@ -38,51 +33,77 @@ const createProduct = async (req, res) => {
             });
         }
 
-        // Create upload directory if it doesn't exist
-        const uploadDir = path.join(__dirname, '../../uploads/products');
-        if (!fs.existsSync(uploadDir)) {
-            fs.mkdirSync(uploadDir, { recursive: true });
+        // ✅ Upload images to Cloudinary
+        const processedImages = [];
+        for (let i = 0; i < imageFiles.length; i++) {
+            const file = imageFiles[i];
+            
+            try {
+                // Convert buffer to base64
+                const b64 = Buffer.from(file.buffer).toString('base64');
+                const dataURI = `data:${file.mimetype};base64,${b64}`;
+                
+                // Upload to Cloudinary
+                const result = await cloudinary.uploader.upload(dataURI, {
+                    folder: 'products',
+                    resource_type: 'image',
+                    transformation: [
+                        { width: 1000, height: 1000, crop: 'limit' },
+                        { quality: 'auto:good' }
+                    ]
+                });
+                
+                console.log(`✅ Uploaded image to Cloudinary: ${result.public_id}`);
+                
+                processedImages.push({
+                    url: result.secure_url,
+                    publicId: result.public_id,
+                    filename: file.originalname,
+                    contentType: file.mimetype,
+                    size: file.size,
+                    originalName: file.originalname,
+                    _id: new mongoose.Types.ObjectId(),
+                    isPrimary: i === 0
+                });
+            } catch (uploadError) {
+                console.error(`❌ Error uploading image ${i}:`, uploadError);
+                throw new Error(`Failed to upload image: ${file.originalname}`);
+            }
         }
 
-        // Process images
-        const processedImages = imageFiles.map((file, index) => {
-            const uniqueName = `product-${Date.now()}-${index}${path.extname(file.originalname)}`;
-            const filePath = path.join(uploadDir, uniqueName);
+        // ✅ Upload videos to Cloudinary
+        const processedVideos = [];
+        for (let i = 0; i < videoFiles.length; i++) {
+            const file = videoFiles[i];
             
-            // Save file to disk
-            fs.writeFileSync(filePath, file.buffer);
-            
-            console.log(`✅ Saved image: ${uniqueName} (${file.size} bytes)`);
-            
-            return {
-                url: `/uploads/products/${uniqueName}`,
-                filename: uniqueName,
-                contentType: file.mimetype,
-                size: file.size,
-                originalName: file.originalname,
-                _id: new mongoose.Types.ObjectId(),
-                isPrimary: index === 0 // Mark first image as primary
-            };
-        });
-
-        // Process videos
-        const processedVideos = videoFiles.map((file, index) => {
-            const uniqueName = `product-${Date.now()}-video-${index}${path.extname(file.originalname)}`;
-            const filePath = path.join(uploadDir, uniqueName);
-            
-            fs.writeFileSync(filePath, file.buffer);
-            
-            console.log(`✅ Saved video: ${uniqueName} (${file.size} bytes)`);
-            
-            return {
-                url: `/uploads/products/${uniqueName}`,
-                filename: uniqueName,
-                contentType: file.mimetype,
-                size: file.size,
-                originalName: file.originalname,
-                _id: new mongoose.Types.ObjectId()
-            };
-        });
+            try {
+                const b64 = Buffer.from(file.buffer).toString('base64');
+                const dataURI = `data:${file.mimetype};base64,${b64}`;
+                
+                const result = await cloudinary.uploader.upload(dataURI, {
+                    folder: 'products/videos',
+                    resource_type: 'video',
+                    transformation: [
+                        { quality: 'auto:good' }
+                    ]
+                });
+                
+                console.log(`✅ Uploaded video to Cloudinary: ${result.public_id}`);
+                
+                processedVideos.push({
+                    url: result.secure_url,
+                    publicId: result.public_id,
+                    filename: file.originalname,
+                    contentType: file.mimetype,
+                    size: file.size,
+                    originalName: file.originalname,
+                    _id: new mongoose.Types.ObjectId()
+                });
+            } catch (uploadError) {
+                console.error(`❌ Error uploading video ${i}:`, uploadError);
+                throw new Error(`Failed to upload video: ${file.originalname}`);
+            }
+        }
 
         // Parse features
         let featuresArray = [];
@@ -97,10 +118,9 @@ const createProduct = async (req, res) => {
             }
         }
 
-        // Filter out empty features
         featuresArray = featuresArray.filter(f => f && f.trim() !== '');
 
-        // Create product object
+        // Create product
         const product = new Product({
             name: name.trim(),
             description: description.trim(),
@@ -115,7 +135,6 @@ const createProduct = async (req, res) => {
             createdAt: new Date()
         });
 
-        // Save to database
         await product.save();
         
         console.log(`✅ Product created: ${product._id}`);
@@ -123,11 +142,11 @@ const createProduct = async (req, res) => {
         // Prepare response
         const productResponse = product.toObject();
         
-        // Ensure images are properly formatted
         if (productResponse.images && productResponse.images.length > 0) {
             productResponse.images = productResponse.images.map(img => ({
                 _id: img._id,
                 url: img.url,
+                publicId: img.publicId,
                 filename: img.filename,
                 contentType: img.contentType,
                 size: img.size,
@@ -135,7 +154,6 @@ const createProduct = async (req, res) => {
             }));
         }
 
-        // Add imageUrl for backward compatibility
         if (productResponse.images && productResponse.images.length > 0) {
             productResponse.imageUrl = productResponse.images[0].url;
             productResponse.image = productResponse.images[0].url;
@@ -208,7 +226,6 @@ const getProducts = async (req, res) => {
         const processedProducts = products.map(product => {
             const productObj = product.toObject();
             
-            // Add image URLs
             if (product.images && product.images.length > 0 && product.images[0].url) {
                 productObj.imageUrl = product.images[0].url;
                 productObj.image = product.images[0].url;
@@ -279,21 +296,18 @@ const getProductById = async (req, res) => {
 
         const productObj = product.toObject();
         
-        // Ensure images are included
         if (product.images && product.images.length > 0) {
             productObj.images = product.images.map(img => ({
                 ...img.toObject()
             }));
         }
 
-        // Add backward compatibility fields
         if (productObj.images && productObj.images.length > 0) {
             productObj.imageUrl = productObj.images[0].url;
             productObj.image = productObj.images[0].url;
         }
 
         productObj.sellerName = product.seller?.businessName || product.seller?.name;
-        
         productObj.formattedPrice = `$${product.price.toFixed(2)}`;
         productObj.inStock = product.stock > 0;
         productObj.lowStock = product.stock > 0 && product.stock <= 10;
@@ -309,58 +323,6 @@ const getProductById = async (req, res) => {
             success: false,
             message: 'Error fetching product details',
             error: process.env.NODE_ENV === 'development' ? error.message : undefined
-        });
-    }
-};
-
-const getProductImage = async (req, res) => {
-    try {
-        const { productId, imageId } = req.params;
-
-        if (!mongoose.Types.ObjectId.isValid(productId) || !mongoose.Types.ObjectId.isValid(imageId)) {
-            return res.status(400).json({ 
-                success: false, 
-                message: 'Invalid product or image ID' 
-            });
-        }
-
-        const product = await Product.findById(productId);
-        if (!product) {
-            return res.status(404).json({ 
-                success: false, 
-                message: 'Product not found' 
-            });
-        }
-
-        const image = product.images.id(imageId);
-        if (!image || !image.url) {
-            return res.status(404).json({ 
-                success: false, 
-                message: 'Image not found' 
-            });
-        }
-
-        const imagePath = path.join(__dirname, '../..', image.url);
-        
-        if (!fs.existsSync(imagePath)) {
-            return res.status(404).json({ 
-                success: false, 
-                message: 'Image file not found on server' 
-            });
-        }
-
-        res.set({
-            'Content-Type': image.contentType || 'image/jpeg',
-            'Cache-Control': 'public, max-age=31536000'
-        });
-
-        res.sendFile(imagePath);
-
-    } catch (error) {
-        console.error('Error serving image:', error);
-        res.status(500).json({ 
-            success: false, 
-            message: 'Error serving image' 
         });
     }
 };
@@ -426,6 +388,34 @@ const deleteProduct = async (req, res) => {
             });
         }
 
+        // Delete images from Cloudinary
+        if (product.images && product.images.length > 0) {
+            for (const img of product.images) {
+                if (img.publicId) {
+                    try {
+                        await cloudinary.uploader.destroy(img.publicId);
+                        console.log(`✅ Deleted image from Cloudinary: ${img.publicId}`);
+                    } catch (error) {
+                        console.error(`❌ Error deleting image: ${img.publicId}`, error);
+                    }
+                }
+            }
+        }
+
+        // Delete videos from Cloudinary
+        if (product.videos && product.videos.length > 0) {
+            for (const video of product.videos) {
+                if (video.publicId) {
+                    try {
+                        await cloudinary.uploader.destroy(video.publicId, { resource_type: 'video' });
+                        console.log(`✅ Deleted video from Cloudinary: ${video.publicId}`);
+                    } catch (error) {
+                        console.error(`❌ Error deleting video: ${video.publicId}`, error);
+                    }
+                }
+            }
+        }
+
         await Product.findByIdAndDelete(productId);
 
         res.json({
@@ -484,7 +474,6 @@ module.exports = {
     createProduct,
     getProducts,
     getProductById,
-    getProductImage,
     updateProduct,
     deleteProduct,
     getProductsBySeller
