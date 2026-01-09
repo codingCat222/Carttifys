@@ -1,4 +1,4 @@
-// Complete Fixed sellerRoutes.js
+// Complete sellerRoutes.js with Fixed Image URLs
 
 const express = require('express');
 const router = express.Router();
@@ -11,17 +11,15 @@ const { auth, authorize } = require('../middleware/auth');
 const User = require('../models/User');
 const Product = require('../models/Product');
 const Order = require('../models/Order');
-
-// Import the productController
 const productController = require('../controllers/productController');
 
-// ✅ FIXED: Use memoryStorage instead of diskStorage
+// Multer configuration for product uploads
 const storage = multer.memoryStorage();
 
 const upload = multer({
     storage: storage,
     limits: {
-        fileSize: 50 * 1024 * 1024, // 50MB
+        fileSize: 50 * 1024 * 1024,
     },
     fileFilter: function (req, file, cb) {
         console.log('📁 Multer processing:', {
@@ -38,7 +36,7 @@ const upload = multer({
     }
 });
 
-// ✅ FIXED: Product creation route using productController
+// Product creation route
 router.post('/products', 
     auth, 
     authorize('seller'), 
@@ -48,6 +46,162 @@ router.post('/products',
     ]),
     productController.createProduct
 );
+
+// ✅ FIXED Dashboard route with proper image URLs
+router.get('/dashboard', auth, authorize('seller'), async (req, res) => {
+    try {
+        const seller = req.user;
+        
+        if (!seller) {
+            return res.status(200).json({
+                success: true,
+                data: {
+                    stats: {
+                        totalProducts: 0,
+                        activeProducts: 0,
+                        totalSales: 0,
+                        totalEarnings: 0,
+                        pendingOrders: 0,
+                        conversionRate: '0%',
+                        averageRating: '0.0',
+                        monthlyGrowth: '0%',
+                        returnRate: '0%',
+                        customerSatisfaction: '0%'
+                    },
+                    recentOrders: [],
+                    topProducts: []
+                }
+            });
+        }
+
+        const totalProducts = await Product.countDocuments({ seller: seller._id });
+        const activeProducts = await Product.countDocuments({ 
+            seller: seller._id, 
+            stock: { $gt: 0 } 
+        });
+        
+        const pendingOrders = await Order.countDocuments({ 
+            seller: seller._id,
+            status: { $in: ['pending', 'confirmed', 'processing'] }
+        });
+
+        const salesData = await Order.aggregate([
+            { $match: { seller: seller._id, status: 'delivered' } },
+            {
+                $group: {
+                    _id: null,
+                    totalSales: { $sum: 1 },
+                    totalEarnings: { $sum: '$totalAmount' }
+                }
+            }
+        ]);
+
+        const sales = salesData[0] || { totalSales: 0, totalEarnings: 0 };
+
+        const recentOrders = await Order.find({ seller: seller._id })
+            .populate('buyer', 'name email phone')
+            .sort({ createdAt: -1 })
+            .limit(5)
+            .lean();
+
+        const formattedOrders = recentOrders.map(order => ({
+            id: order._id.toString(),
+            orderId: order.orderId || `ORD-${order._id.toString().slice(-6)}`,
+            customerName: order.buyer?.name || 'Customer',
+            customerEmail: order.buyer?.email || '',
+            productName: order.items && order.items[0] ? order.items[0].productName : 'Product',
+            totalAmount: order.totalAmount || 0,
+            status: order.status || 'pending',
+            orderDate: order.createdAt,
+            priority: order.priority || 'medium',
+            itemsCount: order.items ? order.items.length : 0
+        }));
+
+        const topProducts = await Product.find({ seller: seller._id })
+            .sort({ salesCount: -1 })
+            .limit(3)
+            .lean();
+
+        // ✅ FIXED: Properly format products with image URLs
+        const formattedProducts = topProducts.map(product => {
+            let imageUrl = null;
+            const processedImages = [];
+            
+            // Process images array
+            if (product.images && Array.isArray(product.images) && product.images.length > 0) {
+                product.images.forEach(img => {
+                    // Construct proper URL from filename or use existing URL
+                    const imgUrl = img.url || `/uploads/products/${img.filename}`;
+                    
+                    processedImages.push({
+                        url: imgUrl,
+                        contentType: img.contentType,
+                        filename: img.filename,
+                        size: img.size,
+                        isPrimary: img.isPrimary || false,
+                        _id: img._id,
+                        uploadedAt: img.uploadedAt || img.createdAt
+                    });
+                    
+                    // Set the first image as the main image
+                    if (!imageUrl && (img.isPrimary || processedImages.length === 1)) {
+                        imageUrl = imgUrl;
+                    }
+                });
+            }
+
+            return {
+                id: product._id.toString(),
+                name: product.name,
+                salesCount: product.salesCount || 0,
+                totalRevenue: (product.price || 0) * (product.salesCount || 0),
+                growth: '+12%',
+                rating: product.averageRating || 4.5,
+                image: imageUrl,           // ✅ Single image URL for backward compatibility
+                mainImage: imageUrl,       // ✅ Main image URL
+                imageUrl: imageUrl,        // ✅ Another backward compatibility field
+                images: processedImages,   // ✅ Full images array with URLs
+                price: product.price || 0,
+                category: product.category || 'general',
+                stock: product.stock || 0
+            };
+        });
+
+        const conversionRate = totalProducts > 0 ? 
+            Math.round((sales.totalSales / totalProducts) * 100) + '%' : '0%';
+        
+        const monthlyGrowth = sales.totalSales > 0 ? '+12.5%' : '0%';
+        const returnRate = '2.5%';
+        const customerSatisfaction = '94%';
+
+        res.status(200).json({
+            success: true,
+            data: {
+                stats: {
+                    totalProducts,
+                    activeProducts,
+                    totalSales: sales.totalSales,
+                    totalEarnings: sales.totalEarnings,
+                    pendingOrders,
+                    conversionRate,
+                    averageRating: '4.7',
+                    monthlyGrowth,
+                    returnRate,
+                    customerSatisfaction
+                },
+                recentOrders: formattedOrders,
+                topProducts: formattedProducts
+            }
+        });
+
+    } catch (error) {
+        console.error('Dashboard error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Error fetching dashboard data'
+        });
+    }
+});
 
 // Get all seller's products
 router.get('/products', auth, authorize('seller'), async (req, res) => {
@@ -109,10 +263,14 @@ router.get('/products', auth, authorize('seller'), async (req, res) => {
             totalSales: 0
         };
 
+        // ✅ FIXED: Format products with proper image URLs
         const formattedProducts = products.map(product => {
-            const imageUrl = product.images && product.images[0] && product.images[0].url
-                ? product.images[0].url
-                : 'https://via.placeholder.com/100';
+            let imageUrl = null;
+            
+            if (product.images && product.images.length > 0) {
+                const firstImage = product.images[0];
+                imageUrl = firstImage.url || `/uploads/products/${firstImage.filename}`;
+            }
 
             return {
                 id: product._id.toString(),
@@ -121,6 +279,7 @@ router.get('/products', auth, authorize('seller'), async (req, res) => {
                 category: product.category,
                 image: imageUrl,
                 mainImage: imageUrl,
+                imageUrl: imageUrl,
                 stock: product.stock,
                 status: product.stock === 0 ? 'out_of_stock' : 'active',
                 sales: product.salesCount || 0,
@@ -202,138 +361,6 @@ router.put('/products/:id/status', auth, authorize('seller'), async (req, res) =
         res.status(500).json({
             success: false,
             message: 'Error updating product status'
-        });
-    }
-});
-
-// Get dashboard data
-router.get('/dashboard', auth, authorize('seller'), async (req, res) => {
-    try {
-        const seller = req.user;
-        
-        if (!seller) {
-            return res.status(200).json({
-                success: true,
-                data: {
-                    stats: {
-                        totalProducts: 0,
-                        activeProducts: 0,
-                        totalSales: 0,
-                        totalEarnings: 0,
-                        pendingOrders: 0,
-                        conversionRate: '0%',
-                        averageRating: '0.0',
-                        monthlyGrowth: '0%',
-                        returnRate: '0%',
-                        customerSatisfaction: '0%'
-                    },
-                    recentOrders: [],
-                    topProducts: []
-                }
-            });
-        }
-
-        const totalProducts = await Product.countDocuments({ seller: seller._id });
-        const activeProducts = await Product.countDocuments({ 
-            seller: seller._id, 
-            stock: { $gt: 0 } 
-        });
-        
-        const pendingOrders = await Order.countDocuments({ 
-            seller: seller._id,
-            status: { $in: ['pending', 'confirmed', 'processing'] }
-        });
-
-        const salesData = await Order.aggregate([
-            { $match: { seller: seller._id, status: 'delivered' } },
-            {
-                $group: {
-                    _id: null,
-                    totalSales: { $sum: 1 },
-                    totalEarnings: { $sum: '$totalAmount' }
-                }
-            }
-        ]);
-
-        const sales = salesData[0] || { totalSales: 0, totalEarnings: 0 };
-
-        const recentOrders = await Order.find({ seller: seller._id })
-            .populate('buyer', 'name email phone')
-            .sort({ createdAt: -1 })
-            .limit(5)
-            .lean();
-
-        const formattedOrders = recentOrders.map(order => ({
-            id: order._id.toString(),
-            orderId: order.orderId || `ORD-${order._id.toString().slice(-6)}`,
-            customerName: order.buyer?.name || 'Customer',
-            customerEmail: order.buyer?.email || '',
-            productName: order.items && order.items[0] ? order.items[0].productName : 'Product',
-            totalAmount: order.totalAmount || 0,
-            status: order.status || 'pending',
-            orderDate: order.createdAt,
-            priority: order.priority || 'medium',
-            itemsCount: order.items ? order.items.length : 0
-        }));
-
-        const topProducts = await Product.find({ seller: seller._id })
-            .sort({ salesCount: -1 })
-            .limit(3)
-            .lean();
-
-        const formattedProducts = topProducts.map(product => {
-            const imageUrl = product.images && product.images[0] && product.images[0].url
-                ? product.images[0].url
-                : 'https://via.placeholder.com/100';
-
-            return {
-                id: product._id.toString(),
-                name: product.name,
-                salesCount: product.salesCount || 0,
-                totalRevenue: (product.price || 0) * (product.salesCount || 0),
-                growth: '+12%',
-                rating: product.averageRating || 4.5,
-                image: imageUrl,
-                mainImage: imageUrl,
-                images: product.images || [],
-                price: product.price || 0,
-                category: product.category || 'general',
-                stock: product.stock || 0
-            };
-        });
-
-        const conversionRate = totalProducts > 0 ? 
-            Math.round((sales.totalSales / totalProducts) * 100) + '%' : '0%';
-        
-        const monthlyGrowth = sales.totalSales > 0 ? '+12.5%' : '0%';
-        const returnRate = '2.5%';
-        const customerSatisfaction = '94%';
-
-        res.status(200).json({
-            success: true,
-            data: {
-                stats: {
-                    totalProducts,
-                    activeProducts,
-                    totalSales: sales.totalSales,
-                    totalEarnings: sales.totalEarnings,
-                    pendingOrders,
-                    conversionRate,
-                    averageRating: '4.7',
-                    monthlyGrowth,
-                    returnRate,
-                    customerSatisfaction
-                },
-                recentOrders: formattedOrders,
-                topProducts: formattedProducts
-            }
-        });
-
-    } catch (error) {
-        console.error('Dashboard error:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Error fetching dashboard data'
         });
     }
 });
