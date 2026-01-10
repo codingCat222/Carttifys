@@ -29,6 +29,49 @@ app.use(morgan('dev'));
 
 require('./config/database')();
 
+app.get('/api/cloudinary-test', async (req, res) => {
+  try {
+    const cloudinary = require('./config/cloudinary');
+    
+    const pingResult = await cloudinary.api.ping();
+    
+    let resources = [];
+    try {
+      const listResult = await cloudinary.api.resources({
+        type: 'upload',
+        prefix: 'carttifys-products',
+        max_results: 5
+      });
+      resources = listResult.resources || [];
+    } catch (listError) {
+      console.log('List error:', listError.message);
+    }
+    
+    res.json({
+      success: true,
+      message: 'Cloudinary is configured correctly',
+      cloudinary: {
+        cloud_name: cloudinary.config().cloud_name,
+        api_key: cloudinary.config().api_key ? 'Configured' : 'Missing'
+      },
+      test: pingResult,
+      existing_files: resources.length,
+      sample_file: resources[0]?.secure_url || 'No files yet'
+    });
+  } catch (error) {
+    console.error('Cloudinary test error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      env_check: {
+        CLOUDINARY_CLOUD_NAME: process.env.CLOUDINARY_CLOUD_NAME ? 'Set' : 'Missing',
+        CLOUDINARY_API_KEY: process.env.CLOUDINARY_API_KEY ? 'Set' : 'Missing',
+        CLOUDINARY_API_SECRET: process.env.CLOUDINARY_API_SECRET ? 'Set' : 'Missing'
+      }
+    });
+  }
+});
+
 app.use('/uploads', express.static(path.join(__dirname, 'uploads'), {
   setHeaders: (res, filePath) => {
     res.set('Access-Control-Allow-Origin', '*');
@@ -43,8 +86,6 @@ const buyerRoutes = require('./routes/buyerRoutes');
 const sellerRoutes = require('./routes/sellerRoutes');
 const userRoutes = require('./routes/userRoutes');
 const helpRoutes = require('./routes/helpRoutes');
-// const paymentRoutes = require('./routes/paymentRoutes');
-// const payoutRoutes = require('./routes/payoutRoutes');
 
 app.use('/api/auth', authRoutes);
 app.use('/api/uploads', uploadRoutes);
@@ -54,8 +95,6 @@ app.use('/api/buyer', buyerRoutes);
 app.use('/api/seller', sellerRoutes);
 app.use('/api/user', userRoutes);
 app.use('/api/help', helpRoutes);
-// app.use('/api/payments', paymentRoutes);
-// app.use('/api/payouts', payoutRoutes);
 
 app.get('/api/health', (req, res) => {
   const mongoose = require('mongoose');
