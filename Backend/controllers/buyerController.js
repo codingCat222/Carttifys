@@ -2,7 +2,7 @@ const Product = require('../models/Product');
 const Order = require('../models/Order');
 const User = require('../models/User');
 
-// Get all products for marketplace
+// ✅ FIXED: Get all products for marketplace with Cloudinary URLs
 const getMarketplaceProducts = async (req, res) => {
     try {
         const {
@@ -42,19 +42,59 @@ const getMarketplaceProducts = async (req, res) => {
 
         // Get products with seller info
         const products = await Product.find(filter)
-            .populate('seller', 'name email')
+            .populate('seller', 'name email businessName rating')
             .sort({ [sortBy]: sortOrder === 'desc' ? -1 : 1 })
             .skip(skip)
             .limit(parseInt(limit))
-            .select('-images.data -videos.data'); // Exclude heavy media data for listings
+            .lean();
 
         // Get total count for pagination
         const total = await Product.countDocuments(filter);
         const totalPages = Math.ceil(total / limit);
 
+        // ✅ FIXED: Process products with Cloudinary URLs
+        const processedProducts = products.map(product => {
+            let imageUrl = '/images/product-placeholder.png';
+            let images = [];
+            
+            // Extract Cloudinary URLs from images array
+            if (product.images && Array.isArray(product.images) && product.images.length > 0) {
+                images = product.images.map(img => ({
+                    url: img.url,
+                    publicId: img.publicId,
+                    contentType: img.contentType,
+                    isPrimary: img.isPrimary || false
+                }));
+                
+                // Find primary image or use first one
+                const primaryImage = images.find(img => img.isPrimary) || images[0];
+                imageUrl = primaryImage.url;
+            }
+
+            return {
+                id: product._id.toString(),
+                _id: product._id,
+                name: product.name,
+                description: product.description,
+                price: product.price,
+                category: product.category,
+                stock: product.stock,
+                seller: product.seller?.businessName || product.seller?.name || 'Unknown Seller',
+                sellerId: product.seller?._id,
+                sellerRating: product.seller?.rating || 0,
+                image: imageUrl,
+                imageUrl: imageUrl,
+                images: images,
+                averageRating: product.averageRating || 0,
+                totalReviews: product.reviews?.length || 0,
+                featured: product.featured || false,
+                createdAt: product.createdAt
+            };
+        });
+
         res.json({
             success: true,
-            data: products,
+            data: processedProducts,
             pagination: {
                 currentPage: parseInt(page),
                 totalPages,
@@ -73,12 +113,13 @@ const getMarketplaceProducts = async (req, res) => {
     }
 };
 
-// Get single product with full details
+// ✅ FIXED: Get single product with full details including Cloudinary URLs
 const getProductDetails = async (req, res) => {
     try {
         const product = await Product.findById(req.params.id)
-            .populate('seller', 'name email rating')
-            .populate('reviews.user', 'name');
+            .populate('seller', 'name email businessName businessType rating phone')
+            .populate('reviews.user', 'name')
+            .lean();
 
         if (!product) {
             return res.status(404).json({
@@ -87,9 +128,48 @@ const getProductDetails = async (req, res) => {
             });
         }
 
+        // ✅ FIXED: Extract all Cloudinary URLs
+        let images = [];
+        let videos = [];
+        
+        if (product.images && Array.isArray(product.images) && product.images.length > 0) {
+            images = product.images.map(img => ({
+                url: img.url,
+                publicId: img.publicId,
+                contentType: img.contentType,
+                isPrimary: img.isPrimary || false,
+                _id: img._id
+            }));
+        }
+        
+        if (product.videos && Array.isArray(product.videos) && product.videos.length > 0) {
+            videos = product.videos.map(video => ({
+                url: video.url,
+                publicId: video.publicId,
+                contentType: video.contentType,
+                _id: video._id
+            }));
+        }
+
+        const primaryImage = images.find(img => img.isPrimary) || images[0];
+        const imageUrl = primaryImage ? primaryImage.url : '/images/product-placeholder.png';
+
+        const productResponse = {
+            ...product,
+            id: product._id.toString(),
+            images: images,
+            videos: videos,
+            image: imageUrl,
+            imageUrl: imageUrl,
+            sellerName: product.seller?.businessName || product.seller?.name,
+            formattedPrice: `$${product.price.toFixed(2)}`,
+            inStock: product.stock > 0,
+            lowStock: product.stock > 0 && product.stock <= 10
+        };
+
         res.json({
             success: true,
-            data: product
+            data: productResponse
         });
     } catch (error) {
         console.error('Error fetching product details:', error);
@@ -101,7 +181,7 @@ const getProductDetails = async (req, res) => {
     }
 };
 
-// Get buyer orders
+// ✅ FIXED: Get buyer orders with proper image URLs
 const getBuyerOrders = async (req, res) => {
     try {
         const buyerId = req.user._id;
@@ -115,18 +195,45 @@ const getBuyerOrders = async (req, res) => {
         const skip = (page - 1) * limit;
 
         const orders = await Order.find(filter)
-            .populate('seller', 'name email')
+            .populate('seller', 'name email businessName')
             .populate('items.product', 'name images price')
             .sort({ createdAt: -1 })
             .skip(skip)
-            .limit(parseInt(limit));
+            .limit(parseInt(limit))
+            .lean();
 
         const total = await Order.countDocuments(filter);
         const totalPages = Math.ceil(total / limit);
 
+        // ✅ FIXED: Process orders with Cloudinary URLs
+        const processedOrders = orders.map(order => {
+            const processedItems = order.items?.map(item => {
+                let imageUrl = '/images/product-placeholder.png';
+                
+                if (item.product?.images && Array.isArray(item.product.images) && item.product.images.length > 0) {
+                    const primaryImage = item.product.images.find(img => img.isPrimary) || item.product.images[0];
+                    imageUrl = primaryImage.url || imageUrl;
+                }
+                
+                return {
+                    ...item,
+                    product: {
+                        ...item.product,
+                        imageUrl: imageUrl,
+                        image: imageUrl
+                    }
+                };
+            });
+
+            return {
+                ...order,
+                items: processedItems
+            };
+        });
+
         res.json({
             success: true,
-            data: orders,
+            data: processedOrders,
             pagination: {
                 currentPage: parseInt(page),
                 totalPages,
@@ -145,16 +252,17 @@ const getBuyerOrders = async (req, res) => {
     }
 };
 
-// Get order details
+// ✅ FIXED: Get order details with proper image URLs
 const getOrderDetails = async (req, res) => {
     try {
         const order = await Order.findOne({
             _id: req.params.id,
             buyer: req.user._id
         })
-        .populate('seller', 'name email phone')
-        .populate('items.product', 'name images description')
-        .populate('buyer', 'name email');
+        .populate('seller', 'name email phone businessName')
+        .populate('items.product', 'name images description price')
+        .populate('buyer', 'name email')
+        .lean();
 
         if (!order) {
             return res.status(404).json({
@@ -163,9 +271,42 @@ const getOrderDetails = async (req, res) => {
             });
         }
 
+        // ✅ FIXED: Process order items with Cloudinary URLs
+        const processedItems = order.items?.map(item => {
+            let imageUrl = '/images/product-placeholder.png';
+            let images = [];
+            
+            if (item.product?.images && Array.isArray(item.product.images) && item.product.images.length > 0) {
+                images = item.product.images.map(img => ({
+                    url: img.url,
+                    publicId: img.publicId,
+                    contentType: img.contentType,
+                    isPrimary: img.isPrimary || false
+                }));
+                
+                const primaryImage = images.find(img => img.isPrimary) || images[0];
+                imageUrl = primaryImage.url;
+            }
+            
+            return {
+                ...item,
+                product: {
+                    ...item.product,
+                    imageUrl: imageUrl,
+                    image: imageUrl,
+                    images: images
+                }
+            };
+        });
+
+        const orderResponse = {
+            ...order,
+            items: processedItems
+        };
+
         res.json({
             success: true,
-            data: order
+            data: orderResponse
         });
     } catch (error) {
         console.error('Error fetching order details:', error);
@@ -216,19 +357,26 @@ const createOrder = async (req, res) => {
 
             orderItems.push({
                 product: item.productId,
+                productName: product.name,
                 quantity: item.quantity,
                 price: product.price
             });
 
             // Update product stock
             product.stock -= item.quantity;
+            if (product.stock === 0) {
+                product.status = 'out_of_stock';
+            }
             await product.save();
         }
+
+        // Get seller from first product (assuming single seller per order)
+        const sellerId = await getSellerFromProducts(items);
 
         // Create order
         const order = new Order({
             buyer: buyerId,
-            seller: await getSellerFromProducts(items), // You'll need to implement this
+            seller: sellerId,
             items: orderItems,
             totalAmount,
             shippingAddress,
@@ -242,13 +390,38 @@ const createOrder = async (req, res) => {
 
         // Populate the saved order for response
         const populatedOrder = await Order.findById(order._id)
-            .populate('seller', 'name email')
-            .populate('items.product', 'name images');
+            .populate('seller', 'name email businessName')
+            .populate('items.product', 'name images')
+            .lean();
+
+        // ✅ FIXED: Add image URLs to response
+        const processedItems = populatedOrder.items?.map(item => {
+            let imageUrl = '/images/product-placeholder.png';
+            
+            if (item.product?.images && Array.isArray(item.product.images) && item.product.images.length > 0) {
+                const primaryImage = item.product.images.find(img => img.isPrimary) || item.product.images[0];
+                imageUrl = primaryImage.url || imageUrl;
+            }
+            
+            return {
+                ...item,
+                product: {
+                    ...item.product,
+                    imageUrl: imageUrl,
+                    image: imageUrl
+                }
+            };
+        });
+
+        const orderResponse = {
+            ...populatedOrder,
+            items: processedItems
+        };
 
         res.status(201).json({
             success: true,
             message: 'Order created successfully',
-            data: populatedOrder
+            data: orderResponse
         });
 
     } catch (error) {
@@ -286,13 +459,18 @@ const cancelOrder = async (req, res) => {
 
         // Restore product stock
         for (const item of order.items) {
-            await Product.findByIdAndUpdate(
-                item.product,
-                { $inc: { stock: item.quantity } }
-            );
+            const product = await Product.findById(item.product);
+            if (product) {
+                product.stock += item.quantity;
+                if (product.status === 'out_of_stock' && product.stock > 0) {
+                    product.status = 'active';
+                }
+                await product.save();
+            }
         }
 
         order.status = 'cancelled';
+        order.cancelledAt = new Date();
         await order.save();
 
         res.json({
@@ -351,7 +529,7 @@ const getCategories = async (req, res) => {
     }
 };
 
-// Search products
+// ✅ FIXED: Search products with Cloudinary URLs
 const searchProducts = async (req, res) => {
     try {
         const { q, category, minPrice, maxPrice } = req.query;
@@ -377,14 +555,36 @@ const searchProducts = async (req, res) => {
         }
 
         const products = await Product.find(filter)
-            .populate('seller', 'name rating')
-            .select('name price images category seller location')
-            .limit(20);
+            .populate('seller', 'name rating businessName')
+            .limit(20)
+            .lean();
+
+        // ✅ FIXED: Process search results with Cloudinary URLs
+        const processedProducts = products.map(product => {
+            let imageUrl = '/images/product-placeholder.png';
+            
+            if (product.images && Array.isArray(product.images) && product.images.length > 0) {
+                const primaryImage = product.images.find(img => img.isPrimary) || product.images[0];
+                imageUrl = primaryImage.url || imageUrl;
+            }
+
+            return {
+                id: product._id.toString(),
+                name: product.name,
+                price: product.price,
+                category: product.category,
+                seller: product.seller?.businessName || product.seller?.name,
+                sellerRating: product.seller?.rating || 0,
+                image: imageUrl,
+                imageUrl: imageUrl,
+                averageRating: product.averageRating || 0
+            };
+        });
 
         res.json({
             success: true,
-            data: products,
-            total: products.length
+            data: processedProducts,
+            total: processedProducts.length
         });
     } catch (error) {
         console.error('Error searching products:', error);
