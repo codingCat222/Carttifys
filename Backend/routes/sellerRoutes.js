@@ -1,4 +1,4 @@
-// Complete Fixed sellerRoutes.js with Cloudinary Support
+// Complete Fixed sellerRoutes.js with Debug Logging
 
 const express = require('express');
 const router = express.Router();
@@ -47,7 +47,7 @@ router.post('/products',
     productController.createProduct
 );
 
-// ✅ FIXED Dashboard route - Now works with Cloudinary URLs
+// ✅ FIXED Dashboard route with Debug Logging
 router.get('/dashboard', auth, authorize('seller'), async (req, res) => {
     try {
         const seller = req.user;
@@ -122,16 +122,31 @@ router.get('/dashboard', auth, authorize('seller'), async (req, res) => {
             .limit(3)
             .lean();
 
-        // ✅ FIXED: Just use URLs directly from database (Cloudinary URLs)
+        // ✅ DEBUG LOG: See what's actually in the database
+        console.log('📊 Top products from DB:', JSON.stringify(topProducts, null, 2));
+
+        // ✅ FIXED: Use URLs directly from database
         const formattedProducts = topProducts.map(product => {
+            console.log(`🔍 Processing product: ${product.name}`);
+            console.log(`  Images in DB:`, product.images);
+            
             let imageUrl = null;
             const processedImages = [];
             
             if (product.images && Array.isArray(product.images) && product.images.length > 0) {
-                product.images.forEach(img => {
-                    // ✅ Use URL directly - it's already a full Cloudinary URL
+                product.images.forEach((img, index) => {
+                    console.log(`  Image ${index}:`, {
+                        hasUrl: !!img.url,
+                        url: img.url,
+                        hasPublicId: !!img.publicId,
+                        publicId: img.publicId,
+                        filename: img.filename
+                    });
+                    
+                    // Use URL directly from database
                     processedImages.push({
-                        url: img.url,  // Just use it directly!
+                        url: img.url,
+                        publicId: img.publicId,
                         contentType: img.contentType,
                         filename: img.filename,
                         size: img.size,
@@ -141,12 +156,13 @@ router.get('/dashboard', auth, authorize('seller'), async (req, res) => {
                     });
                     
                     if (!imageUrl && (img.isPrimary || processedImages.length === 1)) {
-                        imageUrl = img.url;  // Use Cloudinary URL directly
+                        imageUrl = img.url;
+                        console.log(`  ✅ Set main image URL:`, imageUrl);
                     }
                 });
             }
 
-            return {
+            const formatted = {
                 id: product._id.toString(),
                 name: product.name,
                 salesCount: product.salesCount || 0,
@@ -161,6 +177,14 @@ router.get('/dashboard', auth, authorize('seller'), async (req, res) => {
                 category: product.category || 'general',
                 stock: product.stock || 0
             };
+            
+            console.log(`📤 Formatted product "${product.name}":`, {
+                hasImageUrl: !!formatted.imageUrl,
+                imageUrl: formatted.imageUrl,
+                imagesCount: formatted.images.length
+            });
+            
+            return formatted;
         });
 
         const conversionRate = totalProducts > 0 ? 
@@ -259,12 +283,11 @@ router.get('/products', auth, authorize('seller'), async (req, res) => {
             totalSales: 0
         };
 
-        // ✅ FIXED: Use Cloudinary URLs directly
         const formattedProducts = products.map(product => {
             let imageUrl = null;
             
             if (product.images && product.images.length > 0) {
-                imageUrl = product.images[0].url;  // Use Cloudinary URL directly
+                imageUrl = product.images[0].url;
             }
 
             return {

@@ -43,17 +43,21 @@ const productSchema = new mongoose.Schema({
         default: 0
     },
     
+    // UPDATED: Changed from base64 'data' to Cloudinary 'url'
     images: [{
-        data: { type: String },  // FIXED: Removed required: true
-        contentType: { type: String, default: 'image/jpeg' },  // FIXED: Removed required: true
+        url: { type: String, required: true },  // Cloudinary URL
+        publicId: { type: String },  // For deleting from Cloudinary
+        contentType: { type: String, default: 'image/jpeg' },
         filename: String,
         size: Number,
         isPrimary: { type: Boolean, default: false },
         uploadedAt: { type: Date, default: Date.now }
     }],
     
+    // UPDATED: Changed videos to use Cloudinary URLs too
     videos: [{
-        data: { type: String },
+        url: { type: String, required: true },  // Cloudinary URL
+        publicId: { type: String },  // For deleting from Cloudinary
         contentType: { type: String },
         filename: String,
         size: Number,
@@ -121,23 +125,50 @@ const productSchema = new mongoose.Schema({
     toObject: { virtuals: true }
 });
 
+// Indexes
 productSchema.index({ name: 'text', description: 'text', category: 'text', brand: 'text' });
 productSchema.index({ seller: 1, createdAt: -1 });
 productSchema.index({ category: 1, averageRating: -1 });
 productSchema.index({ price: 1 });
 productSchema.index({ stock: 1 });
 
-productSchema.virtual('isInStock').get(function() { return this.stock > 0; });
-productSchema.virtual('lowStock').get(function() { return this.stock > 0 && this.stock <= 10; });
-productSchema.virtual('formattedPrice').get(function() { return `$${this.price.toFixed(2)}`; });
-productSchema.virtual('discountedPrice').get(function() { return this.price; });
-productSchema.virtual('totalReviews').get(function() { return this.reviews.length; });
+// Virtual properties
+productSchema.virtual('isInStock').get(function() { 
+    return this.stock > 0; 
+});
+
+productSchema.virtual('lowStock').get(function() { 
+    return this.stock > 0 && this.stock <= 10; 
+});
+
+productSchema.virtual('formattedPrice').get(function() { 
+    return `$${this.price.toFixed(2)}`; 
+});
+
+productSchema.virtual('discountedPrice').get(function() { 
+    return this.price; 
+});
+
+productSchema.virtual('totalReviews').get(function() { 
+    return this.reviews.length; 
+});
+
 productSchema.virtual('ratingDistribution').get(function() {
     const distribution = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
-    this.reviews.forEach(review => { distribution[review.rating]++; });
+    this.reviews.forEach(review => { 
+        distribution[review.rating]++; 
+    });
     return distribution;
 });
 
+// UPDATED: Virtual for primary image URL
+productSchema.virtual('primaryImage').get(function() {
+    if (!this.images || this.images.length === 0) return null;
+    const primary = this.images.find(img => img.isPrimary);
+    return primary ? primary.url : this.images[0].url;
+});
+
+// Instance methods
 productSchema.methods.incrementSales = function(quantity = 1) {
     this.salesCount += quantity;
     this.stock = Math.max(0, this.stock - quantity);
@@ -146,8 +177,12 @@ productSchema.methods.incrementSales = function(quantity = 1) {
 };
 
 productSchema.methods.addReview = async function(userId, rating, comment) {
-    const existingReview = this.reviews.find(review => review.user.toString() === userId.toString());
-    if (existingReview) throw new Error('You have already reviewed this product');
+    const existingReview = this.reviews.find(
+        review => review.user.toString() === userId.toString()
+    );
+    if (existingReview) {
+        throw new Error('You have already reviewed this product');
+    }
     
     this.reviews.push({ user: userId, rating, comment });
     const totalRating = this.reviews.reduce((sum, review) => sum + review.rating, 0);
@@ -158,16 +193,23 @@ productSchema.methods.addReview = async function(userId, rating, comment) {
 
 productSchema.methods.updateStock = async function(newStock) {
     this.stock = Math.max(0, newStock);
-    if (this.stock === 0) this.status = 'out_of_stock';
-    else if (this.status === 'out_of_stock' && this.stock > 0) this.status = 'active';
+    if (this.stock === 0) {
+        this.status = 'out_of_stock';
+    } else if (this.status === 'out_of_stock' && this.stock > 0) {
+        this.status = 'active';
+    }
     await this.save();
     return this;
 };
 
+// Pre-save middleware
 productSchema.pre('save', function(next) {
+    // Set first image as primary if none is marked
     if (this.images && this.images.length > 0 && !this.images.some(img => img.isPrimary)) {
         this.images[0].isPrimary = true;
     }
+    
+    // Auto-generate SKU if not provided
     if (!this.sku) {
         const timestamp = Date.now().toString(36);
         const random = Math.random().toString(36).substr(2, 5);
@@ -176,6 +218,7 @@ productSchema.pre('save', function(next) {
     next();
 });
 
+// Pre-find middleware - exclude inactive products by default
 productSchema.pre('find', function(next) {
     if (this.getFilter().status === undefined) {
         this.where({ status: { $ne: 'inactive' } });
@@ -183,6 +226,7 @@ productSchema.pre('find', function(next) {
     next();
 });
 
+// Static methods
 productSchema.statics.findByCategory = function(category) {
     return this.find({ 
         category: category.toLowerCase(),
