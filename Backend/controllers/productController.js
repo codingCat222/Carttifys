@@ -1,4 +1,4 @@
-// Complete productController.js with Cloudinary Integration
+// Complete productController.js with Cloudinary Integration - FIXED for Both Buyer & Seller
 
 const Product = require('../models/Product');
 const mongoose = require('mongoose');
@@ -61,8 +61,6 @@ const createProduct = async (req, res) => {
                     filename: file.originalname,
                     contentType: file.mimetype,
                     size: file.size,
-                    originalName: file.originalname,
-                    _id: new mongoose.Types.ObjectId(),
                     isPrimary: i === 0
                 });
             } catch (uploadError) {
@@ -95,9 +93,7 @@ const createProduct = async (req, res) => {
                     publicId: result.public_id,
                     filename: file.originalname,
                     contentType: file.mimetype,
-                    size: file.size,
-                    originalName: file.originalname,
-                    _id: new mongoose.Types.ObjectId()
+                    size: file.size
                 });
             } catch (uploadError) {
                 console.error(`❌ Error uploading video ${i}:`, uploadError);
@@ -131,7 +127,6 @@ const createProduct = async (req, res) => {
             images: processedImages,
             videos: processedVideos,
             seller: sellerId,
-            sellerId: sellerId,
             createdAt: new Date()
         });
 
@@ -139,7 +134,7 @@ const createProduct = async (req, res) => {
         
         console.log(`✅ Product created: ${product._id}`);
 
-        // Prepare response
+        // Prepare response with properly formatted images
         const productResponse = product.toObject();
         
         if (productResponse.images && productResponse.images.length > 0) {
@@ -152,9 +147,7 @@ const createProduct = async (req, res) => {
                 size: img.size,
                 isPrimary: img.isPrimary || false
             }));
-        }
-
-        if (productResponse.images && productResponse.images.length > 0) {
+            
             productResponse.imageUrl = productResponse.images[0].url;
             productResponse.image = productResponse.images[0].url;
         }
@@ -175,6 +168,7 @@ const createProduct = async (req, res) => {
     }
 };
 
+// ✅ FIXED: Buyer-side product listing
 const getProducts = async (req, res) => {
     try {
         const {
@@ -219,42 +213,46 @@ const getProducts = async (req, res) => {
             .populate('seller', 'name email businessName rating')
             .sort({ [sortBy]: sortOrder === 'asc' ? 1 : -1 })
             .skip(skip)
-            .limit(parseInt(limit));
+            .limit(parseInt(limit))
+            .lean();
 
         const totalProducts = await Product.countDocuments(filter);
 
+        // ✅ FIXED: Process products with Cloudinary URLs
         const processedProducts = products.map(product => {
-            const productObj = product.toObject();
+            let imageUrl = '/images/product-placeholder.png';
+            let images = [];
             
-            if (product.images && product.images.length > 0 && product.images[0].url) {
-                productObj.imageUrl = product.images[0].url;
-                productObj.image = product.images[0].url;
-                productObj.images = product.images.map(img => ({
+            // Extract Cloudinary URLs from images array
+            if (product.images && Array.isArray(product.images) && product.images.length > 0) {
+                images = product.images.map(img => ({
                     url: img.url,
+                    publicId: img.publicId,
                     contentType: img.contentType,
-                    isPrimary: img.isPrimary
+                    isPrimary: img.isPrimary || false,
+                    _id: img._id
                 }));
-            } else {
-                productObj.imageUrl = '/images/product-placeholder.png';
-                productObj.image = productObj.imageUrl;
-                productObj.images = [];
+                
+                // Find primary image or use first one
+                const primaryImage = images.find(img => img.isPrimary) || images[0];
+                imageUrl = primaryImage.url;
             }
 
-            productObj.sellerName = product.seller?.businessName || product.seller?.name || 'Unknown Seller';
-            
             return {
-                id: productObj._id,
-                name: productObj.name,
-                description: productObj.description,
-                price: productObj.price,
-                category: productObj.category,
-                stock: productObj.stock,
-                seller: productObj.sellerName,
-                image: productObj.image,
-                imageUrl: productObj.imageUrl,
-                images: productObj.images,
-                averageRating: productObj.averageRating || 0,
-                createdAt: productObj.createdAt
+                id: product._id.toString(),
+                name: product.name,
+                description: product.description,
+                price: product.price,
+                category: product.category,
+                stock: product.stock,
+                seller: product.seller?.businessName || product.seller?.name || 'Unknown Seller',
+                sellerId: product.seller?._id,
+                image: imageUrl,
+                imageUrl: imageUrl,
+                images: images,
+                averageRating: product.averageRating || 0,
+                totalReviews: product.reviews?.length || 0,
+                createdAt: product.createdAt
             };
         });
 
@@ -281,11 +279,13 @@ const getProducts = async (req, res) => {
     }
 };
 
+// ✅ FIXED: Single product details for buyers
 const getProductById = async (req, res) => {
     try {
         const product = await Product.findById(req.params.id)
             .populate('seller', 'name email businessName businessType rating')
-            .populate('reviews.user', 'name');
+            .populate('reviews.user', 'name')
+            .lean();
 
         if (!product) {
             return res.status(404).json({
@@ -294,27 +294,38 @@ const getProductById = async (req, res) => {
             });
         }
 
-        const productObj = product.toObject();
+        // ✅ FIXED: Extract Cloudinary URLs
+        let imageUrl = '/images/product-placeholder.png';
+        let images = [];
         
-        if (product.images && product.images.length > 0) {
-            productObj.images = product.images.map(img => ({
-                ...img.toObject()
+        if (product.images && Array.isArray(product.images) && product.images.length > 0) {
+            images = product.images.map(img => ({
+                url: img.url,
+                publicId: img.publicId,
+                contentType: img.contentType,
+                isPrimary: img.isPrimary || false,
+                _id: img._id
             }));
+            
+            const primaryImage = images.find(img => img.isPrimary) || images[0];
+            imageUrl = primaryImage.url;
         }
 
-        if (productObj.images && productObj.images.length > 0) {
-            productObj.imageUrl = productObj.images[0].url;
-            productObj.image = productObj.images[0].url;
-        }
-
-        productObj.sellerName = product.seller?.businessName || product.seller?.name;
-        productObj.formattedPrice = `$${product.price.toFixed(2)}`;
-        productObj.inStock = product.stock > 0;
-        productObj.lowStock = product.stock > 0 && product.stock <= 10;
+        const productResponse = {
+            ...product,
+            id: product._id.toString(),
+            images: images,
+            image: imageUrl,
+            imageUrl: imageUrl,
+            sellerName: product.seller?.businessName || product.seller?.name,
+            formattedPrice: `$${product.price.toFixed(2)}`,
+            inStock: product.stock > 0,
+            lowStock: product.stock > 0 && product.stock <= 10
+        };
 
         res.json({
             success: true,
-            data: productObj
+            data: productResponse
         });
 
     } catch (error) {
@@ -433,32 +444,51 @@ const deleteProduct = async (req, res) => {
     }
 };
 
+// ✅ FIXED: Get products by seller
 const getProductsBySeller = async (req, res) => {
     try {
         const { sellerId } = req.params;
         
         const products = await Product.find({ seller: sellerId })
             .populate('seller', 'name businessName')
-            .sort({ createdAt: -1 });
+            .sort({ createdAt: -1 })
+            .lean();
 
-        const processedProducts = products.map(product => ({
-            id: product._id,
-            name: product.name,
-            description: product.description,
-            price: product.price,
-            category: product.category,
-            stock: product.stock,
-            image: product.images && product.images.length > 0 && product.images[0].url
-                ? product.images[0].url
-                : '/images/product-placeholder.png',
-            images: product.images || [],
-            averageRating: product.averageRating || 0,
-            createdAt: product.createdAt
-        }));
+        // ✅ FIXED: Process products with Cloudinary URLs
+        const processedProducts = products.map(product => {
+            let imageUrl = '/images/product-placeholder.png';
+            let images = [];
+            
+            if (product.images && Array.isArray(product.images) && product.images.length > 0) {
+                images = product.images.map(img => ({
+                    url: img.url,
+                    publicId: img.publicId,
+                    contentType: img.contentType,
+                    isPrimary: img.isPrimary || false
+                }));
+                
+                const primaryImage = images.find(img => img.isPrimary) || images[0];
+                imageUrl = primaryImage.url;
+            }
+
+            return {
+                id: product._id.toString(),
+                name: product.name,
+                description: product.description,
+                price: product.price,
+                category: product.category,
+                stock: product.stock,
+                image: imageUrl,
+                imageUrl: imageUrl,
+                images: images,
+                averageRating: product.averageRating || 0,
+                createdAt: product.createdAt
+            };
+        });
 
         res.json({
             success: true,
-            count: products.length,
+            count: processedProducts.length,
             data: processedProducts
         });
     } catch (error) {
