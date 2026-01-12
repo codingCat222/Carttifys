@@ -2,27 +2,33 @@ const Product = require('../../models/Product');
 const Order = require('../../models/Order');
 const User = require('../../models/User');
 
-// ✅ ADDED: Get buyer dashboard
+// ✅ FIXED: Single, complete getDashboard function
 const getDashboard = async (req, res) => {
     try {
         const buyerId = req.user._id;
         
-        // Get order statistics
-        const orders = await Order.find({ buyer: buyerId });
-        const totalOrders = orders.length;
-        const pendingOrders = orders.filter(order => 
-            ['pending', 'processing', 'confirmed'].includes(order.status)
-        ).length;
+        // Get buyer's stats
+        const totalOrders = await Order.countDocuments({ buyer: buyerId });
+        const pendingOrders = await Order.countDocuments({ 
+            buyer: buyerId, 
+            status: { $in: ['pending', 'confirmed', 'processing'] }
+        });
+        const completedOrders = await Order.countDocuments({ 
+            buyer: buyerId, 
+            status: 'delivered' 
+        });
         
-        // Calculate total spent
-        const totalSpent = orders
-            .filter(order => order.status === 'delivered')
-            .reduce((sum, order) => sum + order.totalAmount, 0);
+        const ordersData = await Order.aggregate([
+            { $match: { buyer: buyerId, status: 'delivered' } },
+            { $group: { _id: null, totalSpent: { $sum: '$totalAmount' } } }
+        ]);
         
-        // Get recent orders
+        const totalSpent = ordersData[0]?.totalSpent || 0;
+        
+        // Get recent orders with product images
         const recentOrders = await Order.find({ buyer: buyerId })
             .populate('seller', 'businessName name')
-            .populate('items.product', 'name images')
+            .populate('items.product', 'name images price')
             .sort({ createdAt: -1 })
             .limit(5)
             .lean();
@@ -46,52 +52,80 @@ const getDashboard = async (req, res) => {
             });
             return {
                 ...order,
-                items: processedItems
+                items: processedItems,
+                id: order._id.toString(),
+                total: order.totalAmount,
+                date: order.createdAt
             };
         });
 
-        // Get recommended products
-        const recommendedProducts = await Product.find({ 
+        // ✅ FIXED: Get recommended/trending products with Cloudinary URLs
+        const products = await Product.find({ 
             stock: { $gt: 0 },
-            featured: true 
+            status: 'active'
         })
-        .populate('seller', 'businessName name rating')
-        .limit(4)
+        .populate('seller', 'name businessName rating')
+        .sort({ salesCount: -1, averageRating: -1, featured: -1 })
+        .limit(8) // Increased to 8 for better display
         .lean();
         
-        // Process recommended products with image URLs
-        const processedRecommendedProducts = recommendedProducts.map(product => {
+        // Process products with Cloudinary URLs
+        const recommendedProducts = products.map(product => {
             let imageUrl = '/images/product-placeholder.png';
+            let images = [];
+            
             if (product.images && Array.isArray(product.images) && product.images.length > 0) {
-                const primaryImage = product.images.find(img => img.isPrimary) || product.images[0];
-                imageUrl = primaryImage.url || imageUrl;
+                images = product.images.map(img => ({
+                    url: img.url,
+                    publicId: img.publicId,
+                    contentType: img.contentType,
+                    isPrimary: img.isPrimary || false
+                }));
+                
+                const primaryImage = images.find(img => img.isPrimary) || images[0];
+                imageUrl = primaryImage.url;
             }
+            
             return {
-                ...product,
+                id: product._id.toString(),
+                _id: product._id,
+                name: product.name,
+                description: product.description,
+                price: product.price,
+                category: product.category,
+                seller: product.seller?.businessName || product.seller?.name || 'Unknown Seller',
+                sellerId: product.seller?._id,
+                image: imageUrl,
                 imageUrl: imageUrl,
-                image: imageUrl
+                images: images,
+                averageRating: product.averageRating || 0,
+                rating: product.averageRating || 4,
+                reviewCount: product.reviews?.length || 0,
+                stock: product.stock,
+                featured: product.featured || false,
+                salesCount: product.salesCount || 0
             };
         });
-
+        
         res.json({
             success: true,
             data: {
                 stats: {
                     totalOrders,
                     pendingOrders,
-                    totalSpent: parseFloat(totalSpent.toFixed(2)),
-                    completedOrders: orders.filter(o => o.status === 'delivered').length
+                    completedOrders,
+                    totalSpent: parseFloat(totalSpent.toFixed(2))
                 },
                 recentOrders: processedRecentOrders,
-                recommendedProducts: processedRecommendedProducts,
-                notifications: []
+                recommendedProducts
             }
         });
+        
     } catch (error) {
-        console.error('Error fetching dashboard:', error);
+        console.error('Error fetching buyer dashboard:', error);
         res.status(500).json({
             success: false,
-            message: 'Error fetching dashboard',
+            message: 'Error fetching dashboard data',
             error: error.message
         });
     }
@@ -112,7 +146,7 @@ const getMarketplaceProducts = async (req, res) => {
         } = req.query;
 
         // Build filter object
-        const filter = { stock: { $gt: 0 } };
+        const filter = { stock: { $gt: 0 }, status: 'active' };
 
         if (category && category !== 'all') {
             filter.category = category;
@@ -574,7 +608,7 @@ const getCategories = async (req, res) => {
     try {
         const categories = await Product.aggregate([
             {
-                $match: { stock: { $gt: 0 } }
+                $match: { stock: { $gt: 0 }, status: 'active' }
             },
             {
                 $group: {
@@ -617,6 +651,7 @@ const searchProducts = async (req, res) => {
 
         const filter = {
             stock: { $gt: 0 },
+            status: 'active',
             $or: [
                 { name: { $regex: q, $options: 'i' } },
                 { description: { $regex: q, $options: 'i' } },
