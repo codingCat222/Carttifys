@@ -4,93 +4,29 @@ import { buyerAPI, userAPI } from '../services/Api';
 import './BuyerDashboard.css';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
-  faHome,
-  faSearch,
-  faUser,
-  faShoppingCart,
-  faInbox,
-  faStore,
-  faList,
-  faShoppingBag,
-  faClock,
-  faCheckCircle,
-  faDollarSign,
-  faStar,
-  faSpinner,
-  faExclamationTriangle,
-  faRedo,
-  faUserCircle,
-  faCog,
-  faExchangeAlt,
-  faEnvelope,
-  faPlus,
-  faTimes,
-  faMessage,
-  faChevronRight,
-  faChevronDown,
-  faHeadset,
-  faUserPlus,
-  faUsers,
-  faCopy,
-  faCheck,
-  faGift,
-  faShareAlt,
-  faBell,
-  faHeart,
-  faBox,
-  faCreditCard,
-  faMapMarkerAlt,
-  faShoppingBasket,
-  faMinus,
-  faTrash,
-  faArrowLeft,
-  faBookmark,
-  faHistory,
-  faMapMarkedAlt,
-  faQuestionCircle,
-  faSignOutAlt,
-  faEdit,
-  faLocationDot,
-  faPhone,
-  faCalendar,
-  faLock,
-  faShieldAlt,
-  faVideo,
-  faPause,
-  faPlay,
-  faVolumeUp,
-  faVolumeMute,
-  faShare,
-  faComment,
-  faEllipsisV,
-  faChevronUp,
-  faShoppingBag as faBag
+  faHome, faSearch, faUser, faShoppingCart, faInbox, faStore, faList,
+  faShoppingBag, faClock, faCheckCircle, faDollarSign, faStar, faSpinner,
+  faExclamationTriangle, faRedo, faUserCircle, faCog, faExchangeAlt,
+  faEnvelope, faPlus, faTimes, faMessage, faChevronRight, faChevronDown,
+  faHeadset, faUserPlus, faUsers, faCopy, faCheck, faGift, faShareAlt,
+  faBell, faHeart, faBox, faCreditCard, faMapMarkerAlt, faShoppingBasket,
+  faMinus, faTrash, faArrowLeft, faBookmark, faHistory, faMapMarkedAlt,
+  faQuestionCircle, faSignOutAlt, faEdit, faLocationDot, faPhone, faCalendar,
+  faLock, faShieldAlt, faVideo, faPause, faPlay, faVolumeUp, faVolumeMute,
+  faShare, faComment, faEllipsisV, faChevronUp, faShoppingBag as faBag
 } from '@fortawesome/free-solid-svg-icons';
 
 const BuyerDashboard = () => {
   const navigate = useNavigate();
   const [dashboardData, setDashboardData] = useState({
-    stats: {
-      totalOrders: 0,
-      pendingOrders: 0,
-      completedOrders: 0,
-      totalSpent: 0
-    },
+    stats: { totalOrders: 0, pendingOrders: 0, completedOrders: 0, totalSpent: 0 },
     recentOrders: [],
     recommendedProducts: []
   });
   
   const [userProfile, setUserProfile] = useState({
-    name: '',
-    email: '',
-    phone: '',
-    location: '',
-    joinedDate: '',
-    notifications: {
-      email: true,
-      push: true,
-      sms: false
-    }
+    name: '', email: '', phone: '', location: '', joinedDate: '',
+    notifications: { email: true, push: true, sms: false }
   });
   
   const [activeSection, setActiveSection] = useState('home');
@@ -126,19 +62,37 @@ const BuyerDashboard = () => {
   const [isPlaying, setIsPlaying] = useState(true);
   const videoRefs = useRef([]);
 
+  // ✅ FIXED: Updated getProductImage function to handle Cloudinary URLs
   const getProductImage = (product) => {
     if (!product) return 'https://via.placeholder.com/300?text=No+Image';
     
+    // Check for direct imageUrl field first (Cloudinary URL from backend)
+    if (product.imageUrl && product.imageUrl.startsWith('http')) {
+      return product.imageUrl;
+    }
+    
+    // Check for direct image field (Cloudinary URL)
     if (product.image && product.image.startsWith('http')) {
       return product.image;
     }
     
-    if (product.images && product.images.length > 0) {
-      const img = product.images[0];
-      if (img.url && img.url.startsWith('http')) return img.url;
-      if (img.filename) return `https://carttifys-1.onrender.com/uploads/${img.filename}`;
+    // Check images array for Cloudinary URLs
+    if (product.images && Array.isArray(product.images) && product.images.length > 0) {
+      // Find primary image or use first one
+      const primaryImage = product.images.find(img => img.isPrimary) || product.images[0];
+      
+      // Check if it has a URL field (Cloudinary)
+      if (primaryImage && primaryImage.url && primaryImage.url.startsWith('http')) {
+        return primaryImage.url;
+      }
+      
+      // Fallback to old filename format
+      if (primaryImage && primaryImage.filename) {
+        return `https://carttifys-1.onrender.com/uploads/${primaryImage.filename}`;
+      }
     }
     
+    // Final fallback
     return 'https://via.placeholder.com/300?text=No+Image';
   };
   
@@ -342,9 +296,7 @@ const BuyerDashboard = () => {
       localStorage.removeItem('token');
       localStorage.removeItem('user');
       sessionStorage.removeItem('token');
-      
       navigate('/login');
-      
     } catch (error) {
       localStorage.clear();
       navigate('/login');
@@ -405,9 +357,7 @@ const BuyerDashboard = () => {
           <FontAwesomeIcon icon={faSearch} />
           <input 
             type="text" 
-
             placeholder="Search products..."
-
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
@@ -463,6 +413,9 @@ const BuyerDashboard = () => {
                 <img 
                   src={getProductImage(product)} 
                   alt={product.name}
+                  onError={(e) => {
+                    e.target.src = 'https://via.placeholder.com/300?text=No+Image';
+                  }}
                 />
                 <button 
                   className="wishlist-btn"
@@ -520,7 +473,13 @@ const BuyerDashboard = () => {
         </div>
         
         <div className="product-image-slider">
-          <img src={getProductImage(selectedProduct)} alt={selectedProduct.name} />
+          <img 
+            src={getProductImage(selectedProduct)} 
+            alt={selectedProduct.name}
+            onError={(e) => {
+              e.target.src = 'https://via.placeholder.com/300?text=No+Image';
+            }}
+          />
         </div>
         
         <div className="product-info-details">
@@ -596,7 +555,13 @@ const BuyerDashboard = () => {
           <div className="cart-items-list">
             {cartItems.map(item => (
               <div key={item.id} className="cart-item">
-                <img src={getProductImage(item.product)} alt={item.product.name} />
+                <img 
+                  src={getProductImage(item.product)} 
+                  alt={item.product.name}
+                  onError={(e) => {
+                    e.target.src = 'https://via.placeholder.com/300?text=No+Image';
+                  }}
+                />
                 <div className="cart-item-info">
                   <h4>{item.product.name}</h4>
                   <p>{formatPrice(item.product.price)}</p>
@@ -776,9 +741,7 @@ const BuyerDashboard = () => {
       <div className="profile-menu">
         <button 
           className="profile-menu-item"
-          onClick={() => {
-            setActiveSection('home');
-          }}
+          onClick={() => setActiveSection('home')}
         >
           <div className="menu-item-left">
             <FontAwesomeIcon icon={faHeart} />
@@ -1001,7 +964,13 @@ const BuyerDashboard = () => {
                       </div>
                       
                       <div className="product-card-reel">
-                        <img src={getProductImage(reel.product)} alt={reel.productName} />
+                        <img 
+                          src={getProductImage(reel.product)} 
+                          alt={reel.productName}
+                          onError={(e) => {
+                            e.target.src = 'https://via.placeholder.com/300?text=No+Image';
+                          }}
+                        />
                         <div className="product-info-reel">
                           <h5>{reel.productName}</h5>
                           <p className="product-price">{formatPrice(reel.productPrice)}</p>
@@ -1058,7 +1027,7 @@ const BuyerDashboard = () => {
         </button>
         <h3>Search Results</h3>
       </div>
-    <div className="search-bar focused-search">
+      <div className="search-bar focused-search">
         <FontAwesomeIcon icon={faSearch} />
         <input 
           type="text" 
@@ -1089,7 +1058,13 @@ const BuyerDashboard = () => {
         <div className="search-results">
           {searchResults.map(product => (
             <div key={product.id} className="product-card" onClick={() => handleViewProduct(product)}>
-              <img src={getProductImage(product)} alt={product.name} />
+              <img 
+                src={getProductImage(product)} 
+                alt={product.name}
+                onError={(e) => {
+                  e.target.src = 'https://via.placeholder.com/300?text=No+Image';
+                }}
+              />
               <div className="product-info">
                 <h4>{formatPrice(product.price)}</h4>
                 <h3>{product.name}</h3>
@@ -1158,9 +1133,7 @@ const BuyerDashboard = () => {
             <FontAwesomeIcon icon={faSearch} />
             <input 
               type="text" 
-
               placeholder="Search products..."
-
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
@@ -1264,4 +1237,3 @@ const BuyerDashboard = () => {
 };
 
 export default BuyerDashboard;
-
