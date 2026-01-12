@@ -1,6 +1,7 @@
-const Product = require('../models/Product');
-const Order = require('../models/Order');
-const User = require('../models/User');
+// ✅ FIXED: Correct paths (go up 2 levels from controllers/buyer/)
+const Product = require('../../models/Product');
+const Order = require('../../models/Order');
+const User = require('../../models/User');
 
 // ✅ FIXED: Get all products for marketplace with Cloudinary URLs
 const getMarketplaceProducts = async (req, res) => {
