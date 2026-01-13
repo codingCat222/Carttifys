@@ -9,8 +9,8 @@ const AddProduct = () => {
     price: '',
     category: '',
     stock: '',
-    images: [], // Will store File objects now
-    videos: [], // Will store File objects now
+    images: [], 
+    videos: [], 
     features: ['']
   });
 
@@ -53,7 +53,6 @@ const AddProduct = () => {
     }));
   };
 
-  // ✅ FIXED: Store File objects instead of base64
   const handleImageUpload = async (e) => {
     const files = Array.from(e.target.files);
     
@@ -68,18 +67,16 @@ const AddProduct = () => {
       const validImages = [];
       
       for (const file of files) {
-        // Validate file size (5MB max for images)
-        const maxSize = 5 * 1024 * 1024; // 5MB
+        const maxSize = 5 * 1024 * 1024;
         if (file.size > maxSize) {
           alert(`Image ${file.name} exceeds 5MB limit`);
           continue;
         }
 
-        // Create preview URL for display
         const previewUrl = URL.createObjectURL(file);
         
         validImages.push({
-          file: file, // Store the actual File object
+          file: file,
           preview: previewUrl,
           name: file.name,
           size: file.size,
@@ -101,7 +98,6 @@ const AddProduct = () => {
     }
   };
 
-  // ✅ FIXED: Store File objects for videos
   const handleVideoUpload = async (e) => {
     const files = Array.from(e.target.files);
     
@@ -116,9 +112,8 @@ const AddProduct = () => {
       const validVideos = [];
       
       for (const file of files) {
-        // Validate video files
         const validTypes = ['video/mp4', 'video/webm', 'video/ogg', 'video/quicktime'];
-        const maxSize = 50 * 1024 * 1024; // 50MB
+        const maxSize = 50 * 1024 * 1024;
         
         if (!validTypes.includes(file.type)) {
           alert(`Invalid video format: ${file.name}. Supported: MP4, WebM, OGG, MOV`);
@@ -130,11 +125,10 @@ const AddProduct = () => {
           continue;
         }
 
-        // Create preview URL
         const previewUrl = URL.createObjectURL(file);
         
         validVideos.push({
-          file: file, // Store the actual File object
+          file: file,
           preview: previewUrl,
           name: file.name,
           size: file.size,
@@ -157,7 +151,6 @@ const AddProduct = () => {
   };
 
   const removeImage = (index) => {
-    // Clean up the preview URL
     URL.revokeObjectURL(formData.images[index].preview);
     
     const newImages = formData.images.filter((_, i) => i !== index);
@@ -168,7 +161,6 @@ const AddProduct = () => {
   };
 
   const removeVideo = (index) => {
-    // Clean up the preview URL
     URL.revokeObjectURL(formData.videos[index].preview);
     
     const newVideos = formData.videos.filter((_, i) => i !== index);
@@ -226,7 +218,6 @@ const AddProduct = () => {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
 
-  // ✅ FIXED: Send FormData with actual files
   const handleSubmit = async (e) => {
     e.preventDefault();
     
@@ -238,7 +229,6 @@ const AddProduct = () => {
     setDebugInfo(null);
 
     try {
-      // Check authentication token
       const token = localStorage.getItem('token');
       if (!token) {
         alert('Please login first');
@@ -247,26 +237,21 @@ const AddProduct = () => {
         return;
       }
 
-      // ✅ Create FormData (NOT JSON!)
       const formDataToSend = new FormData();
       
-      // Add text fields
       formDataToSend.append('name', formData.name.trim());
       formDataToSend.append('description', formData.description.trim());
       formDataToSend.append('price', formData.price);
       formDataToSend.append('category', formData.category);
       formDataToSend.append('stock', formData.stock);
       
-      // Add features as JSON string
       const validFeatures = formData.features.filter(f => f.trim() !== '');
       formDataToSend.append('features', JSON.stringify(validFeatures));
       
-      // Add actual image files
       formData.images.forEach((imageObj) => {
         formDataToSend.append('images', imageObj.file);
       });
       
-      // Add actual video files
       formData.videos.forEach((videoObj) => {
         formDataToSend.append('videos', videoObj.file);
       });
@@ -275,26 +260,21 @@ const AddProduct = () => {
       console.log('📸 Images:', formData.images.length);
       console.log('📹 Videos:', formData.videos.length);
 
-      // ✅ API endpoint
       const API_BASE = 'https://carttifys-1.onrender.com';
       const endpoint = `${API_BASE}/api/seller/products`;
       
       console.log('📤 Calling API:', endpoint);
 
-      // Make the request
       const response = await fetch(endpoint, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`
-          // NO Content-Type header! Browser sets it automatically with boundary
         },
-        body: formDataToSend // Send FormData, not JSON
+        body: formDataToSend
       });
 
-      // Log response details
       console.log('📥 Response status:', response.status, response.statusText);
 
-      // Get response text
       const responseText = await response.text();
       console.log('📥 Raw response:', responseText.substring(0, 500));
 
@@ -306,7 +286,6 @@ const AddProduct = () => {
         throw new Error(`Server returned invalid JSON. Status: ${response.status}`);
       }
 
-      // Store debug info
       setDebugInfo({
         responseStatus: response.status,
         responseData: data
@@ -329,7 +308,6 @@ const AddProduct = () => {
           errorMessage += response.statusText;
         }
 
-        // Specific handling for common errors
         if (response.status === 401) {
           errorMessage += '\nPlease login again.';
           localStorage.removeItem('token');
@@ -347,11 +325,9 @@ const AddProduct = () => {
         alert('✅ Product added successfully!');
         console.log('✅ Product created:', data.data);
         
-        // Clean up preview URLs
         formData.images.forEach(img => URL.revokeObjectURL(img.preview));
         formData.videos.forEach(vid => URL.revokeObjectURL(vid.preview));
         
-        // Reset form
         setFormData({
           name: '',
           description: '',
@@ -363,7 +339,6 @@ const AddProduct = () => {
           features: ['']
         });
         
-        // Navigate back to seller dashboard
         navigate('/seller/dashboard');
       } else {
         throw new Error(data.message || 'Product creation failed');
@@ -375,7 +350,6 @@ const AddProduct = () => {
         stack: error.stack
       });
       
-      // User-friendly error message
       let userMessage = error.message;
       if (error.message.includes('Failed to fetch')) {
         userMessage = 'Network error. Please check your internet connection.';
@@ -383,17 +357,14 @@ const AddProduct = () => {
       
       alert(`❌ Error adding product:\n${userMessage}`);
       
-      // Log detailed error for debugging
       console.log('🔍 Debug info:', debugInfo);
     }
     
     setLoading(false);
   };
 
-  // Clear all data
   const clearForm = () => {
     if (window.confirm('Are you sure you want to clear all form data?')) {
-      // Clean up preview URLs
       formData.images.forEach(img => URL.revokeObjectURL(img.preview));
       formData.videos.forEach(vid => URL.revokeObjectURL(vid.preview));
       
@@ -413,19 +384,39 @@ const AddProduct = () => {
 
   return (
     <div className="add-product-container">
-      <div className="add-product-header">
-        <h1>
-          <i className="fas fa-plus-circle"></i>
-          Add New Product
-        </h1>
-        <p>List a new product to start selling</p>
+      <div className="product-header">
+        <div className="header-main">
+          <h1><i className="fas fa-plus-circle"></i> Add New Product</h1>
+          <p className="header-subtitle">List a new product to start selling</p>
+        </div>
         
+        <div className="header-stats">
+          <div className="stat-item">
+            <i className="fas fa-images"></i>
+            <div className="stat-info">
+              <span className="stat-label">Images</span>
+              <span className="stat-value">{formData.images.length}/5</span>
+            </div>
+          </div>
+          <div className="stat-item">
+            <i className="fas fa-video"></i>
+            <div className="stat-info">
+              <span className="stat-label">Videos</span>
+              <span className="stat-value">{formData.videos.length}/3</span>
+            </div>
+          </div>
+          <div className="stat-item">
+            <i className="fas fa-money-bill-wave"></i>
+            <div className="stat-info">
+              <span className="stat-label">Price</span>
+              <span className="stat-value">₦{formData.price || '0.00'}</span>
+            </div>
+          </div>
+        </div>
+
         {debugInfo && (
           <div className="debug-info">
-            <h4>
-              <i className="fas fa-bug"></i>
-              Debug Information
-            </h4>
+            <h4><i className="fas fa-bug"></i> Debug Information</h4>
             <div className="debug-details">
               <p><strong>Response Status:</strong> {debugInfo.responseStatus}</p>
               {debugInfo.responseData && (
@@ -436,11 +427,10 @@ const AddProduct = () => {
         )}
       </div>
 
-      <div className="add-product-content">
-        <div className="product-form-section">
-          <form onSubmit={handleSubmit} className="product-form">
-            <div className="form-card">
-              {/* Basic Information */}
+      <div className="form-wrapper">
+        <form onSubmit={handleSubmit} className="product-form">
+          <div className="form-card">
+            <div className="form-sections">
               <div className="form-section">
                 <h3 className="section-title">
                   <i className="fas fa-info-circle"></i>
@@ -514,10 +504,9 @@ const AddProduct = () => {
                 </div>
               </div>
 
-              {/* Pricing & Stock */}
               <div className="form-section">
                 <h3 className="section-title">
-                  <i className="fas fa-dollar-sign"></i>
+                  <i className="fas fa-money-bill-wave"></i>
                   Pricing & Stock
                 </h3>
                 
@@ -525,20 +514,23 @@ const AddProduct = () => {
                   <div className="form-group">
                     <label htmlFor="price" className="form-label">
                       <i className="fas fa-tag"></i>
-                      Price ($) *
+                      Price (₦) *
                     </label>
-                    <input
-                      type="number"
-                      id="price"
-                      name="price"
-                      step="0.01"
-                      min="0"
-                      value={formData.price}
-                      onChange={handleChange}
-                      placeholder="0.00"
-                      required
-                      className="form-input"
-                    />
+                    <div className="price-input-wrapper">
+                      <span className="currency-symbol">₦</span>
+                      <input
+                        type="number"
+                        id="price"
+                        name="price"
+                        step="0.01"
+                        min="0"
+                        value={formData.price}
+                        onChange={handleChange}
+                        placeholder="0.00"
+                        required
+                        className="form-input"
+                      />
+                    </div>
                   </div>
                   
                   <div className="form-group">
@@ -561,7 +553,6 @@ const AddProduct = () => {
                 </div>
               </div>
 
-              {/* Features */}
               <div className="form-section">
                 <h3 className="section-title">
                   <i className="fas fa-star"></i>
@@ -611,7 +602,6 @@ const AddProduct = () => {
                 </div>
               </div>
 
-              {/* Image Upload */}
               <div className="form-section">
                 <h3 className="section-title">
                   <i className="fas fa-images"></i>
@@ -664,7 +654,6 @@ const AddProduct = () => {
                 </div>
               </div>
 
-              {/* Video Upload */}
               <div className="form-section">
                 <h3 className="section-title">
                   <i className="fas fa-video"></i>
@@ -719,69 +708,67 @@ const AddProduct = () => {
                   </div>
                 </div>
               </div>
-
-              {/* Submit Buttons */}
-              <div className="form-submit-section">
-                <div className="button-group">
-                  <button
-                    type="submit"
-                    className="submit-btn primary"
-                    disabled={loading || uploading}
-                  >
-                    {loading ? (
-                      <>
-                        <i className="fas fa-spinner fa-spin"></i>
-                        Adding Product...
-                      </>
-                    ) : uploading ? (
-                      <>
-                        <i className="fas fa-spinner fa-spin"></i>
-                        Uploading Media...
-                      </>
-                    ) : (
-                      <>
-                        <i className="fas fa-plus"></i>
-                        Add Product
-                      </>
-                    )}
-                  </button>
-                  
-                  <button
-                    type="button"
-                    className="submit-btn secondary"
-                    onClick={clearForm}
-                    disabled={loading || uploading}
-                  >
-                    <i className="fas fa-eraser"></i>
-                    Clear Form
-                  </button>
-                </div>
-                
-                {(loading || uploading) && (
-                  <div className="upload-progress">
-                    <div className="progress-text">
-                      <i className="fas fa-sync fa-spin"></i>
-                      Processing {formData.images.length} images and {formData.videos.length} videos...
-                    </div>
-                    <div className="form-hint">
-                      This may take a while for large files. Please don't close the page.
-                    </div>
-                  </div>
-                )}
-                
-                {debugInfo && debugInfo.responseStatus === 500 && (
-                  <div className="error-hint">
-                    <i className="fas fa-exclamation-triangle"></i>
-                    Server error occurred. Check console for details.
-                  </div>
-                )}
-              </div>
             </div>
-          </form>
-        </div>
 
-        {/* Sidebar */}
-        <div className="product-sidebar">
+            <div className="form-submit-section">
+              <div className="button-group">
+                <button
+                  type="submit"
+                  className="submit-btn primary"
+                  disabled={loading || uploading}
+                >
+                  {loading ? (
+                    <>
+                      <i className="fas fa-spinner fa-spin"></i>
+                      Adding Product...
+                    </>
+                  ) : uploading ? (
+                    <>
+                      <i className="fas fa-spinner fa-spin"></i>
+                      Uploading Media...
+                    </>
+                  ) : (
+                    <>
+                      <i className="fas fa-plus"></i>
+                      Add Product
+                    </>
+                  )}
+                </button>
+                
+                <button
+                  type="button"
+                  className="submit-btn secondary"
+                  onClick={clearForm}
+                  disabled={loading || uploading}
+                >
+                  <i className="fas fa-eraser"></i>
+                  Clear Form
+                </button>
+              </div>
+              
+              {(loading || uploading) && (
+                <div className="upload-progress">
+                  <div className="progress-text">
+                    <i className="fas fa-sync fa-spin"></i>
+                    Processing {formData.images.length} images and {formData.videos.length} videos...
+                  </div>
+                  <div className="form-hint">
+                    This may take a while for large files. Please don't close the page.
+                  </div>
+                </div>
+              )}
+              
+              {debugInfo && debugInfo.responseStatus === 500 && (
+                <div className="error-hint">
+                  <i className="fas fa-exclamation-triangle"></i>
+                  Server error occurred. Check console for details.
+                </div>
+              )}
+            </div>
+          </div>
+        </form>
+
+        <div className="form-sidebar">
           <div className="sidebar-card">
             <h4>
               <i className="fas fa-lightbulb"></i>
@@ -811,6 +798,34 @@ const AddProduct = () => {
             </ul>
           </div>
           
+          <div className="sidebar-card">
+            <div className="preview-container">
+              <h4>
+                <i className="fas fa-eye"></i>
+                Product Preview
+              </h4>
+              <div className="product-preview">
+                <div className="preview-image-container">
+                  {formData.images.length > 0 ? (
+                    <img src={formData.images[0].preview} alt="Preview" className="preview-main-image" />
+                  ) : (
+                    <div className="preview-placeholder">
+                      <i className="fas fa-image"></i>
+                      <span>No image selected</span>
+                    </div>
+                  )}
+                </div>
+                <div className="preview-info">
+                  <h5 className="preview-title">{formData.name || 'Product Name'}</h5>
+                  <p className="preview-price">₦{formData.price || '0.00'}</p>
+                  <p className="preview-description">
+                    {formData.description.substring(0, 100) || 'Product description will appear here...'}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+          
           <div className="sidebar-card stats-card">
             <h4>
               <i className="fas fa-chart-bar"></i>
@@ -830,7 +845,7 @@ const AddProduct = () => {
                 <span className="stat-value">{formData.features.filter(f => f.trim() !== '').length}/10</span>
               </li>
               <li>
-                <span className="stat-label">Data Size:</span>
+                <span className="stat-label">Total Size:</span>
                 <span className="stat-value">
                   {(() => {
                     const totalSize = formData.images.reduce((sum, img) => sum + (img.size || 0), 0) +

@@ -14,7 +14,7 @@ import {
   faQuestionCircle, faSignOutAlt, faEdit, faLocationDot, faPhone, faCalendar,
   faLock, faShieldAlt, faVideo, faPause, faPlay, faVolumeUp, faVolumeMute,
   faShare, faComment, faEllipsisV, faChevronUp, faShoppingBag as faBag,
-  faFire, faEye, faShoppingCart as faCart
+  faFire, faEye, faShoppingCart as faCart, faPaperPlane
 } from '@fortawesome/free-solid-svg-icons';
 
 const BuyerDashboard = () => {
@@ -61,6 +61,8 @@ const BuyerDashboard = () => {
   const [currentReelIndex, setCurrentReelIndex] = useState(0);
   const [isMuted, setIsMuted] = useState(true);
   const [isPlaying, setIsPlaying] = useState(true);
+  const [likedReels, setLikedReels] = useState([]);
+  const [savedReels, setSavedReels] = useState([]);
   const videoRefs = useRef([]);
   const reelContainerRef = useRef(null);
 
@@ -108,7 +110,63 @@ const BuyerDashboard = () => {
       
       const dashboardResult = await buyerAPI.getDashboard();
       if (dashboardResult.success) {
-        setDashboardData(dashboardResult.data);
+        const data = dashboardResult.data;
+        
+        // Ensure we have trending products
+        if (!data.recommendedProducts || data.recommendedProducts.length === 0) {
+          try {
+            const productsResult = await buyerAPI.getProducts({ limit: 8 });
+            if (productsResult.success) {
+              data.recommendedProducts = productsResult.data;
+            }
+          } catch (productError) {
+            console.log('Using mock trending products');
+            data.recommendedProducts = [
+              {
+                id: '1',
+                name: 'Wireless Headphones Pro',
+                price: 129.99,
+                rating: 4.5,
+                reviewCount: 128,
+                seller: 'TechStore',
+                description: 'Premium wireless headphones with active noise cancellation',
+                image: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=400&h=400&fit=crop'
+              },
+              {
+                id: '2',
+                name: 'Smart Watch Series 5',
+                price: 299.99,
+                rating: 4.7,
+                reviewCount: 256,
+                seller: 'GadgetHub',
+                description: 'Latest smartwatch with ECG and blood oxygen monitoring',
+                image: 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w-400&h=400&fit=crop'
+              },
+              {
+                id: '3',
+                name: 'Gaming Laptop',
+                price: 1299.99,
+                rating: 4.8,
+                reviewCount: 89,
+                seller: 'GameTech',
+                description: 'High-performance gaming laptop with RTX 4070',
+                image: 'https://images.unsplash.com/photo-1603302576837-37561b2e2302?w=400&h=400&fit=crop'
+              },
+              {
+                id: '4',
+                name: 'Bluetooth Speaker',
+                price: 79.99,
+                rating: 4.3,
+                reviewCount: 312,
+                seller: 'AudioMaster',
+                description: 'Portable Bluetooth speaker with 360° sound',
+                image: 'https://images.unsplash.com/photo-1546435770-a3e426bf472b?w=400&h=400&fit=crop'
+              }
+            ];
+          }
+        }
+        
+        setDashboardData(data);
       } else {
         throw new Error(dashboardResult.message || 'Failed to load dashboard');
       }
@@ -123,6 +181,7 @@ const BuyerDashboard = () => {
       }
       
     } catch (err) {
+      console.error('Dashboard fetch error:', err);
       setError(err.message || 'Failed to load data');
     } finally {
       setLoading(false);
@@ -134,6 +193,30 @@ const BuyerDashboard = () => {
       const result = await buyerAPI.getCart();
       if (result.success) {
         setCartItems(result.data.items || []);
+      } else {
+        console.log('Using mock cart items');
+        setCartItems([
+          {
+            id: 'cart1',
+            product: {
+              id: '1',
+              name: 'Wireless Headphones Pro',
+              price: 129.99,
+              image: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w-300&h=300&fit=crop'
+            },
+            quantity: 1
+          },
+          {
+            id: 'cart2',
+            product: {
+              id: '2',
+              name: 'Smart Watch Series 5',
+              price: 299.99,
+              image: 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=300&h=300&fit=crop'
+            },
+            quantity: 2
+          }
+        ]);
       }
     } catch (error) {
       console.error('Failed to fetch cart:', error);
@@ -160,100 +243,103 @@ const BuyerDashboard = () => {
       }
     } catch (error) {
       console.error('Failed to fetch reels:', error);
-      // Set mock reels for testing
+      // Set mock reels with better quality videos
       setReels([
         {
           id: '1',
           reelId: '1',
           videoUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
-          thumbnail: 'https://via.placeholder.com/400x700/FF6B6B/FFFFFF?text=Reel+1',
+          thumbnail: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=400&h=700&fit=crop',
           mediaType: 'video',
           mediaUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
-          caption: 'Check out our latest product collection!',
+          caption: 'Experience crystal clear audio with our premium headphones! 🎧✨',
           product: {
             id: '1',
-            name: 'Premium Headphones',
+            name: 'Premium Wireless Headphones',
             price: 199.99,
             category: 'Electronics',
-            image: 'https://via.placeholder.com/150'
+            image: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=150&h=150&fit=crop'
           },
           seller: {
             id: '1',
-            name: 'Tech Store'
+            name: 'Tech Store',
+            image: 'https://images.unsplash.com/photo-1563013544-824ae1b704d3?w=100&h=100&fit=crop'
           },
           sellerName: 'Tech Store',
-          productName: 'Premium Headphones',
+          productName: 'Premium Wireless Headphones',
           productPrice: 199.99,
-          likesCount: 234,
-          commentsCount: 45,
-          sharesCount: 12,
-          viewsCount: 1234,
+          likesCount: 2345,
+          commentsCount: 145,
+          sharesCount: 89,
+          viewsCount: 12345,
           duration: 15,
           createdAt: new Date(),
           isLiked: false,
-          tags: ['electronics', 'audio', 'tech']
+          tags: ['electronics', 'audio', 'tech', 'music']
         },
         {
           id: '2',
           reelId: '2',
           videoUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4',
-          thumbnail: 'https://via.placeholder.com/400x700/4ECDC4/FFFFFF?text=Reel+2',
+          thumbnail: 'https://images.unsplash.com/photo-1539109136881-3be0616acf4b?w=400&h=700&fit=crop',
           mediaType: 'video',
           mediaUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4',
-          caption: 'New fashion collection just arrived!',
+          caption: 'New fashion collection just dropped! 👗 Limited stock available.',
           product: {
             id: '2',
-            name: 'Designer Jacket',
+            name: 'Designer Summer Dress',
             price: 149.99,
             category: 'Fashion',
-            image: 'https://via.placeholder.com/150'
+            image: 'https://images.unsplash.com/photo-1539109136881-3be0616acf4b?w=150&h=150&fit=crop'
           },
           seller: {
             id: '2',
-            name: 'Fashion Hub'
+            name: 'Fashion Hub',
+            image: 'https://images.unsplash.com/photo-1562788869-4ed32648eb72?w=100&h=100&fit=crop'
           },
           sellerName: 'Fashion Hub',
-          productName: 'Designer Jacket',
+          productName: 'Designer Summer Dress',
           productPrice: 149.99,
-          likesCount: 456,
-          commentsCount: 78,
-          sharesCount: 23,
-          viewsCount: 2345,
+          likesCount: 3456,
+          commentsCount: 234,
+          sharesCount: 123,
+          viewsCount: 23456,
           duration: 18,
           createdAt: new Date(),
           isLiked: false,
-          tags: ['fashion', 'style', 'jacket']
+          tags: ['fashion', 'style', 'summer', 'dress']
         },
         {
           id: '3',
           reelId: '3',
           videoUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4',
-          thumbnail: 'https://via.placeholder.com/400x700/45B7D1/FFFFFF?text=Reel+3',
+          thumbnail: 'https://images.unsplash.com/photo-1556905055-8f358a7a47b2?w=400&h=700&fit=crop',
           mediaType: 'video',
           mediaUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4',
-          caption: 'Home decor items on sale now!',
+          caption: 'Transform your home with our modern decor collection! 🏡💡',
           product: {
             id: '3',
-            name: 'Modern Lamp',
+            name: 'Modern Floor Lamp',
             price: 89.99,
             category: 'Home',
-            image: 'https://via.placeholder.com/150'
+            image: 'https://images.unsplash.com/photo-1556905055-8f358a7a47b2?w=150&h=150&fit=crop'
           },
           seller: {
             id: '3',
-            name: 'Home Living'
+            name: 'Home Living',
+            image: 'https://images.unsplash.com/photo-1567532939604-b6b5b0db2604?w=100&h=100&fit=crop'
           },
           sellerName: 'Home Living',
-          productName: 'Modern Lamp',
+          productName: 'Modern Floor Lamp',
           productPrice: 89.99,
-          likesCount: 189,
-          commentsCount: 34,
-          sharesCount: 9,
-          viewsCount: 987,
+          likesCount: 1890,
+          commentsCount: 134,
+          sharesCount: 67,
+          viewsCount: 9876,
           duration: 12,
           createdAt: new Date(),
           isLiked: false,
-          tags: ['home', 'decor', 'lighting']
+          tags: ['home', 'decor', 'lighting', 'modern']
         }
       ]);
     }
@@ -291,17 +377,37 @@ const BuyerDashboard = () => {
     try {
       const result = await buyerAPI.addToCart({ productId: product.id, quantity: 1 });
       if (result.success) {
-        fetchCartItems();
+        // Update cart immediately
+        setCartItems(prev => {
+          const existingItem = prev.find(item => item.product.id === product.id);
+          if (existingItem) {
+            return prev.map(item => 
+              item.product.id === product.id 
+                ? { ...item, quantity: item.quantity + 1 }
+                : item
+            );
+          } else {
+            return [...prev, {
+              id: `temp_${Date.now()}`,
+              product: product,
+              quantity: 1
+            }];
+          }
+        });
         alert(`Added ${product.name} to cart!`);
+      } else {
+        alert(result.message || 'Failed to add to cart');
       }
     } catch (error) {
-      alert('Failed to add to cart');
+      console.error('Add to cart error:', error);
+      alert('Failed to add to cart. Please try again.');
     }
   };
   
   const handleBuyNow = (product) => {
+    handleAddToCart(product);
     setSelectedProduct(product);
-    setActiveSection('product');
+    setActiveSection('cart');
   };
   
   const handleViewProduct = (product) => {
@@ -313,8 +419,16 @@ const BuyerDashboard = () => {
     try {
       const result = await buyerAPI.saveItem({ productId: product.id });
       if (result.success) {
-        fetchSavedItems();
-        alert(`Saved ${product.name} to wishlist!`);
+        setSavedItems(prev => {
+          const isAlreadySaved = prev.find(item => item.id === product.id);
+          if (isAlreadySaved) {
+            alert(`Removed ${product.name} from wishlist`);
+            return prev.filter(item => item.id !== product.id);
+          } else {
+            alert(`Saved ${product.name} to wishlist!`);
+            return [...prev, product];
+          }
+        });
       }
     } catch (error) {
       console.error('Failed to save item:', error);
@@ -329,7 +443,13 @@ const BuyerDashboard = () => {
     
     try {
       await buyerAPI.updateCartItem(itemId, { quantity: newQuantity });
-      fetchCartItems();
+      setCartItems(prev => 
+        prev.map(item => 
+          item.id === itemId 
+            ? { ...item, quantity: newQuantity }
+            : item
+        )
+      );
     } catch (error) {
       console.error('Failed to update quantity:', error);
     }
@@ -338,17 +458,26 @@ const BuyerDashboard = () => {
   const handleRemoveFromCart = async (itemId) => {
     try {
       await buyerAPI.removeFromCart(itemId);
-      fetchCartItems();
+      setCartItems(prev => prev.filter(item => item.id !== itemId));
     } catch (error) {
       console.error('Failed to remove item:', error);
     }
   };
   
   const handleCheckout = () => {
+    if (cartItems.length === 0) {
+      alert('Your cart is empty!');
+      return;
+    }
     setActiveSection('checkout');
   };
   
   const handlePlaceOrder = async () => {
+    if (!selectedAddress || !selectedPayment) {
+      alert('Please select address and payment method');
+      return;
+    }
+    
     try {
       const result = await buyerAPI.placeOrder({
         addressId: selectedAddress,
@@ -360,7 +489,7 @@ const BuyerDashboard = () => {
       });
       if (result.success) {
         alert('Order placed successfully!');
-        fetchCartItems();
+        setCartItems([]);
         fetchDashboardData();
         setActiveSection('home');
       }
@@ -370,7 +499,7 @@ const BuyerDashboard = () => {
   };
 
   const handleContactSeller = (seller) => {
-    alert(`Contacting ${seller}...`);
+    alert(`Opening chat with ${seller}...`);
   };
 
   const handleNotificationToggle = (type) => {
@@ -411,18 +540,42 @@ const BuyerDashboard = () => {
     try {
       const result = await buyerAPI.likeReel(reelId);
       if (result.success) {
-        setReels(prev => prev.map(reel => 
-          reel.reelId === reelId 
-            ? { 
-                ...reel, 
-                isLiked: !reel.isLiked,
-                likesCount: reel.isLiked ? reel.likesCount - 1 : reel.likesCount + 1
-              }
-            : reel
-        ));
+        if (likedReels.includes(reelId)) {
+          setLikedReels(likedReels.filter(id => id !== reelId));
+          setReels(prev => prev.map(reel => 
+            reel.reelId === reelId 
+              ? { 
+                  ...reel, 
+                  isLiked: false,
+                  likesCount: reel.likesCount - 1
+                }
+              : reel
+          ));
+        } else {
+          setLikedReels([...likedReels, reelId]);
+          setReels(prev => prev.map(reel => 
+            reel.reelId === reelId 
+              ? { 
+                  ...reel, 
+                  isLiked: true,
+                  likesCount: reel.likesCount + 1
+                }
+              : reel
+          ));
+        }
       }
     } catch (error) {
       console.error('Failed to like reel:', error);
+    }
+  };
+  
+  const handleReelSave = (reelId) => {
+    if (savedReels.includes(reelId)) {
+      setSavedReels(savedReels.filter(id => id !== reelId));
+      alert('Removed from saved reels');
+    } else {
+      setSavedReels([...savedReels, reelId]);
+      alert('Saved to favorites');
     }
   };
   
@@ -542,7 +695,7 @@ const BuyerDashboard = () => {
         </div>
       </div>
 
-      {/* New Reels Preview Section */}
+      {/* Reels Preview Section */}
       <div className="reels-preview-section">
         <div className="section-header">
           <div className="section-title">
@@ -590,7 +743,7 @@ const BuyerDashboard = () => {
       <div className="product-grid-section">
         <div className="section-header">
           <h3>Trending Products</h3>
-          <button className="view-all">View All</button>
+          <button className="view-all" onClick={() => setActiveSection('search')}>View All</button>
         </div>
         <div className="product-grid">
           {dashboardData.recommendedProducts.slice(0, 8).map(product => (
@@ -706,10 +859,7 @@ const BuyerDashboard = () => {
             </button>
             <button 
               className="buy-now-btn"
-              onClick={() => {
-                handleAddToCart(selectedProduct);
-                setActiveSection('cart');
-              }}
+              onClick={() => handleBuyNow(selectedProduct)}
             >
               Buy Now
             </button>
@@ -928,7 +1078,6 @@ const BuyerDashboard = () => {
         <button 
           className="profile-menu-item"
           onClick={() => {
-            // Show saved items
             alert('Saved items would open here');
           }}
         >
@@ -1071,7 +1220,7 @@ const BuyerDashboard = () => {
   );
   
   const renderReelsPage = () => (
-    <div className="reels-page">
+    <div className="reels-page-tiktok">
       {reels.length === 0 ? (
         <div className="empty-reels">
           <FontAwesomeIcon icon={faVideo} size="3x" />
@@ -1082,148 +1231,152 @@ const BuyerDashboard = () => {
           </button>
         </div>
       ) : (
-        <div className="reels-container" ref={reelContainerRef}>
-          <div className="reel-video-container">
+        <div className="reels-container-tiktok" ref={reelContainerRef}>
+          <div className="reel-video-container-tiktok">
             {reels.map((reel, index) => (
               <div 
                 key={reel.id} 
-                className={`reel-item ${index === currentReelIndex ? 'active' : ''}`}
+                className={`reel-item-tiktok ${index === currentReelIndex ? 'active' : ''}`}
               >
-                <div className="video-wrapper">
-                  {reel.mediaType === 'video' ? (
-                    <video
-                      ref={(el) => (videoRefs.current[index] = el)}
-                      src={reel.mediaUrl}
-                      loop
-                      muted={isMuted}
-                      autoPlay={index === currentReelIndex}
-                      playsInline
-                      className="reel-video"
-                      onClick={() => {
-                        const video = videoRefs.current[index];
-                        if (video.paused) {
-                          video.play();
-                          setIsPlaying(true);
-                        } else {
-                          video.pause();
-                          setIsPlaying(false);
-                        }
-                      }}
-                      poster={reel.thumbnail}
-                    />
-                  ) : (
-                    <img src={reel.mediaUrl} alt={reel.caption} className="reel-image" />
-                  )}
-                  
-                  <div className="reel-overlay">
-                    <div className="reel-top-controls">
-                      <button onClick={() => setActiveSection('home')}>
-                        <FontAwesomeIcon icon={faArrowLeft} />
-                      </button>
-                      <h3>Reels</h3>
-                      <div className="volume-controls">
-                        <button onClick={() => setIsMuted(!isMuted)}>
-                          <FontAwesomeIcon icon={isMuted ? faVolumeMute : faVolumeUp} />
-                        </button>
-                        <button onClick={() => setIsPlaying(!isPlaying)}>
-                          <FontAwesomeIcon icon={isPlaying ? faPause : faPlay} />
-                        </button>
-                      </div>
-                    </div>
-                    
-                    <div className="reel-side-controls">
+                <video
+                  ref={(el) => (videoRefs.current[index] = el)}
+                  src={reel.videoUrl}
+                  loop
+                  muted={isMuted}
+                  autoPlay={index === currentReelIndex}
+                  playsInline
+                  className="reel-video-tiktok"
+                  onClick={() => {
+                    const video = videoRefs.current[index];
+                    if (video.paused) {
+                      video.play();
+                      setIsPlaying(true);
+                    } else {
+                      video.pause();
+                      setIsPlaying(false);
+                    }
+                  }}
+                />
+                
+                <div className="video-overlay-tiktok">
+                  <div className="top-bar-reels">
+                    <button 
+                      className="back-btn-reels"
+                      onClick={() => setActiveSection('home')}
+                    >
+                      <FontAwesomeIcon icon={faArrowLeft} />
+                    </button>
+                    <h2 className="reels-title">Reels</h2>
+                    <div className="top-right-controls">
                       <button 
-                        className={`reel-action-btn ${reel.isLiked ? 'liked' : ''}`} 
-                        onClick={() => handleReelLike(reel.reelId)}
+                        className="volume-btn"
+                        onClick={() => setIsMuted(!isMuted)}
                       >
-                        <FontAwesomeIcon icon={faHeart} />
-                        <span>{reel.likesCount}</span>
-                      </button>
-                      <button className="reel-action-btn">
-                        <FontAwesomeIcon icon={faComment} />
-                        <span>{reel.commentsCount}</span>
-                      </button>
-                      <button className="reel-action-btn" onClick={() => handleReelShare(reel)}>
-                        <FontAwesomeIcon icon={faShare} />
-                        <span>{reel.sharesCount}</span>
-                      </button>
-                      <button className="reel-action-btn">
-                        <FontAwesomeIcon icon={faEllipsisV} />
+                        <FontAwesomeIcon icon={isMuted ? faVolumeMute : faVolumeUp} />
                       </button>
                     </div>
+                  </div>
+
+                  <div className="right-side-actions-tiktok">
+                    <button 
+                      className={`action-btn-tiktok ${reel.isLiked || likedReels.includes(reel.reelId) ? 'liked' : ''}`}
+                      onClick={() => handleReelLike(reel.reelId)}
+                    >
+                      <FontAwesomeIcon icon={faHeart} />
+                      <span className="action-count">{reel.likesCount}</span>
+                    </button>
                     
-                    <div className="reel-bottom-content">
-                      <div className="seller-info-reel">
-                        <div className="seller-avatar">
-                          {reel.seller?.image ? (
-                            <img src={reel.seller.image} alt={reel.sellerName} />
-                          ) : (
-                            <FontAwesomeIcon icon={faUserCircle} />
-                          )}
-                        </div>
-                        <div className="seller-details">
-                          <h4>{reel.sellerName}</h4>
-                          <p className="reel-caption">{reel.caption}</p>
-                          {reel.tags && reel.tags.length > 0 && (
-                            <div className="reel-tags">
-                              {reel.tags.slice(0, 3).map((tag, idx) => (
-                                <span key={idx} className="reel-tag">#{tag}</span>
-                              ))}
-                            </div>
-                          )}
-                        </div>
+                    <button 
+                      className="action-btn-tiktok"
+                      onClick={() => alert('Comments section')}
+                    >
+                      <FontAwesomeIcon icon={faComment} />
+                      <span className="action-count">{reel.commentsCount}</span>
+                    </button>
+                    
+                    <button 
+                      className="action-btn-tiktok"
+                      onClick={() => handleReelSave(reel.reelId)}
+                    >
+                      <FontAwesomeIcon icon={bookmark} />
+                      <span className="action-count">Save</span>
+                    </button>
+                    
+                    <button 
+                      className="action-btn-tiktok" 
+                      onClick={() => handleReelShare(reel)}
+                    >
+                      <FontAwesomeIcon icon={faShare} />
+                      <span className="action-count">{reel.sharesCount}</span>
+                    </button>
+                    
+                    <div className="seller-avatar-tiktok">
+                      <img 
+                        src={reel.seller?.image || 'https://images.unsplash.com/photo-1562788869-4ed32648eb72?w=100&h=100&fit=crop'} 
+                        alt={reel.sellerName}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="bottom-content-tiktok">
+                    <div className="seller-info-tiktok">
+                      <div className="seller-name-tiktok">
+                        <strong>{reel.sellerName}</strong>
+                        <button className="follow-btn-tiktok">Follow</button>
                       </div>
-                      
-                      {reel.product && (
-                        <div className="product-card-reel" onClick={() => handleViewProduct(reel.product)}>
+                      <p className="caption-tiktok">{reel.caption}</p>
+                      <div className="tags-tiktok">
+                        {reel.tags && reel.tags.slice(0, 3).map((tag, idx) => (
+                          <span key={idx} className="tag-tiktok">#{tag}</span>
+                        ))}
+                      </div>
+                    </div>
+                    
+                    {reel.product && (
+                      <div 
+                        className="product-preview-tiktok"
+                        onClick={() => handleViewProduct(reel.product)}
+                      >
+                        <div className="product-image-tiktok">
                           <img 
                             src={reel.product.image || reel.thumbnail} 
                             alt={reel.productName}
-                            onError={(e) => {
-                              e.target.src = 'https://via.placeholder.com/300?text=No+Image';
-                            }}
                           />
-                          <div className="product-info-reel">
-                            <h5>{reel.productName}</h5>
-                            <p className="product-price">{formatPrice(reel.productPrice)}</p>
-                            <button 
-                              className="buy-btn-reel"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleViewProduct(reel.product);
-                              }}
-                            >
-                              <FontAwesomeIcon icon={faCart} /> View Product
-                            </button>
-                          </div>
                         </div>
-                      )}
-                    </div>
+                        <div className="product-info-tiktok">
+                          <h5>{reel.productName}</h5>
+                          <p className="product-price-tiktok">{formatPrice(reel.productPrice)}</p>
+                          <button className="buy-btn-tiktok">
+                            <FontAwesomeIcon icon={faCart} /> Shop Now
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
             ))}
           </div>
           
-          <div className="reel-navigation">
+          <div className="reel-navigation-tiktok">
             <button 
-              className="nav-arrow up"
+              className="nav-arrow-tiktok up"
               onClick={() => handleReelSwipe('down')}
               disabled={currentReelIndex === 0}
             >
               <FontAwesomeIcon icon={faChevronUp} />
             </button>
-            <div className="reel-indicators">
+            <div className="reel-indicators-tiktok">
               {reels.map((_, index) => (
                 <div 
                   key={index} 
-                  className={`reel-indicator ${index === currentReelIndex ? 'active' : ''}`}
+                  className={`reel-indicator-tiktok ${index === currentReelIndex ? 'active' : ''}`}
                   onClick={() => setCurrentReelIndex(index)}
                 />
               ))}
             </div>
             <button 
-              className="nav-arrow down"
+              className="nav-arrow-tiktok down"
               onClick={() => handleReelSwipe('up')}
               disabled={currentReelIndex === reels.length - 1}
             >
