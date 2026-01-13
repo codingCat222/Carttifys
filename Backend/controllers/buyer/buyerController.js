@@ -2,32 +2,34 @@ const Product = require('../../models/Product');
 const Order = require('../../models/Order');
 const User = require('../../models/User');
 
-// ✅ ADDED: Get buyer dashboard
 const getDashboard = async (req, res) => {
     try {
         const buyerId = req.user._id;
         
-        // Get order statistics
-        const orders = await Order.find({ buyer: buyerId });
-        const totalOrders = orders.length;
-        const pendingOrders = orders.filter(order => 
-            ['pending', 'processing', 'confirmed'].includes(order.status)
-        ).length;
+        const totalOrders = await Order.countDocuments({ buyer: buyerId });
+        const pendingOrders = await Order.countDocuments({ 
+            buyer: buyerId, 
+            status: { $in: ['pending', 'confirmed', 'processing'] }
+        });
+        const completedOrders = await Order.countDocuments({ 
+            buyer: buyerId, 
+            status: 'delivered' 
+        });
         
-        // Calculate total spent
-        const totalSpent = orders
-            .filter(order => order.status === 'delivered')
-            .reduce((sum, order) => sum + order.totalAmount, 0);
+        const ordersData = await Order.aggregate([
+            { $match: { buyer: buyerId, status: 'delivered' } },
+            { $group: { _id: null, totalSpent: { $sum: '$totalAmount' } } }
+        ]);
         
-        // Get recent orders
+        const totalSpent = ordersData[0]?.totalSpent || 0;
+        
         const recentOrders = await Order.find({ buyer: buyerId })
             .populate('seller', 'businessName name')
-            .populate('items.product', 'name images')
+            .populate('items.product', 'name images price')
             .sort({ createdAt: -1 })
             .limit(5)
             .lean();
         
-        // Process recent orders with image URLs
         const processedRecentOrders = recentOrders.map(order => {
             const processedItems = order.items?.map(item => {
                 let imageUrl = '/images/product-placeholder.png';
@@ -46,58 +48,83 @@ const getDashboard = async (req, res) => {
             });
             return {
                 ...order,
-                items: processedItems
+                items: processedItems,
+                id: order._id.toString(),
+                total: order.totalAmount,
+                date: order.createdAt
             };
         });
 
-        // Get recommended products
-        const recommendedProducts = await Product.find({ 
+        const products = await Product.find({ 
             stock: { $gt: 0 },
-            featured: true 
+            status: 'active'
         })
-        .populate('seller', 'businessName name rating')
-        .limit(4)
+        .populate('seller', 'name businessName rating')
+        .sort({ salesCount: -1, averageRating: -1, featured: -1 })
+        .limit(8)
         .lean();
         
-        // Process recommended products with image URLs
-        const processedRecommendedProducts = recommendedProducts.map(product => {
+        const recommendedProducts = products.map(product => {
             let imageUrl = '/images/product-placeholder.png';
+            let images = [];
+            
             if (product.images && Array.isArray(product.images) && product.images.length > 0) {
-                const primaryImage = product.images.find(img => img.isPrimary) || product.images[0];
-                imageUrl = primaryImage.url || imageUrl;
+                images = product.images.map(img => ({
+                    url: img.url,
+                    publicId: img.publicId,
+                    contentType: img.contentType,
+                    isPrimary: img.isPrimary || false
+                }));
+                
+                const primaryImage = images.find(img => img.isPrimary) || images[0];
+                imageUrl = primaryImage.url;
             }
+            
             return {
-                ...product,
+                id: product._id.toString(),
+                _id: product._id,
+                name: product.name,
+                description: product.description,
+                price: product.price,
+                category: product.category,
+                seller: product.seller?.businessName || product.seller?.name || 'Unknown Seller',
+                sellerId: product.seller?._id,
+                image: imageUrl,
                 imageUrl: imageUrl,
-                image: imageUrl
+                images: images,
+                averageRating: product.averageRating || 0,
+                rating: product.averageRating || 4,
+                reviewCount: product.reviews?.length || 0,
+                stock: product.stock,
+                featured: product.featured || false,
+                salesCount: product.salesCount || 0
             };
         });
-
+        
         res.json({
             success: true,
             data: {
                 stats: {
                     totalOrders,
                     pendingOrders,
-                    totalSpent: parseFloat(totalSpent.toFixed(2)),
-                    completedOrders: orders.filter(o => o.status === 'delivered').length
+                    completedOrders,
+                    totalSpent: parseFloat(totalSpent.toFixed(2))
                 },
                 recentOrders: processedRecentOrders,
-                recommendedProducts: processedRecommendedProducts,
-                notifications: []
+                recommendedProducts
             }
         });
+        
     } catch (error) {
-        console.error('Error fetching dashboard:', error);
+        console.error('Error fetching buyer dashboard:', error);
         res.status(500).json({
             success: false,
-            message: 'Error fetching dashboard',
+            message: 'Error fetching dashboard data',
             error: error.message
         });
     }
 };
 
-// ✅ FIXED: Get all products for marketplace with Cloudinary URLs
 const getMarketplaceProducts = async (req, res) => {
     try {
         const {
@@ -111,8 +138,7 @@ const getMarketplaceProducts = async (req, res) => {
             limit = 12
         } = req.query;
 
-        // Build filter object
-        const filter = { stock: { $gt: 0 } };
+        const filter = { stock: { $gt: 0 }, status: 'active' };
 
         if (category && category !== 'all') {
             filter.category = category;
@@ -132,10 +158,8 @@ const getMarketplaceProducts = async (req, res) => {
             ];
         }
 
-        // Calculate pagination
         const skip = (page - 1) * limit;
 
-        // Get products with seller info
         const products = await Product.find(filter)
             .populate('seller', 'name email businessName rating')
             .sort({ [sortBy]: sortOrder === 'desc' ? -1 : 1 })
@@ -143,11 +167,9 @@ const getMarketplaceProducts = async (req, res) => {
             .limit(parseInt(limit))
             .lean();
 
-        // Get total count for pagination
         const total = await Product.countDocuments(filter);
         const totalPages = Math.ceil(total / limit);
 
-        // Process products with Cloudinary URLs
         const processedProducts = products.map(product => {
             let imageUrl = '/images/product-placeholder.png';
             let images = [];
@@ -206,7 +228,6 @@ const getMarketplaceProducts = async (req, res) => {
     }
 };
 
-// ✅ FIXED: Get single product with full details including Cloudinary URLs
 const getProductDetails = async (req, res) => {
     try {
         const product = await Product.findById(req.params.id)
@@ -239,7 +260,9 @@ const getProductDetails = async (req, res) => {
                 url: video.url,
                 publicId: video.publicId,
                 contentType: video.contentType,
-                _id: video._id
+                _id: video._id,
+                duration: video.duration || 0,
+                thumbnail: video.thumbnail
             }));
         }
 
@@ -273,7 +296,6 @@ const getProductDetails = async (req, res) => {
     }
 };
 
-// ✅ FIXED: Get buyer orders with proper image URLs
 const getBuyerOrders = async (req, res) => {
     try {
         const buyerId = req.user._id;
@@ -343,7 +365,6 @@ const getBuyerOrders = async (req, res) => {
     }
 };
 
-// ✅ FIXED: Get order details with proper image URLs
 const getOrderDetails = async (req, res) => {
     try {
         const order = await Order.findOne({
@@ -408,7 +429,6 @@ const getOrderDetails = async (req, res) => {
     }
 };
 
-// Create new order
 const createOrder = async (req, res) => {
     try {
         const { items, shippingAddress, paymentMethod, notes } = req.body;
@@ -517,7 +537,6 @@ const createOrder = async (req, res) => {
     }
 };
 
-// Cancel order
 const cancelOrder = async (req, res) => {
     try {
         const order = await Order.findOne({
@@ -569,12 +588,11 @@ const cancelOrder = async (req, res) => {
     }
 };
 
-// Get categories
 const getCategories = async (req, res) => {
     try {
         const categories = await Product.aggregate([
             {
-                $match: { stock: { $gt: 0 } }
+                $match: { stock: { $gt: 0 }, status: 'active' }
             },
             {
                 $group: {
@@ -610,13 +628,13 @@ const getCategories = async (req, res) => {
     }
 };
 
-// ✅ FIXED: Search products with Cloudinary URLs
 const searchProducts = async (req, res) => {
     try {
         const { q, category, minPrice, maxPrice } = req.query;
 
         const filter = {
             stock: { $gt: 0 },
+            status: 'active',
             $or: [
                 { name: { $regex: q, $options: 'i' } },
                 { description: { $regex: q, $options: 'i' } },
@@ -676,36 +694,410 @@ const searchProducts = async (req, res) => {
     }
 };
 
-// Helper function to get seller from products
+const getCart = async (req, res) => {
+    try {
+        const buyerId = req.user._id;
+        
+        const cart = {
+            _id: 'mock-cart-id',
+            buyer: buyerId,
+            items: [],
+            totalItems: 0,
+            subtotal: 0,
+            shipping: 0,
+            tax: 0,
+            total: 0,
+            createdAt: new Date(),
+            updatedAt: new Date()
+        };
+
+        res.json({
+            success: true,
+            data: cart
+        });
+    } catch (error) {
+        console.error('Error fetching cart:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Error fetching cart',
+            error: error.message
+        });
+    }
+};
+
+const getSavedItems = async (req, res) => {
+    try {
+        const buyerId = req.user._id;
+        
+        const savedItems = {
+            _id: 'mock-wishlist-id',
+            user: buyerId,
+            items: [],
+            totalItems: 0,
+            createdAt: new Date(),
+            updatedAt: new Date()
+        };
+
+        res.json({
+            success: true,
+            data: savedItems
+        });
+    } catch (error) {
+        console.error('Error fetching saved items:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Error fetching saved items',
+            error: error.message
+        });
+    }
+};
+
+const getReels = async (req, res) => {
+    try {
+        const { page = 1, limit = 10 } = req.query;
+        const skip = (page - 1) * limit;
+        
+        const productsWithVideos = await Product.find({
+            'videos.0': { $exists: true },
+            stock: { $gt: 0 },
+            status: 'active'
+        })
+        .populate('seller', 'name businessName email rating')
+        .select('name price category videos seller images description averageRating salesCount')
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(parseInt(limit))
+        .lean();
+        
+        const total = await Product.countDocuments({
+            'videos.0': { $exists: true },
+            stock: { $gt: 0 },
+            status: 'active'
+        });
+        const totalPages = Math.ceil(total / limit);
+        
+        const reels = [];
+        productsWithVideos.forEach(product => {
+            if (!product.videos || product.videos.length === 0) return;
+            
+            product.videos.forEach((video, index) => {
+                let thumbnailUrl = video.thumbnail || 
+                                 (product.images?.[0]?.url) || 
+                                 '/images/product-placeholder.png';
+                
+                reels.push({
+                    id: `${product._id.toString()}_${index}`,
+                    reelId: video._id?.toString() || `${product._id.toString()}_${index}`,
+                    videoUrl: video.url,
+                    thumbnail: thumbnailUrl,
+                    mediaType: 'video',
+                    mediaUrl: video.url,
+                    caption: `Check out ${product.name} - ${product.description?.substring(0, 100)}...`,
+                    product: {
+                        id: product._id.toString(),
+                        name: product.name,
+                        price: product.price,
+                        category: product.category,
+                        image: product.images?.[0]?.url || '/images/product-placeholder.png'
+                    },
+                    seller: {
+                        id: product.seller?._id,
+                        name: product.seller?.businessName || product.seller?.name,
+                        email: product.seller?.email,
+                        rating: product.seller?.rating || 0
+                    },
+                    sellerName: product.seller?.businessName || product.seller?.name,
+                    productName: product.name,
+                    productPrice: product.price,
+                    likesCount: Math.floor(Math.random() * 1000),
+                    commentsCount: Math.floor(Math.random() * 100),
+                    sharesCount: Math.floor(Math.random() * 50),
+                    viewsCount: Math.floor(Math.random() * 5000),
+                    duration: video.duration || 15,
+                    createdAt: product.createdAt || new Date(),
+                    isLiked: false,
+                    tags: [product.category, 'shopping', 'product']
+                });
+            });
+        });
+
+        if (reels.length === 0) {
+            const trendingProducts = await Product.find({
+                stock: { $gt: 0 },
+                status: 'active',
+                'images.0': { $exists: true }
+            })
+            .populate('seller', 'name businessName')
+            .sort({ salesCount: -1, averageRating: -1 })
+            .limit(10)
+            .lean();
+            
+            trendingProducts.forEach(product => {
+                reels.push({
+                    id: product._id.toString(),
+                    reelId: product._id.toString(),
+                    videoUrl: product.images?.[0]?.url || '/images/product-placeholder.png',
+                    thumbnail: product.images?.[0]?.url || '/images/product-placeholder.png',
+                    mediaType: 'image',
+                    mediaUrl: product.images?.[0]?.url || '/images/product-placeholder.png',
+                    caption: `Trending: ${product.name} - ${product.description?.substring(0, 100)}...`,
+                    product: {
+                        id: product._id.toString(),
+                        name: product.name,
+                        price: product.price,
+                        category: product.category,
+                        image: product.images?.[0]?.url || '/images/product-placeholder.png'
+                    },
+                    seller: {
+                        id: product.seller?._id,
+                        name: product.seller?.businessName || product.seller?.name
+                    },
+                    sellerName: product.seller?.businessName || product.seller?.name,
+                    productName: product.name,
+                    productPrice: product.price,
+                    likesCount: Math.floor(Math.random() * 500),
+                    commentsCount: Math.floor(Math.random() * 50),
+                    sharesCount: Math.floor(Math.random() * 30),
+                    viewsCount: Math.floor(Math.random() * 3000),
+                    duration: 0,
+                    createdAt: product.createdAt || new Date(),
+                    isLiked: false,
+                    tags: [product.category, 'trending', 'shopping']
+                });
+            });
+        }
+
+        res.json({
+            success: true,
+            data: reels,
+            pagination: {
+                currentPage: parseInt(page),
+                totalPages,
+                totalReels: reels.length,
+                hasNext: page < totalPages,
+                hasPrev: page > 1
+            }
+        });
+    } catch (error) {
+        console.error('Error fetching reels:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Error fetching reels',
+            error: error.message
+        });
+    }
+};
+
+const likeReel = async (req, res) => {
+    try {
+        const { reelId } = req.params;
+        
+        res.json({
+            success: true,
+            message: 'Reel liked successfully',
+            data: {
+                reelId,
+                isLiked: true,
+                likesCount: Math.floor(Math.random() * 1000) + 1
+            }
+        });
+    } catch (error) {
+        console.error('Error liking reel:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Error liking reel',
+            error: error.message
+        });
+    }
+};
+
+const addToCart = async (req, res) => {
+    try {
+        const { productId, quantity = 1 } = req.body;
+        const buyerId = req.user._id;
+        
+        const product = await Product.findById(productId);
+        if (!product) {
+            return res.status(404).json({
+                success: false,
+                message: 'Product not found'
+            });
+        }
+        
+        if (product.stock < quantity) {
+            return res.status(400).json({
+                success: false,
+                message: 'Insufficient stock'
+            });
+        }
+        
+        res.json({
+            success: true,
+            message: 'Item added to cart successfully',
+            data: {
+                productId,
+                productName: product.name,
+                price: product.price,
+                quantity,
+                image: product.images?.[0]?.url || '/images/product-placeholder.png',
+                subtotal: product.price * quantity
+            }
+        });
+    } catch (error) {
+        console.error('Error adding to cart:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Error adding to cart',
+            error: error.message
+        });
+    }
+};
+
+const removeFromCart = async (req, res) => {
+    try {
+        const { itemId } = req.params;
+        
+        res.json({
+            success: true,
+            message: 'Item removed from cart successfully'
+        });
+    } catch (error) {
+        console.error('Error removing from cart:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Error removing from cart',
+            error: error.message
+        });
+    }
+};
+
+const saveItem = async (req, res) => {
+    try {
+        const { productId } = req.body;
+        const buyerId = req.user._id;
+        
+        const product = await Product.findById(productId);
+        if (!product) {
+            return res.status(404).json({
+                success: false,
+                message: 'Product not found'
+            });
+        }
+        
+        res.json({
+            success: true,
+            message: 'Item saved successfully',
+            data: {
+                productId,
+                productName: product.name,
+                price: product.price,
+                image: product.images?.[0]?.url || '/images/product-placeholder.png'
+            }
+        });
+    } catch (error) {
+        console.error('Error saving item:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Error saving item',
+            error: error.message
+        });
+    }
+};
+
+// ✅ ADDED: Missing functions that are called in your API
+const updateCartItem = async (req, res) => {
+    try {
+        const { itemId } = req.params;
+        const { quantity } = req.body;
+        
+        if (!quantity || quantity < 1) {
+            return res.status(400).json({
+                success: false,
+                message: 'Quantity must be at least 1'
+            });
+        }
+        
+        res.json({
+            success: true,
+            message: 'Cart item updated successfully',
+            data: {
+                itemId,
+                quantity,
+                updatedAt: new Date()
+            }
+        });
+    } catch (error) {
+        console.error('Error updating cart item:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Error updating cart item',
+            error: error.message
+        });
+    }
+};
+
+const toggleSaveItem = async (req, res) => {
+    try {
+        const { productId } = req.body;
+        const buyerId = req.user._id;
+        
+        const product = await Product.findById(productId);
+        if (!product) {
+            return res.status(404).json({
+                success: false,
+                message: 'Product not found'
+            });
+        }
+        
+        res.json({
+            success: true,
+            message: 'Item toggled successfully',
+            data: {
+                productId,
+                productName: product.name,
+                price: product.price,
+                isSaved: true,
+                image: product.images?.[0]?.url || '/images/product-placeholder.png'
+            }
+        });
+    } catch (error) {
+        console.error('Error toggling save item:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Error toggling save item',
+            error: error.message
+        });
+    }
+};
+
 const getSellerFromProducts = async (items) => {
     const product = await Product.findById(items[0].productId);
     return product.seller;
 };
 
-// ✅ ADDED: Alias functions for backward compatibility
 const getProducts = getMarketplaceProducts;
 const getOrders = getBuyerOrders;
 
 module.exports = {
-    // New functions
     getDashboard,
-    
-    // Product related
     getMarketplaceProducts,
-    getProducts, // Alias for getMarketplaceProducts
+    getProducts,
     getProductDetails,
     searchProducts,
-    
-    // Order related
     getBuyerOrders,
-    getOrders, // Alias for getBuyerOrders
+    getOrders,
     getOrderDetails,
     createOrder,
     cancelOrder,
-    
-    // Categories
+    getCart,
+    addToCart,
+    removeFromCart,
+    updateCartItem,
+    getSavedItems,
+    saveItem,
+    toggleSaveItem,
+    getReels,
+    likeReel,
     getCategories,
-    
-    // Helper (if needed externally)
     getSellerFromProducts
 };

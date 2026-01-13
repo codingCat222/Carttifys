@@ -195,12 +195,62 @@ export const buyerAPI = {
     body: orderData
   }),
   
+  cancelOrder: (orderId) => apiCall(`/api/buyer/orders/${orderId}/cancel`, {
+    method: 'PUT'
+  }),
+  
   getCategories: () => apiCall('/api/buyer/categories'),
   
   searchProducts: (searchParams) => {
     const queryString = new URLSearchParams(searchParams).toString();
     return apiCall(`/api/buyer/products/search${queryString ? `?${queryString}` : ''}`);
-  }
+  },
+  
+  
+  getCart: () => apiCall('/api/buyer/cart'),
+  
+  addToCart: (cartData) => apiCall('/api/buyer/cart/add', {
+    method: 'POST',
+    body: cartData
+  }),
+  
+  updateCartItem: (itemId, updateData) => apiCall(`/api/buyer/cart/items/${itemId}`, {
+    method: 'PUT',
+    body: updateData
+  }),
+  
+  removeFromCart: (itemId) => apiCall(`/api/buyer/cart/items/${itemId}`, {
+    method: 'DELETE'
+  }),
+  
+  
+  getSavedItems: () => apiCall('/api/buyer/saved-items'),
+  
+  saveItem: (data) => apiCall('/api/buyer/saved-items/save', {
+    method: 'POST',
+    body: data
+  }),
+  
+  toggleSaveItem: (productId) => apiCall('/api/buyer/saved-items/toggle', {
+    method: 'POST',
+    body: { productId }
+  }),
+  
+  
+  getReels: (params = {}) => {
+    const queryString = new URLSearchParams(params).toString();
+    return apiCall(`/api/buyer/reels${queryString ? `?${queryString}` : ''}`);
+  },
+  
+  likeReel: (reelId) => apiCall(`/api/buyer/reels/${reelId}/like`, {
+    method: 'POST'
+  }),
+  
+  // Place order alias
+  placeOrder: (orderData) => apiCall('/api/buyer/orders', {
+    method: 'POST',
+    body: orderData
+  })
 };
 
 export const sellerAPI = {
@@ -338,10 +388,7 @@ export const productAPI = {
   
   getProductDetails: (productId) => buyerAPI.getProductDetails(productId),
   
-  addToCart: (productId) => apiCall('/api/cart/add', { 
-    method: 'POST',
-    body: { productId, quantity: 1 }
-  }),
+  addToCart: (productId) => buyerAPI.addToCart({ productId, quantity: 1 }),
   
   searchProducts: (searchParams) => buyerAPI.searchProducts(searchParams)
 };

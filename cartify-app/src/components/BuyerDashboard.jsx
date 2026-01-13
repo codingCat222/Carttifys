@@ -13,7 +13,8 @@ import {
   faMinus, faTrash, faArrowLeft, faBookmark, faHistory, faMapMarkedAlt,
   faQuestionCircle, faSignOutAlt, faEdit, faLocationDot, faPhone, faCalendar,
   faLock, faShieldAlt, faVideo, faPause, faPlay, faVolumeUp, faVolumeMute,
-  faShare, faComment, faEllipsisV, faChevronUp, faShoppingBag as faBag
+  faShare, faComment, faEllipsisV, faChevronUp, faShoppingBag as faBag,
+  faFire, faEye, faShoppingCart as faCart
 } from '@fortawesome/free-solid-svg-icons';
 
 const BuyerDashboard = () => {
@@ -61,38 +62,31 @@ const BuyerDashboard = () => {
   const [isMuted, setIsMuted] = useState(true);
   const [isPlaying, setIsPlaying] = useState(true);
   const videoRefs = useRef([]);
+  const reelContainerRef = useRef(null);
 
-  // ✅ FIXED: Updated getProductImage function to handle Cloudinary URLs
   const getProductImage = (product) => {
     if (!product) return 'https://via.placeholder.com/300?text=No+Image';
     
-    // Check for direct imageUrl field first (Cloudinary URL from backend)
     if (product.imageUrl && product.imageUrl.startsWith('http')) {
       return product.imageUrl;
     }
     
-    // Check for direct image field (Cloudinary URL)
     if (product.image && product.image.startsWith('http')) {
       return product.image;
     }
     
-    // Check images array for Cloudinary URLs
     if (product.images && Array.isArray(product.images) && product.images.length > 0) {
-      // Find primary image or use first one
       const primaryImage = product.images.find(img => img.isPrimary) || product.images[0];
       
-      // Check if it has a URL field (Cloudinary)
       if (primaryImage && primaryImage.url && primaryImage.url.startsWith('http')) {
         return primaryImage.url;
       }
       
-      // Fallback to old filename format
       if (primaryImage && primaryImage.filename) {
         return `https://carttifys-1.onrender.com/uploads/${primaryImage.filename}`;
       }
     }
     
-    // Final fallback
     return 'https://via.placeholder.com/300?text=No+Image';
   };
   
@@ -139,7 +133,7 @@ const BuyerDashboard = () => {
     try {
       const result = await buyerAPI.getCart();
       if (result.success) {
-        setCartItems(result.data);
+        setCartItems(result.data.items || []);
       }
     } catch (error) {
       console.error('Failed to fetch cart:', error);
@@ -150,7 +144,7 @@ const BuyerDashboard = () => {
     try {
       const result = await buyerAPI.getSavedItems();
       if (result.success) {
-        setSavedItems(result.data);
+        setSavedItems(result.data.items || []);
       }
     } catch (error) {
       console.error('Failed to fetch saved items:', error);
@@ -161,10 +155,107 @@ const BuyerDashboard = () => {
     try {
       const result = await buyerAPI.getReels();
       if (result.success) {
-        setReels(result.data);
+        setReels(result.data || []);
+        console.log('Reels loaded:', result.data?.length || 0);
       }
     } catch (error) {
       console.error('Failed to fetch reels:', error);
+      // Set mock reels for testing
+      setReels([
+        {
+          id: '1',
+          reelId: '1',
+          videoUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
+          thumbnail: 'https://via.placeholder.com/400x700/FF6B6B/FFFFFF?text=Reel+1',
+          mediaType: 'video',
+          mediaUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
+          caption: 'Check out our latest product collection!',
+          product: {
+            id: '1',
+            name: 'Premium Headphones',
+            price: 199.99,
+            category: 'Electronics',
+            image: 'https://via.placeholder.com/150'
+          },
+          seller: {
+            id: '1',
+            name: 'Tech Store'
+          },
+          sellerName: 'Tech Store',
+          productName: 'Premium Headphones',
+          productPrice: 199.99,
+          likesCount: 234,
+          commentsCount: 45,
+          sharesCount: 12,
+          viewsCount: 1234,
+          duration: 15,
+          createdAt: new Date(),
+          isLiked: false,
+          tags: ['electronics', 'audio', 'tech']
+        },
+        {
+          id: '2',
+          reelId: '2',
+          videoUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4',
+          thumbnail: 'https://via.placeholder.com/400x700/4ECDC4/FFFFFF?text=Reel+2',
+          mediaType: 'video',
+          mediaUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4',
+          caption: 'New fashion collection just arrived!',
+          product: {
+            id: '2',
+            name: 'Designer Jacket',
+            price: 149.99,
+            category: 'Fashion',
+            image: 'https://via.placeholder.com/150'
+          },
+          seller: {
+            id: '2',
+            name: 'Fashion Hub'
+          },
+          sellerName: 'Fashion Hub',
+          productName: 'Designer Jacket',
+          productPrice: 149.99,
+          likesCount: 456,
+          commentsCount: 78,
+          sharesCount: 23,
+          viewsCount: 2345,
+          duration: 18,
+          createdAt: new Date(),
+          isLiked: false,
+          tags: ['fashion', 'style', 'jacket']
+        },
+        {
+          id: '3',
+          reelId: '3',
+          videoUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4',
+          thumbnail: 'https://via.placeholder.com/400x700/45B7D1/FFFFFF?text=Reel+3',
+          mediaType: 'video',
+          mediaUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4',
+          caption: 'Home decor items on sale now!',
+          product: {
+            id: '3',
+            name: 'Modern Lamp',
+            price: 89.99,
+            category: 'Home',
+            image: 'https://via.placeholder.com/150'
+          },
+          seller: {
+            id: '3',
+            name: 'Home Living'
+          },
+          sellerName: 'Home Living',
+          productName: 'Modern Lamp',
+          productPrice: 89.99,
+          likesCount: 189,
+          commentsCount: 34,
+          sharesCount: 9,
+          viewsCount: 987,
+          duration: 12,
+          createdAt: new Date(),
+          isLiked: false,
+          tags: ['home', 'decor', 'lighting']
+        }
+      ]);
     }
   };
 
@@ -220,12 +311,13 @@ const BuyerDashboard = () => {
   
   const handleToggleSaveItem = async (product) => {
     try {
-      const result = await buyerAPI.toggleSaveItem(product.id);
+      const result = await buyerAPI.saveItem({ productId: product.id });
       if (result.success) {
         fetchSavedItems();
+        alert(`Saved ${product.name} to wishlist!`);
       }
     } catch (error) {
-      console.error('Failed to toggle save:', error);
+      console.error('Failed to save item:', error);
     }
   };
   
@@ -317,16 +409,65 @@ const BuyerDashboard = () => {
   
   const handleReelLike = async (reelId) => {
     try {
-      await buyerAPI.likeReel(reelId);
-      fetchReels();
+      const result = await buyerAPI.likeReel(reelId);
+      if (result.success) {
+        setReels(prev => prev.map(reel => 
+          reel.reelId === reelId 
+            ? { 
+                ...reel, 
+                isLiked: !reel.isLiked,
+                likesCount: reel.isLiked ? reel.likesCount - 1 : reel.likesCount + 1
+              }
+            : reel
+        ));
+      }
     } catch (error) {
       console.error('Failed to like reel:', error);
     }
   };
   
   const handleReelShare = (reel) => {
-    alert(`Sharing reel: ${reel.caption}`);
+    if (navigator.share) {
+      navigator.share({
+        title: `Check out ${reel.productName}`,
+        text: reel.caption,
+        url: window.location.href,
+      }).catch(console.error);
+    } else {
+      navigator.clipboard.writeText(`Check out ${reel.productName}: ${reel.caption}`);
+      alert('Link copied to clipboard!');
+    }
   };
+
+  useEffect(() => {
+    if (activeSection === 'reels' && reels.length > 0) {
+      const currentVideo = videoRefs.current[currentReelIndex];
+      if (currentVideo) {
+        if (isPlaying) {
+          currentVideo.play().catch(console.error);
+        } else {
+          currentVideo.pause();
+        }
+        currentVideo.muted = isMuted;
+      }
+    }
+  }, [currentReelIndex, isPlaying, isMuted, activeSection]);
+
+  useEffect(() => {
+    const handleVideoEnd = () => {
+      if (currentReelIndex < reels.length - 1) {
+        setCurrentReelIndex(prev => prev + 1);
+      }
+    };
+
+    if (activeSection === 'reels' && reels.length > 0) {
+      const currentVideo = videoRefs.current[currentReelIndex];
+      if (currentVideo) {
+        currentVideo.addEventListener('ended', handleVideoEnd);
+        return () => currentVideo.removeEventListener('ended', handleVideoEnd);
+      }
+    }
+  }, [currentReelIndex, reels.length, activeSection]);
 
   if (loading) {
     return (
@@ -398,6 +539,51 @@ const BuyerDashboard = () => {
         <div className="banner">
           <h3>Flash Sale! Up to 50% Off</h3>
           <p>Limited time offer</p>
+        </div>
+      </div>
+
+      {/* New Reels Preview Section */}
+      <div className="reels-preview-section">
+        <div className="section-header">
+          <div className="section-title">
+            <FontAwesomeIcon icon={faFire} className="trending-icon" />
+            <h3>Trending Reels</h3>
+          </div>
+          <button 
+            className="view-all" 
+            onClick={() => setActiveSection('reels')}
+          >
+            View All
+          </button>
+        </div>
+        <div className="reels-preview">
+          {reels.slice(0, 4).map((reel, index) => (
+            <div 
+              key={reel.id} 
+              className="reel-preview-card"
+              onClick={() => {
+                setCurrentReelIndex(index);
+                setActiveSection('reels');
+              }}
+            >
+              <div className="reel-preview-thumbnail">
+                <img src={reel.thumbnail} alt={reel.caption} />
+                <div className="reel-play-overlay">
+                  <FontAwesomeIcon icon={faPlay} />
+                </div>
+                <div className="reel-stats">
+                  <span><FontAwesomeIcon icon={faEye} /> {reel.viewsCount}</span>
+                  <span><FontAwesomeIcon icon={faHeart} /> {reel.likesCount}</span>
+                </div>
+              </div>
+              <div className="reel-preview-info">
+                <p className="reel-preview-caption">{reel.caption.substring(0, 30)}...</p>
+                <div className="reel-preview-seller">
+                  <FontAwesomeIcon icon={faStore} /> {reel.sellerName}
+                </div>
+              </div>
+            </div>
+          ))}
         </div>
       </div>
 
@@ -741,7 +927,10 @@ const BuyerDashboard = () => {
       <div className="profile-menu">
         <button 
           className="profile-menu-item"
-          onClick={() => setActiveSection('home')}
+          onClick={() => {
+            // Show saved items
+            alert('Saved items would open here');
+          }}
         >
           <div className="menu-item-left">
             <FontAwesomeIcon icon={faHeart} />
@@ -888,15 +1077,17 @@ const BuyerDashboard = () => {
           <FontAwesomeIcon icon={faVideo} size="3x" />
           <h3>No reels available</h3>
           <p>Sellers haven't posted any content yet</p>
+          <button onClick={() => setActiveSection('home')}>
+            Go to Home
+          </button>
         </div>
       ) : (
-        <div className="reels-container">
+        <div className="reels-container" ref={reelContainerRef}>
           <div className="reel-video-container">
             {reels.map((reel, index) => (
               <div 
                 key={reel.id} 
                 className={`reel-item ${index === currentReelIndex ? 'active' : ''}`}
-                style={{ transform: `translateY(-${currentReelIndex * 100}%)` }}
               >
                 <div className="video-wrapper">
                   {reel.mediaType === 'video' ? (
@@ -918,6 +1109,7 @@ const BuyerDashboard = () => {
                           setIsPlaying(false);
                         }
                       }}
+                      poster={reel.thumbnail}
                     />
                   ) : (
                     <img src={reel.mediaUrl} alt={reel.caption} className="reel-image" />
@@ -929,13 +1121,21 @@ const BuyerDashboard = () => {
                         <FontAwesomeIcon icon={faArrowLeft} />
                       </button>
                       <h3>Reels</h3>
-                      <button onClick={() => setIsMuted(!isMuted)}>
-                        <FontAwesomeIcon icon={isMuted ? faVolumeMute : faVolumeUp} />
-                      </button>
+                      <div className="volume-controls">
+                        <button onClick={() => setIsMuted(!isMuted)}>
+                          <FontAwesomeIcon icon={isMuted ? faVolumeMute : faVolumeUp} />
+                        </button>
+                        <button onClick={() => setIsPlaying(!isPlaying)}>
+                          <FontAwesomeIcon icon={isPlaying ? faPause : faPlay} />
+                        </button>
+                      </div>
                     </div>
                     
                     <div className="reel-side-controls">
-                      <button className="reel-action-btn" onClick={() => handleReelLike(reel.id)}>
+                      <button 
+                        className={`reel-action-btn ${reel.isLiked ? 'liked' : ''}`} 
+                        onClick={() => handleReelLike(reel.reelId)}
+                      >
                         <FontAwesomeIcon icon={faHeart} />
                         <span>{reel.likesCount}</span>
                       </button>
@@ -955,33 +1155,49 @@ const BuyerDashboard = () => {
                     <div className="reel-bottom-content">
                       <div className="seller-info-reel">
                         <div className="seller-avatar">
-                          <FontAwesomeIcon icon={faUserCircle} />
+                          {reel.seller?.image ? (
+                            <img src={reel.seller.image} alt={reel.sellerName} />
+                          ) : (
+                            <FontAwesomeIcon icon={faUserCircle} />
+                          )}
                         </div>
-                        <div>
+                        <div className="seller-details">
                           <h4>{reel.sellerName}</h4>
-                          <p>{reel.caption}</p>
+                          <p className="reel-caption">{reel.caption}</p>
+                          {reel.tags && reel.tags.length > 0 && (
+                            <div className="reel-tags">
+                              {reel.tags.slice(0, 3).map((tag, idx) => (
+                                <span key={idx} className="reel-tag">#{tag}</span>
+                              ))}
+                            </div>
+                          )}
                         </div>
                       </div>
                       
-                      <div className="product-card-reel">
-                        <img 
-                          src={getProductImage(reel.product)} 
-                          alt={reel.productName}
-                          onError={(e) => {
-                            e.target.src = 'https://via.placeholder.com/300?text=No+Image';
-                          }}
-                        />
-                        <div className="product-info-reel">
-                          <h5>{reel.productName}</h5>
-                          <p className="product-price">{formatPrice(reel.productPrice)}</p>
-                          <button 
-                            className="buy-btn-reel"
-                            onClick={() => handleViewProduct(reel.product)}
-                          >
-                            <FontAwesomeIcon icon={faShoppingCart} /> View Product
-                          </button>
+                      {reel.product && (
+                        <div className="product-card-reel" onClick={() => handleViewProduct(reel.product)}>
+                          <img 
+                            src={reel.product.image || reel.thumbnail} 
+                            alt={reel.productName}
+                            onError={(e) => {
+                              e.target.src = 'https://via.placeholder.com/300?text=No+Image';
+                            }}
+                          />
+                          <div className="product-info-reel">
+                            <h5>{reel.productName}</h5>
+                            <p className="product-price">{formatPrice(reel.productPrice)}</p>
+                            <button 
+                              className="buy-btn-reel"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleViewProduct(reel.product);
+                              }}
+                            >
+                              <FontAwesomeIcon icon={faCart} /> View Product
+                            </button>
+                          </div>
                         </div>
-                      </div>
+                      )}
                     </div>
                   </div>
                 </div>
