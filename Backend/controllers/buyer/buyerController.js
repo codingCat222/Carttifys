@@ -2,10 +2,18 @@ const Product = require('../../models/Product');
 const Order = require('../../models/Order');
 const User = require('../../models/User');
 
+<<<<<<< HEAD
+=======
+// ✅ FIXED: Single, complete getDashboard function
+>>>>>>> f45a64312b6242192947bdaa8a65b183280fc363
 const getDashboard = async (req, res) => {
     try {
         const buyerId = req.user._id;
         
+<<<<<<< HEAD
+=======
+        // Get buyer's stats
+>>>>>>> f45a64312b6242192947bdaa8a65b183280fc363
         const totalOrders = await Order.countDocuments({ buyer: buyerId });
         const pendingOrders = await Order.countDocuments({ 
             buyer: buyerId, 
@@ -20,9 +28,16 @@ const getDashboard = async (req, res) => {
             { $match: { buyer: buyerId, status: 'delivered' } },
             { $group: { _id: null, totalSpent: { $sum: '$totalAmount' } } }
         ]);
+<<<<<<< HEAD
         
         const totalSpent = ordersData[0]?.totalSpent || 0;
         
+=======
+        
+        const totalSpent = ordersData[0]?.totalSpent || 0;
+        
+        // Get recent orders with product images
+>>>>>>> f45a64312b6242192947bdaa8a65b183280fc363
         const recentOrders = await Order.find({ buyer: buyerId })
             .populate('seller', 'businessName name')
             .populate('items.product', 'name images price')
@@ -55,15 +70,26 @@ const getDashboard = async (req, res) => {
             };
         });
 
+<<<<<<< HEAD
+=======
+        // ✅ FIXED: Get recommended/trending products with Cloudinary URLs
+>>>>>>> f45a64312b6242192947bdaa8a65b183280fc363
         const products = await Product.find({ 
             stock: { $gt: 0 },
             status: 'active'
         })
         .populate('seller', 'name businessName rating')
         .sort({ salesCount: -1, averageRating: -1, featured: -1 })
+<<<<<<< HEAD
         .limit(8)
         .lean();
         
+=======
+        .limit(8) // Increased to 8 for better display
+        .lean();
+        
+        // Process products with Cloudinary URLs
+>>>>>>> f45a64312b6242192947bdaa8a65b183280fc363
         const recommendedProducts = products.map(product => {
             let imageUrl = '/images/product-placeholder.png';
             let images = [];
@@ -138,6 +164,10 @@ const getMarketplaceProducts = async (req, res) => {
             limit = 12
         } = req.query;
 
+<<<<<<< HEAD
+=======
+        // Build filter object
+>>>>>>> f45a64312b6242192947bdaa8a65b183280fc363
         const filter = { stock: { $gt: 0 }, status: 'active' };
 
         if (category && category !== 'all') {
