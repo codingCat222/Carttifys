@@ -14,7 +14,8 @@ import {
   faQuestionCircle, faSignOutAlt, faEdit, faLocationDot, faPhone, faCalendar,
   faLock, faShieldAlt, faVideo, faPause, faPlay, faVolumeUp, faVolumeMute,
   faShare, faComment, faEllipsisV, faChevronUp, faShoppingBag as faBag,
-  faFire, faEye, faShoppingCart as faCart, faPaperPlane, faNairaSign
+  faFire, faEye, faShoppingCart as faCart, faPaperPlane, faNairaSign,
+  faPaperclip, faSmile, faMusic
 } from '@fortawesome/free-solid-svg-icons';
 
 const BuyerDashboard = () => {
@@ -64,8 +65,15 @@ const BuyerDashboard = () => {
   const [isPlaying, setIsPlaying] = useState(true);
   const [likedReels, setLikedReels] = useState([]);
   const [savedReels, setSavedReels] = useState([]);
+  const [showComments, setShowComments] = useState(false);
+  const [comments, setComments] = useState([]);
+  const [newComment, setNewComment] = useState('');
+  const [replyingTo, setReplyingTo] = useState(null);
+  const [replyText, setReplyText] = useState('');
+  
   const videoRefs = useRef([]);
   const reelContainerRef = useRef(null);
+  const commentInputRef = useRef(null);
 
   const getProductImage = (product) => {
     if (!product) return '/images/placeholder.jpg';
@@ -117,6 +125,16 @@ const BuyerDashboard = () => {
     fetchSavedItems();
     fetchReels();
   }, []);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (loading) {
+        setLoading(false);
+      }
+    }, 1500);
+    
+    return () => clearTimeout(timer);
+  }, [loading]);
 
   const forceRefreshDashboard = async () => {
     setLoading(true);
@@ -204,6 +222,15 @@ const BuyerDashboard = () => {
       const result = await buyerAPI.getReels();
       if (result.success && result.data) {
         setReels(result.data);
+        // Initialize comments for each reel
+        const commentsData = result.data.map(reel => ({
+          reelId: reel._id || reel.id,
+          comments: reel.comments || [
+            { id: 1, user: 'User1', text: 'Nice product! 🔥', time: '2h', likes: 5, replies: [] },
+            { id: 2, user: 'User2', text: 'Where can I buy this?', time: '1h', likes: 2, replies: [] }
+          ]
+        }));
+        setComments(commentsData);
       } else {
         setReels([]);
       }
@@ -212,6 +239,110 @@ const BuyerDashboard = () => {
       setReels([]);
     }
   };
+
+  // Comment system functions
+  const handleAddComment = () => {
+    if (!newComment.trim()) return;
+    
+    const currentReel = reels[currentReelIndex];
+    const reelId = currentReel._id || currentReel.id;
+    
+    const newCommentObj = {
+      id: Date.now(),
+      user: userProfile.name || 'You',
+      text: newComment,
+      time: 'Just now',
+      likes: 0,
+      replies: []
+    };
+    
+    setComments(prev => 
+      prev.map(item => 
+        item.reelId === reelId 
+          ? { ...item, comments: [...item.comments, newCommentObj] }
+          : item
+      )
+    );
+    
+    setNewComment('');
+    if (commentInputRef.current) {
+      commentInputRef.current.focus();
+    }
+  };
+
+  const handleAddReply = (commentId) => {
+    if (!replyText.trim()) return;
+    
+    const currentReel = reels[currentReelIndex];
+    const reelId = currentReel._id || currentReel.id;
+    
+    setComments(prev => 
+      prev.map(item => 
+        item.reelId === reelId 
+          ? {
+              ...item,
+              comments: item.comments.map(comment => 
+                comment.id === commentId 
+                  ? {
+                      ...comment,
+                      replies: [
+                        ...(comment.replies || []),
+                        {
+                          id: Date.now(),
+                          user: userProfile.name || 'You',
+                          text: replyText,
+                          time: 'Just now',
+                          likes: 0
+                        }
+                      ]
+                    }
+                  : comment
+              )
+            }
+          : item
+      )
+    );
+    
+    setReplyText('');
+    setReplyingTo(null);
+  };
+
+  const handleLikeComment = (commentId, isReply = false) => {
+    const currentReel = reels[currentReelIndex];
+    const reelId = currentReel._id || currentReel.id;
+    
+    setComments(prev => 
+      prev.map(item => 
+        item.reelId === reelId 
+          ? {
+              ...item,
+              comments: isReply 
+                ? item.comments
+                : item.comments.map(comment => 
+                    comment.id === commentId 
+                      ? { ...comment, likes: (comment.likes || 0) + 1 }
+                      : comment
+                  )
+            }
+          : item
+      )
+    );
+  };
+
+  const getCurrentReelComments = () => {
+    const currentReel = reels[currentReelIndex];
+    if (!currentReel) return [];
+    
+    const reelId = currentReel._id || currentReel.id;
+    const commentData = comments.find(c => c.reelId === reelId);
+    return commentData ? commentData.comments : [];
+  };
+
+  useEffect(() => {
+    if (showComments && commentInputRef.current) {
+      commentInputRef.current.focus();
+    }
+  }, [showComments]);
 
   useEffect(() => {
     if (!searchQuery.trim()) {
@@ -562,27 +693,32 @@ const BuyerDashboard = () => {
     }
   }, [currentReelIndex, reels.length, activeSection]);
 
-  if (loading && activeSection === 'home') {
+  // REMOVED THE RED PRELOADER - Changed to inline loading
+  if (loading && activeSection === 'home' && dashboardData.recommendedProducts.length === 0) {
     return (
-      <div className="loading-screen">
-        <div className="loading-spinner">
-          <FontAwesomeIcon icon={faSpinner} spin size="3x" />
+      <div className="buyer-dashboard">
+        <div className="loading-screen">
+          <div className="loading-spinner">
+            <FontAwesomeIcon icon={faSpinner} spin size="3x" />
+          </div>
+          <h3>Loading Products...</h3>
+          <p>Fetching latest products from sellers</p>
         </div>
-        <h3>Loading Products...</h3>
-        <p>Fetching latest products from sellers</p>
       </div>
     );
   }
 
-  if (error && dashboardData.recommendedProducts.length === 0) {
+  if (error && dashboardData.recommendedProducts.length === 0 && activeSection === 'home') {
     return (
-      <div className="error-screen">
-        <FontAwesomeIcon icon={faExclamationTriangle} size="3x" />
-        <h3>Unable to Load Products</h3>
-        <p>{error}</p>
-        <button onClick={forceRefreshDashboard} className="refresh-btn">
-          <FontAwesomeIcon icon={faRedo} /> Refresh
-        </button>
+      <div className="buyer-dashboard">
+        <div className="error-screen">
+          <FontAwesomeIcon icon={faExclamationTriangle} size="3x" />
+          <h3>Unable to Load Products</h3>
+          <p>{error}</p>
+          <button onClick={forceRefreshDashboard} className="refresh-btn">
+            <FontAwesomeIcon icon={faRedo} /> Refresh
+          </button>
+        </div>
       </div>
     );
   }
@@ -1307,6 +1443,7 @@ const BuyerDashboard = () => {
   
   const renderReelsPage = () => {
     const currentReel = reels[currentReelIndex];
+    const currentComments = getCurrentReelComments();
     
     if (reels.length === 0) {
       return (
@@ -1358,7 +1495,9 @@ const BuyerDashboard = () => {
                 }}
               />
               
+              {/* TIKTOK-STYLE OVERLAY UI */}
               <div className="reel-overlay">
+                {/* Top Controls */}
                 <div className="reel-top-bar">
                   <button 
                     className="back-btn"
@@ -1375,37 +1514,10 @@ const BuyerDashboard = () => {
                   </button>
                 </div>
                 
+                {/* Right Side Actions (TikTok Style) */}
                 <div className="reel-right-actions">
-                  <button 
-                    className={`action-btn ${reel.isLiked || likedReels.includes(reel._id || reel.id) ? 'liked' : ''}`}
-                    onClick={() => handleReelLike(reel._id || reel.id)}
-                  >
-                    <FontAwesomeIcon icon={faHeart} />
-                    <span className="action-count">{reel.likesCount || 0}</span>
-                  </button>
-                  
-                  <button className="action-btn">
-                    <FontAwesomeIcon icon={faComment} />
-                    <span className="action-count">{reel.commentsCount || 0}</span>
-                  </button>
-                  
-                  <button 
-                    className={`action-btn ${savedReels.includes(reel._id || reel.id) ? 'saved' : ''}`}
-                    onClick={() => handleReelSave(reel._id || reel.id)}
-                  >
-                    <FontAwesomeIcon icon={faBookmark} />
-                    <span className="action-count">Save</span>
-                  </button>
-                  
-                  <button 
-                    className="action-btn" 
-                    onClick={() => handleReelShare(reel)}
-                  >
-                    <FontAwesomeIcon icon={faShare} />
-                    <span className="action-count">{reel.sharesCount || 0}</span>
-                  </button>
-                  
-                  <div className="reel-seller-avatar">
+                  {/* Profile Avatar */}
+                  <div className="reel-seller-avatar-tiktok">
                     {reel.seller?.avatar ? (
                       <img src={reel.seller.avatar} alt={reel.sellerName} />
                     ) : reel.seller?.image ? (
@@ -1413,78 +1525,237 @@ const BuyerDashboard = () => {
                     ) : (
                       <FontAwesomeIcon icon={faUserCircle} />
                     )}
+                    <button className="follow-reel-btn-tiktok">+</button>
                   </div>
+                  
+                  {/* Action Buttons */}
+                  <button 
+                    className={`action-btn-tiktok ${reel.isLiked || likedReels.includes(reel._id || reel.id) ? 'liked' : ''}`}
+                    onClick={() => handleReelLike(reel._id || reel.id)}
+                  >
+                    <FontAwesomeIcon icon={faHeart} />
+                    <span className="action-count-tiktok">{reel.likesCount || 0}</span>
+                  </button>
+                  
+                  <button 
+                    className="action-btn-tiktok"
+                    onClick={() => setShowComments(!showComments)}
+                  >
+                    <FontAwesomeIcon icon={faComment} />
+                    <span className="action-count-tiktok">{currentComments.length || 0}</span>
+                  </button>
+                  
+                  <button 
+                    className="action-btn-tiktok" 
+                    onClick={() => handleReelShare(reel)}
+                  >
+                    <FontAwesomeIcon icon={faShare} />
+                    <span className="action-count-tiktok">{reel.sharesCount || 0}</span>
+                  </button>
+                  
+                  <button 
+                    className={`action-btn-tiktok ${savedReels.includes(reel._id || reel.id) ? 'saved' : ''}`}
+                    onClick={() => handleReelSave(reel._id || reel.id)}
+                  >
+                    <FontAwesomeIcon icon={faBookmark} />
+                  </button>
+                  
+                  <button className="action-btn-tiktok">
+                    <FontAwesomeIcon icon={faEllipsisV} />
+                  </button>
                 </div>
                 
-                <div className="reel-bottom-content">
-                  <div className="reel-seller-info">
-                    <div className="reel-seller-name">
-                      <strong>{reel.sellerName || reel.seller?.name}</strong>
-                      <button className="follow-reel-btn">Follow</button>
+                {/* Bottom Content */}
+                <div className="reel-bottom-content-tiktok">
+                  <div className="reel-seller-info-tiktok">
+                    <div className="seller-info-row">
+                      <strong className="seller-name-tiktok">@{reel.sellerName || reel.seller?.name || 'seller'}</strong>
+                      <button className="follow-btn-tiktok">Follow</button>
                     </div>
-                    <p className="reel-caption">{reel.caption}</p>
+                    <p className="reel-caption-tiktok">{reel.caption}</p>
                     {reel.tags && reel.tags.length > 0 && (
-                      <div className="reel-tags">
+                      <div className="reel-tags-tiktok">
                         {reel.tags.slice(0, 3).map((tag, idx) => (
-                          <span key={idx} className="reel-tag">#{tag}</span>
+                          <span key={idx} className="reel-tag-tiktok">#{tag}</span>
                         ))}
+                      </div>
+                    )}
+                    
+                    {/* Sound/Music Info */}
+                    {reel.sound && (
+                      <div className="sound-info-tiktok">
+                        <FontAwesomeIcon icon={faMusic} />
+                        <span className="sound-name">{reel.sound.name}</span>
                       </div>
                     )}
                   </div>
                   
+                  {/* Product Card */}
                   {reel.product && (
                     <div 
-                      className="reel-product-card"
+                      className="reel-product-card-tiktok"
                       onClick={() => handleViewProduct(reel.product)}
                     >
-                      <div className="reel-product-image">
+                      <div className="product-image-tiktok">
                         <img 
                           src={getProductImage(reel.product)} 
                           alt={reel.productName}
                         />
                       </div>
-                      <div className="reel-product-info">
+                      <div className="product-info-tiktok">
                         <h5>{reel.productName || reel.product.name}</h5>
-                        <p className="reel-product-price">
+                        <p className="product-price-tiktok">
                           ₦{formatPriceNumber(reel.productPrice || reel.product.price)}
                         </p>
-                        <button className="reel-shop-btn">
-                          <FontAwesomeIcon icon={faCart} /> Shop Now
-                        </button>
                       </div>
+                      <button className="shop-btn-tiktok">
+                        <FontAwesomeIcon icon={faCart} />
+                      </button>
                     </div>
                   )}
+                </div>
+                
+                {/* Progress Bar */}
+                <div className="reel-progress-tiktok">
+                  {reels.map((_, index) => (
+                    <div 
+                      key={index}
+                      className={`progress-bar-tiktok ${index === currentReelIndex ? 'active' : ''}`}
+                      style={{width: `${100 / reels.length}%`}}
+                      onClick={() => setCurrentReelIndex(index)}
+                    />
+                  ))}
                 </div>
               </div>
             </div>
           ))}
         </div>
         
-        <div className="reel-navigation">
-          <button 
-            className="nav-btn up"
-            onClick={() => handleReelSwipe('down')}
-            disabled={currentReelIndex === 0}
-          >
-            <FontAwesomeIcon icon={faChevronUp} />
-          </button>
-          <div className="reel-indicators">
-            {reels.map((_, index) => (
-              <div 
-                key={index}
-                className={`reel-indicator ${index === currentReelIndex ? 'active' : ''}`}
-                onClick={() => setCurrentReelIndex(index)}
+        {/* Comments Overlay */}
+        {showComments && (
+          <div className="comments-overlay">
+            <div className="comments-header">
+              <button onClick={() => setShowComments(false)}>
+                <FontAwesomeIcon icon={faArrowLeft} />
+              </button>
+              <h3>Comments</h3>
+              <div></div>
+            </div>
+            
+            <div className="comments-list">
+              {currentComments.length === 0 ? (
+                <div className="no-comments">
+                  <FontAwesomeIcon icon={faComment} size="2x" />
+                  <p>No comments yet</p>
+                  <p>Be the first to comment!</p>
+                </div>
+              ) : (
+                currentComments.map(comment => (
+                  <div key={comment.id} className="comment-item">
+                    <div className="comment-avatar">
+                      <FontAwesomeIcon icon={faUserCircle} />
+                    </div>
+                    <div className="comment-content">
+                      <div className="comment-header">
+                        <strong>{comment.user}</strong>
+                        <span className="comment-time">{comment.time}</span>
+                      </div>
+                      <p className="comment-text">{comment.text}</p>
+                      <div className="comment-actions">
+                        <button 
+                          onClick={() => handleLikeComment(comment.id)}
+                          className="comment-like-btn"
+                        >
+                          <FontAwesomeIcon icon={faHeart} />
+                          <span>{comment.likes || 0}</span>
+                        </button>
+                        <button 
+                          onClick={() => setReplyingTo(replyingTo === comment.id ? null : comment.id)}
+                          className="comment-reply-btn"
+                        >
+                          Reply
+                        </button>
+                      </div>
+                      
+                      {/* Reply Input */}
+                      {replyingTo === comment.id && (
+                        <div className="reply-input-section">
+                          <input
+                            type="text"
+                            value={replyText}
+                            onChange={(e) => setReplyText(e.target.value)}
+                            placeholder="Write a reply..."
+                            className="reply-input"
+                          />
+                          <button 
+                            onClick={() => handleAddReply(comment.id)}
+                            className="reply-submit-btn"
+                            disabled={!replyText.trim()}
+                          >
+                            <FontAwesomeIcon icon={faPaperPlane} />
+                          </button>
+                        </div>
+                      )}
+                      
+                      {/* Replies */}
+                      {comment.replies && comment.replies.length > 0 && (
+                        <div className="replies-list">
+                          {comment.replies.map(reply => (
+                            <div key={reply.id} className="reply-item">
+                              <div className="reply-avatar">
+                                <FontAwesomeIcon icon={faUserCircle} />
+                              </div>
+                              <div className="reply-content">
+                                <div className="reply-header">
+                                  <strong>{reply.user}</strong>
+                                  <span className="reply-time">{reply.time}</span>
+                                </div>
+                                <p className="reply-text">{reply.text}</p>
+                                <button 
+                                  onClick={() => handleLikeComment(reply.id, true)}
+                                  className="reply-like-btn"
+                                >
+                                  <FontAwesomeIcon icon={faHeart} />
+                                  <span>{reply.likes || 0}</span>
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+            
+            {/* Comment Input */}
+            <div className="comment-input-section">
+              <button className="comment-attach-btn">
+                <FontAwesomeIcon icon={faPaperclip} />
+              </button>
+              <button className="comment-emoji-btn">
+                <FontAwesomeIcon icon={faSmile} />
+              </button>
+              <input
+                ref={commentInputRef}
+                type="text"
+                value={newComment}
+                onChange={(e) => setNewComment(e.target.value)}
+                placeholder="Add a comment..."
+                className="comment-input"
+                onKeyPress={(e) => e.key === 'Enter' && handleAddComment()}
               />
-            ))}
+              <button 
+                onClick={handleAddComment}
+                className="comment-submit-btn"
+                disabled={!newComment.trim()}
+              >
+                <FontAwesomeIcon icon={faPaperPlane} />
+              </button>
+            </div>
           </div>
-          <button 
-            className="nav-btn down"
-            onClick={() => handleReelSwipe('up')}
-            disabled={currentReelIndex === reels.length - 1}
-          >
-            <FontAwesomeIcon icon={faChevronDown} />
-          </button>
-        </div>
+        )}
       </div>
     );
   };
