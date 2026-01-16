@@ -19,12 +19,24 @@ const SellerProfile = () => {
   const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState({});
   const [success, setSuccess] = useState('');
+  const [isEditing, setIsEditing] = useState(false);
+  const [isDarkMode, setIsDarkMode] = useState(false);
   const fileInputRef = useRef(null);
   const logoInputRef = useRef(null);
 
   useEffect(() => {
     fetchProfile();
+    const savedTheme = localStorage.getItem('theme') === 'dark';
+    setIsDarkMode(savedTheme);
+    document.documentElement.setAttribute('data-theme', savedTheme ? 'dark' : 'light');
   }, []);
+
+  const toggleTheme = () => {
+    const newTheme = !isDarkMode;
+    setIsDarkMode(newTheme);
+    document.documentElement.setAttribute('data-theme', newTheme ? 'dark' : 'light');
+    localStorage.setItem('theme', newTheme ? 'dark' : 'light');
+  };
 
   const fetchProfile = async () => {
     try {
@@ -85,7 +97,6 @@ const SellerProfile = () => {
     }
   };
 
-  // ✅ FIXED: Updated image upload function
   const handleImageUpload = async (file, type) => {
     try {
       setSaving(true);
@@ -129,25 +140,294 @@ const SellerProfile = () => {
     }
   };
 
-  const tabs = [
-    { id: 'personal', label: 'Personal', icon: 'fas fa-user' },
-    { id: 'business', label: 'Business', icon: 'fas fa-building' },
-    { id: 'communication', label: 'Notifications', icon: 'fas fa-bell' },
-    { id: 'operational', label: 'Operations', icon: 'fas fa-cogs' },
-    { id: 'payment', label: 'Payment', icon: 'fas fa-credit-card' },
-    { id: 'security', label: 'Security', icon: 'fas fa-shield-alt' },
-    { id: 'integrations', label: 'Integrations', icon: 'fas fa-plug' },
-    { id: 'preferences', label: 'Preferences', icon: 'fas fa-sliders-h' },
-    { id: 'documents', label: 'Documents', icon: 'fas fa-file-alt' }
-  ];
-
-  // ✅ ADDED: Security function for hiding sensitive data
   const maskSensitiveData = (value, type) => {
     if (!value) return '';
     if (type === 'account') return '••••••••';
     if (type === 'routing') return '••••••••';
     return value;
   };
+
+  const renderPublicProfile = () => (
+    <div className="marketverse-profile">
+      <div className="profile-time-bar">
+        <span className="time-display">7:56</span>
+        <div className="theme-toggle-btn" onClick={toggleTheme}>
+          <i className={isDarkMode ? "fas fa-sun" : "fas fa-moon"}></i>
+        </div>
+      </div>
+
+      <div className="profile-header-section">
+        <div className="profile-identity">
+          <div className="profile-avatar-large">
+            {profileData.personalInfo.profileImage ? (
+              <img src={profileData.personalInfo.profileImage} alt="Profile" />
+            ) : (
+              <div className="avatar-placeholder-large">
+                <i className="fas fa-user"></i>
+              </div>
+            )}
+          </div>
+          
+          <div className="profile-info">
+            <h2 className="profile-username">{profileData.personalInfo.username || "cartify_market.926"}</h2>
+            <h1 className="profile-display-name">{profileData.businessInfo.displayName || "Your Store Name"}</h1>
+            <div className="profile-bio">
+              <p>{profileData.businessInfo.description || "Add your business description here"}</p>
+              <div className="profile-tags">
+                <span>Shop</span>
+                <span>Sell</span>
+                <span>Promote</span>
+                <span>more</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <div className="profile-actions">
+          <button className="btn-edit-profile" onClick={() => setIsEditing(true)}>
+            <i className="fas fa-edit"></i> Edit profile
+          </button>
+          <button className="btn-share-profile">
+            <i className="fas fa-share-alt"></i> Share profile
+          </button>
+        </div>
+      </div>
+
+      <div className="profile-completion-section">
+        <h3>Complete your profile</h3>
+        <div className="completion-indicator">
+          <div className="completion-dots">
+            <div className="dot complete"></div>
+            <div className="dot complete"></div>
+            <div className="dot complete"></div>
+            <div className="dot"></div>
+          </div>
+          <span className="completion-text">3 of 4 complete</span>
+        </div>
+        
+        <div className="completion-tasks">
+          <div className="completion-task">
+            <i className="fas fa-user-plus"></i>
+            <div className="task-info">
+              <p className="task-title">Find people to follow</p>
+              <p className="task-subtitle">Follow 5 or more accounts.</p>
+            </div>
+            <button className="btn-task">Find people</button>
+          </div>
+          <div className="completion-task">
+            <i className="fas fa-user-edit"></i>
+            <div className="task-info">
+              <p className="task-title">Add your name</p>
+              <p className="task-subtitle">Add your full name so you can make friends know it's you.</p>
+            </div>
+            <button className="btn-task">Edit name</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderEditProfile = () => (
+    <div className="edit-profile-view">
+      <div className="edit-header">
+        <h2>Edit profile</h2>
+        <button className="btn-close-edit" onClick={() => setIsEditing(false)}>
+          <i className="fas fa-arrow-left"></i> Back
+        </button>
+      </div>
+
+      <div className="edit-form-container">
+        <div className="edit-business-header">
+          <h3>{profileData.businessInfo.displayName || "Your Business"}</h3>
+        </div>
+
+        <div className="edit-form">
+          <div className="form-section">
+            <label className="form-label">Edit picture or avatar</label>
+            <div className="avatar-upload-section">
+              <div className="avatar-preview-edit">
+                {profileData.personalInfo.profileImage ? (
+                  <img src={profileData.personalInfo.profileImage} alt="Profile" />
+                ) : (
+                  <div className="avatar-placeholder-edit">
+                    <i className="fas fa-camera"></i>
+                  </div>
+                )}
+              </div>
+              <input 
+                type="file" 
+                ref={fileInputRef}
+                accept="image/*"
+                style={{ display: 'none' }}
+                onChange={(e) => {
+                  const file = e.target.files[0];
+                  if (file) handleImageUpload(file, 'profileImage');
+                }}
+              />
+              <button className="btn-change-avatar" onClick={() => fileInputRef.current.click()}>
+                <i className="fas fa-upload"></i> Upload Photo
+              </button>
+            </div>
+          </div>
+
+          <div className="form-section">
+            <div className="form-group">
+              <label className="form-label">Name</label>
+              <input 
+                type="text" 
+                className="form-input"
+                value={profileData.businessInfo.displayName || ""}
+                onChange={(e) => handleInputChange('businessInfo', 'displayName', e.target.value)}
+                placeholder="Your Business Name"
+              />
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Username</label>
+              <input 
+                type="text" 
+                className="form-input readonly"
+                value={profileData.personalInfo.username || "cartify_market.926"}
+                readOnly
+              />
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Pronouns</label>
+              <select 
+                className="form-select"
+                value={profileData.personalInfo.pronouns || ""}
+                onChange={(e) => handleInputChange('personalInfo', 'pronouns', e.target.value)}
+              >
+                <option value="">Pronouns</option>
+                <option value="she/her">She/Her</option>
+                <option value="he/him">He/Him</option>
+                <option value="they/them">They/Them</option>
+              </select>
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Bio</label>
+              <textarea 
+                className="form-textarea"
+                value={profileData.businessInfo.description || ""}
+                onChange={(e) => handleInputChange('businessInfo', 'description', e.target.value)}
+                rows="5"
+                placeholder="Tell about your business..."
+              />
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Links</label>
+              <button className="btn-add-item">
+                <i className="fas fa-plus"></i> Add links
+              </button>
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Banners</label>
+              <button className="btn-add-item">
+                <i className="fas fa-plus"></i> Add banners
+              </button>
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Gender</label>
+              <select 
+                className="form-select"
+                value={profileData.personalInfo.gender || ""}
+                onChange={(e) => handleInputChange('personalInfo', 'gender', e.target.value)}
+              >
+                <option value="">Gender</option>
+                <option value="male">Male</option>
+                <option value="female">Female</option>
+                <option value="other">Other</option>
+                <option value="not-say">Prefer not to say</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="form-section business-info-section">
+            <h4 className="section-title">Public business information</h4>
+            
+            <div className="form-group">
+              <label className="form-label">Page</label>
+              <button className="btn-connect-page">
+                <i className="fas fa-link"></i> Connect or create
+              </button>
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Category</label>
+              <select 
+                className="form-select"
+                value={profileData.businessInfo.category || "Shopping & retail"}
+                onChange={(e) => handleInputChange('businessInfo', 'category', e.target.value)}
+              >
+                <option value="Shopping & retail">Shopping & retail</option>
+                <option value="Fashion">Fashion</option>
+                <option value="Electronics">Electronics</option>
+                <option value="Home & Garden">Home & Garden</option>
+                <option value="Food & Drink">Food & Drink</option>
+              </select>
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Contact options</label>
+              <div className="checkbox-group">
+                <label className="checkbox-label">
+                  <input 
+                    type="checkbox" 
+                    checked={profileData.businessInfo.emailContact || true}
+                    onChange={(e) => handleInputChange('businessInfo', 'emailContact', e.target.checked)}
+                  />
+                  <span className="checkbox-custom"></span>
+                  Email
+                </label>
+                <label className="checkbox-label">
+                  <input 
+                    type="checkbox" 
+                    checked={profileData.businessInfo.phoneContact || false}
+                    onChange={(e) => handleInputChange('businessInfo', 'phoneContact', e.target.checked)}
+                  />
+                  <span className="checkbox-custom"></span>
+                  Phone
+                </label>
+                <label className="checkbox-label">
+                  <input 
+                    type="checkbox" 
+                    checked={profileData.businessInfo.chatContact || false}
+                    onChange={(e) => handleInputChange('businessInfo', 'chatContact', e.target.checked)}
+                  />
+                  <span className="checkbox-custom"></span>
+                  Live Chat
+                </label>
+              </div>
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Action buttons</label>
+              <div className="action-buttons-status">
+                <span className="status-badge inactive">None active</span>
+                <button className="btn-activate-actions">
+                  Activate buttons
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div className="form-actions">
+            <button className="btn-save-changes" onClick={() => saveSection('businessInfo')}>
+              <i className="fas fa-save"></i> Save Changes
+            </button>
+            <button className="btn-cancel-changes" onClick={() => setIsEditing(false)}>
+              Cancel
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 
   const renderPersonalInfo = () => (
     <div className="profile-section-card">
@@ -977,92 +1257,96 @@ const SellerProfile = () => {
 
   return (
     <div className="seller-profile">
-      <div className="profile-header">
-        <h1><i className="fas fa-user-tie"></i> Seller Profile</h1>
-        <div className="profile-completion">
-          <div className="completion-bar">
-            <div className="completion-fill" style={{ width: '75%' }}></div>
+      {isEditing ? renderEditProfile() : renderPublicProfile()}
+      
+      {!isEditing && (
+        <>
+          <div className="profile-header">
+            <h1><i className="fas fa-user-tie"></i> Seller Profile</h1>
+            <div className="profile-completion">
+              <div className="completion-bar">
+                <div className="completion-fill" style={{ width: '75%' }}></div>
+              </div>
+              <span>75% Complete</span>
+            </div>
           </div>
-          <span>75% Complete</span>
-        </div>
-      </div>
 
-      {success && (
-        <div className="alert alert-success">
-          <i className="fas fa-check-circle"></i>
-          {success}
-        </div>
-      )}
+          {success && (
+            <div className="alert alert-success">
+              <i className="fas fa-check-circle"></i>
+              {success}
+            </div>
+          )}
 
-      {Object.keys(errors).length > 0 && (
-        <div className="alert alert-error">
-          <i className="fas fa-exclamation-triangle"></i>
-          {Object.values(errors).map((error, index) => (
-            <div key={index}>{error}</div>
-          ))}
-        </div>
-      )}
+          {Object.keys(errors).length > 0 && (
+            <div className="alert alert-error">
+              <i className="fas fa-exclamation-triangle"></i>
+              {Object.values(errors).map((error, index) => (
+                <div key={index}>{error}</div>
+              ))}
+            </div>
+          )}
 
-      <div className="profile-layout">
-        <div className="profile-sidebar">
-          <div className="profile-summary">
-            <div className="profile-avatar">
-              {profileData.personalInfo.profileImage ? (
-                <img src={profileData.personalInfo.profileImage} alt="Profile" />
-              ) : (
-                <div className="avatar-placeholder">
-                  <i className="fas fa-user"></i>
+          <div className="profile-layout">
+            <div className="profile-sidebar">
+              <div className="profile-summary">
+                <div className="profile-avatar">
+                  {profileData.personalInfo.profileImage ? (
+                    <img src={profileData.personalInfo.profileImage} alt="Profile" />
+                  ) : (
+                    <div className="avatar-placeholder">
+                      <i className="fas fa-user"></i>
+                    </div>
+                  )}
                 </div>
-              )}
+                <h3>{profileData.personalInfo.fullName || profileData.businessInfo.displayName || 'Seller Name'}</h3>
+                <p className="store-name">
+                  <i className="fas fa-store"></i>
+                  {profileData.businessInfo.displayName || 'Business Name'}
+                </p>
+                <div className="profile-verification">
+                  {profileData.documents.idVerified && (
+                    <span className="badge verified">
+                      <i className="fas fa-check-circle"></i> Verified
+                    </span>
+                  )}
+                  <span className="badge rating">
+                    <i className="fas fa-star"></i> 4.8
+                  </span>
+                </div>
+              </div>
+
+              <nav className="profile-tabs">
+                {tabs.map(tab => (
+                  <button
+                    key={tab.id}
+                    className={`tab-btn ${activeTab === tab.id ? 'active' : ''}`}
+                    onClick={() => setActiveTab(tab.id)}
+                    disabled={saving}
+                  >
+                    <i className={tab.icon}></i>
+                    {tab.label}
+                  </button>
+                ))}
+              </nav>
             </div>
-            {/* <h3>{profileData.personalInfo.fullName || 'Seller Name'}</h3> */}
-            <h3>{profileData.personalInfo.fullName || profileData.businessInfo.displayName || 'Seller Name'}</h3>
-            <p className="store-name">
-              <i className="fas fa-store"></i>
-              {profileData.businessInfo.displayName || 'Business Name'}
-            </p>
-            <div className="profile-verification">
-              {profileData.documents.idVerified && (
-                <span className="badge verified">
-                  <i className="fas fa-check-circle"></i> Verified
-                </span>
-              )}
-              <span className="badge rating">
-                <i className="fas fa-star"></i> 4.8
-              </span>
+
+            <div className="profile-main">
+              {activeTab === 'personal' && renderPersonalInfo()}
+              {activeTab === 'business' && renderBusinessInfo()}
+              {activeTab === 'communication' && renderCommunicationPrefs()}
+              {activeTab === 'operational' && renderOperationalSettings()}
+              {activeTab === 'payment' && renderPaymentInfo()}
+              {activeTab === 'security' && renderSecurity()}
+              {activeTab === 'integrations' && renderIntegrations()}
+              {activeTab === 'preferences' && renderPreferences()}
+              {activeTab === 'documents' && renderDocuments()}
             </div>
           </div>
-
-          <nav className="profile-tabs">
-            {tabs.map(tab => (
-              <button
-                key={tab.id}
-                className={`tab-btn ${activeTab === tab.id ? 'active' : ''}`}
-                onClick={() => setActiveTab(tab.id)}
-                disabled={saving}
-              >
-                <i className={tab.icon}></i>
-                {tab.label}
-              </button>
-            ))}
-          </nav>
-        </div>
-
-        <div className="profile-main">
-          {activeTab === 'personal' && renderPersonalInfo()}
-          {activeTab === 'business' && renderBusinessInfo()}
-          {activeTab === 'communication' && renderCommunicationPrefs()}
-          {activeTab === 'operational' && renderOperationalSettings()}
-          {activeTab === 'payment' && renderPaymentInfo()}
-          {activeTab === 'security' && renderSecurity()}
-          {activeTab === 'integrations' && renderIntegrations()}
-          {activeTab === 'preferences' && renderPreferences()}
-          {activeTab === 'documents' && renderDocuments()}
-        </div>
-      </div>
+        </>
+      )}
     </div>
   );
 };
-
 
 export default SellerProfile;
