@@ -12,6 +12,7 @@ const SellerProfile = () => {
     securitySettings: {},
     integrations: {},
     preferences: {},
+    
     documents: {}
   });
   const [activeTab, setActiveTab] = useState('personal');

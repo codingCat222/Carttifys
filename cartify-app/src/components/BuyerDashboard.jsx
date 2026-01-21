@@ -222,7 +222,6 @@ const BuyerDashboard = () => {
       const result = await buyerAPI.getReels();
       if (result.success && result.data) {
         setReels(result.data);
-        // Initialize comments for each reel
         const commentsData = result.data.map(reel => ({
           reelId: reel._id || reel.id,
           comments: reel.comments || [
@@ -240,7 +239,6 @@ const BuyerDashboard = () => {
     }
   };
 
-  // Comment system functions
   const handleAddComment = () => {
     if (!newComment.trim()) return;
     
@@ -693,7 +691,6 @@ const BuyerDashboard = () => {
     }
   }, [currentReelIndex, reels.length, activeSection]);
 
-  // REMOVED THE RED PRELOADER - Changed to inline loading
   if (loading && activeSection === 'home' && dashboardData.recommendedProducts.length === 0) {
     return (
       <div className="buyer-dashboard">
@@ -1495,9 +1492,7 @@ const BuyerDashboard = () => {
                 }}
               />
               
-              {/* TIKTOK-STYLE OVERLAY UI */}
               <div className="reel-overlay">
-                {/* Top Controls */}
                 <div className="reel-top-bar">
                   <button 
                     className="back-btn"
@@ -1514,9 +1509,7 @@ const BuyerDashboard = () => {
                   </button>
                 </div>
                 
-                {/* Right Side Actions (TikTok Style) */}
                 <div className="reel-right-actions">
-                  {/* Profile Avatar */}
                   <div className="reel-seller-avatar-tiktok">
                     {reel.seller?.avatar ? (
                       <img src={reel.seller.avatar} alt={reel.sellerName} />
@@ -1528,7 +1521,6 @@ const BuyerDashboard = () => {
                     <button className="follow-reel-btn-tiktok">+</button>
                   </div>
                   
-                  {/* Action Buttons */}
                   <button 
                     className={`action-btn-tiktok ${reel.isLiked || likedReels.includes(reel._id || reel.id) ? 'liked' : ''}`}
                     onClick={() => handleReelLike(reel._id || reel.id)}
@@ -1565,7 +1557,6 @@ const BuyerDashboard = () => {
                   </button>
                 </div>
                 
-                {/* Bottom Content */}
                 <div className="reel-bottom-content-tiktok">
                   <div className="reel-seller-info-tiktok">
                     <div className="seller-info-row">
@@ -1581,7 +1572,6 @@ const BuyerDashboard = () => {
                       </div>
                     )}
                     
-                    {/* Sound/Music Info */}
                     {reel.sound && (
                       <div className="sound-info-tiktok">
                         <FontAwesomeIcon icon={faMusic} />
@@ -1590,7 +1580,6 @@ const BuyerDashboard = () => {
                     )}
                   </div>
                   
-                  {/* Product Card */}
                   {reel.product && (
                     <div 
                       className="reel-product-card-tiktok"
@@ -1615,7 +1604,6 @@ const BuyerDashboard = () => {
                   )}
                 </div>
                 
-                {/* Progress Bar */}
                 <div className="reel-progress-tiktok">
                   {reels.map((_, index) => (
                     <div 
@@ -1631,7 +1619,6 @@ const BuyerDashboard = () => {
           ))}
         </div>
         
-        {/* Comments Overlay */}
         {showComments && (
           <div className="comments-overlay">
             <div className="comments-header">
@@ -1677,7 +1664,6 @@ const BuyerDashboard = () => {
                         </button>
                       </div>
                       
-                      {/* Reply Input */}
                       {replyingTo === comment.id && (
                         <div className="reply-input-section">
                           <input
@@ -1697,7 +1683,6 @@ const BuyerDashboard = () => {
                         </div>
                       )}
                       
-                      {/* Replies */}
                       {comment.replies && comment.replies.length > 0 && (
                         <div className="replies-list">
                           {comment.replies.map(reply => (
@@ -1729,7 +1714,6 @@ const BuyerDashboard = () => {
               )}
             </div>
             
-            {/* Comment Input */}
             <div className="comment-input-section">
               <button className="comment-attach-btn">
                 <FontAwesomeIcon icon={faPaperclip} />
@@ -1830,51 +1814,6 @@ const BuyerDashboard = () => {
 
   return (
     <div className="buyer-dashboard">
-      <div className="top-nav">
-        <button 
-          className={`nav-item ${activeSection === 'home' ? 'active' : ''}`}
-          onClick={() => setActiveSection('home')}
-        >
-          <FontAwesomeIcon icon={faHome} />
-          <span>Home</span>
-        </button>
-        
-        <button 
-          className={`nav-item ${activeSection === 'categories' ? 'active' : ''}`}
-          onClick={() => setActiveSection('categories')}
-        >
-          <FontAwesomeIcon icon={faList} />
-          <span>Categories</span>
-        </button>
-        
-        <button 
-          className={`nav-item ${activeSection === 'reels' ? 'active' : ''}`}
-          onClick={() => setActiveSection('reels')}
-        >
-          <FontAwesomeIcon icon={faVideo} />
-          <span>Reels</span>
-        </button>
-        
-        <button 
-          className={`nav-item ${activeSection === 'orders' ? 'active' : ''}`}
-          onClick={() => setActiveSection('orders')}
-        >
-          <FontAwesomeIcon icon={faBox} />
-          <span>Orders</span>
-          {dashboardData.stats.pendingOrders > 0 && (
-            <span className="nav-badge">{dashboardData.stats.pendingOrders}</span>
-          )}
-        </button>
-        
-        <button 
-          className={`nav-item ${activeSection === 'profile' ? 'active' : ''}`}
-          onClick={() => setActiveSection('profile')}
-        >
-          <FontAwesomeIcon icon={faUser} />
-          <span>Me</span>
-        </button>
-      </div>
-
       <div className="main-content">
         {activeSection === 'home' && renderHomeScreen()}
         {activeSection === 'reels' && renderReelsPage()}
@@ -1947,6 +1886,55 @@ const BuyerDashboard = () => {
             </div>
           </div>
         )}
+      </div>
+
+      {/* BOTTOM NAVIGATION - CHANGED: Categories replaced with Hot deals */}
+      <div className="bottom-nav">
+        <button 
+          className={`bottom-nav-item ${activeSection === 'home' ? 'active' : ''}`}
+          onClick={() => setActiveSection('home')}
+        >
+          <FontAwesomeIcon icon={faHome} />
+          <span>Home</span>
+        </button>
+        
+        <button 
+          className={`bottom-nav-item ${activeSection === 'hotdeals' ? 'active' : ''}`}
+          onClick={() => {
+            setSearchQuery('deals');
+            setActiveSection('search');
+          }}
+        >
+          <FontAwesomeIcon icon={faFire} />
+          <span>Hot deals</span>
+        </button>
+        
+        <button 
+          className={`bottom-nav-item ${activeSection === 'reels' ? 'active' : ''}`}
+          onClick={() => setActiveSection('reels')}
+        >
+          <FontAwesomeIcon icon={faVideo} />
+          <span>Reels</span>
+        </button>
+        
+        <button 
+          className={`bottom-nav-item ${activeSection === 'orders' ? 'active' : ''}`}
+          onClick={() => setActiveSection('orders')}
+        >
+          <FontAwesomeIcon icon={faBox} />
+          <span>Orders</span>
+          {dashboardData.stats.pendingOrders > 0 && (
+            <span className="nav-badge">{dashboardData.stats.pendingOrders}</span>
+          )}
+        </button>
+        
+        <button 
+          className={`bottom-nav-item ${activeSection === 'profile' ? 'active' : ''}`}
+          onClick={() => setActiveSection('profile')}
+        >
+          <FontAwesomeIcon icon={faUser} />
+          <span>Me</span>
+        </button>
       </div>
     </div>
   );
