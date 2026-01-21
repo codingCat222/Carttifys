@@ -15,7 +15,7 @@ import {
   faLock, faShieldAlt, faVideo, faPause, faPlay, faVolumeUp, faVolumeMute,
   faShare, faComment, faEllipsisV, faChevronUp, faShoppingBag as faBag,
   faFire, faEye, faShoppingCart as faCart, faPaperPlane, faNairaSign,
-  faPaperclip, faSmile, faMusic
+  faPaperclip, faSmile, faMusic, faBars, faChevronLeft, faSun, faMoon
 } from '@fortawesome/free-solid-svg-icons';
 
 const BuyerDashboard = () => {
@@ -44,6 +44,7 @@ const BuyerDashboard = () => {
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [selectedAddress, setSelectedAddress] = useState('address1');
   const [selectedPayment, setSelectedPayment] = useState('card1');
+  const [darkMode, setDarkMode] = useState(false);
   
   const [categories] = useState([
     'Electronics', 'Fashion', 'Beauty', 'Home', 'Baby', 'Phones', 'Groceries', 'More'
@@ -59,6 +60,12 @@ const BuyerDashboard = () => {
     { id: 'card2', type: 'MasterCard', number: '**** 5678', isDefault: false }
   ]);
   
+  const [ads] = useState([
+    { id: 1, image: '/images/ads/black-friday.jpg', title: 'Black Friday Sale', description: 'Up to 70% off' },
+    { id: 2, image: '/images/ads/electronics.jpg', title: 'New Arrivals', description: 'Latest Gadgets' },
+    { id: 3, image: '/images/ads/fashion.jpg', title: 'Summer Collection', description: 'Trendy Styles' }
+  ]);
+  
   const [reels, setReels] = useState([]);
   const [currentReelIndex, setCurrentReelIndex] = useState(0);
   const [isMuted, setIsMuted] = useState(true);
@@ -70,10 +77,13 @@ const BuyerDashboard = () => {
   const [newComment, setNewComment] = useState('');
   const [replyingTo, setReplyingTo] = useState(null);
   const [replyText, setReplyText] = useState('');
+  const [touchStartY, setTouchStartY] = useState(0);
+  const [touchEndY, setTouchEndY] = useState(0);
   
   const videoRefs = useRef([]);
   const reelContainerRef = useRef(null);
   const commentInputRef = useRef(null);
+  const adsRef = useRef(null);
 
   const getProductImage = (product) => {
     if (!product) return '/images/placeholder.jpg';
@@ -559,12 +569,32 @@ const BuyerDashboard = () => {
     navigate('/profile/edit');
   };
   
-  const handleReelSwipe = (direction) => {
-    if (direction === 'up' && currentReelIndex < reels.length - 1) {
+  const handleReelTouchStart = (e) => {
+    setTouchStartY(e.touches[0].clientY);
+  };
+
+  const handleReelTouchMove = (e) => {
+    setTouchEndY(e.touches[0].clientY);
+  };
+
+  const handleReelTouchEnd = () => {
+    if (!touchStartY || !touchEndY) return;
+    
+    const distance = touchStartY - touchEndY;
+    const minSwipeDistance = 50;
+    
+    if (Math.abs(distance) < minSwipeDistance) return;
+    
+    if (distance > 0 && currentReelIndex < reels.length - 1) {
+      // Swipe up - next reel
       setCurrentReelIndex(prev => prev + 1);
-    } else if (direction === 'down' && currentReelIndex > 0) {
+    } else if (distance < 0 && currentReelIndex > 0) {
+      // Swipe down - previous reel
       setCurrentReelIndex(prev => prev - 1);
     }
+    
+    setTouchStartY(0);
+    setTouchEndY(0);
   };
   
   const handleReelLike = async (reelId) => {
@@ -722,45 +752,20 @@ const BuyerDashboard = () => {
   
   const renderHomeScreen = () => (
     <div className="home-section">
-      <div className="home-header">
-        <div className="header-content">
-          <div className="location-display">
-            <FontAwesomeIcon icon={faLocationDot} />
-            <span>Lagos, Nigeria</span>
-          </div>
-          <div className="header-actions">
-            <button className="icon-button notification-btn">
-              <FontAwesomeIcon icon={faBell} />
-              <span className="notification-dot"></span>
-            </button>
-            <button 
-              className="icon-button cart-btn"
-              onClick={() => setActiveSection('cart')}
-            >
-              <FontAwesomeIcon icon={faShoppingCart} />
-              {cartItems.length > 0 && (
-                <span className="cart-count">{cartItems.length}</span>
-              )}
-            </button>
-          </div>
-        </div>
-        
-        <div className="search-container">
-          <div className="search-bar">
-            <FontAwesomeIcon icon={faSearch} />
-            <input 
-              type="text" 
-              placeholder="Search for products, brands, and categories..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
-            />
-            {searchQuery && (
-              <button onClick={() => setSearchQuery('')}>
-                <FontAwesomeIcon icon={faTimes} />
-              </button>
-            )}
-          </div>
+      {/* Ads Banner */}
+      <div className="ads-banner" ref={adsRef}>
+        <div className="ads-container">
+          {ads.map(ad => (
+            <div key={ad.id} className="ad-item">
+              <div className="ad-image">
+                <img src={ad.image} alt={ad.title} />
+                <div className="ad-overlay">
+                  <h3>{ad.title}</h3>
+                  <p>{ad.description}</p>
+                </div>
+              </div>
+            </div>
+          ))}
         </div>
       </div>
 
@@ -787,33 +792,6 @@ const BuyerDashboard = () => {
             <span className="category-name">{category}</span>
           </button>
         ))}
-      </div>
-
-      <div className="featured-banner">
-        <div className="banner-content">
-          <h2>Black Friday Sale! 🎉</h2>
-          <p>Up to 70% off on all products</p>
-          <button className="shop-now-btn">Shop Now</button>
-        </div>
-      </div>
-
-      <div className="quick-actions">
-        <button className="quick-action" onClick={() => setActiveSection('reels')}>
-          <FontAwesomeIcon icon={faVideo} />
-          <span>Reels</span>
-        </button>
-        <button className="quick-action" onClick={() => setActiveSection('orders')}>
-          <FontAwesomeIcon icon={faBox} />
-          <span>Orders</span>
-        </button>
-        <button className="quick-action" onClick={() => alert('Deals')}>
-          <FontAwesomeIcon icon={faFire} />
-          <span>Deals</span>
-        </button>
-        <button className="quick-action" onClick={() => setActiveSection('profile')}>
-          <FontAwesomeIcon icon={faUserCircle} />
-          <span>Profile</span>
-        </button>
       </div>
 
       <div className="trending-section">
@@ -1088,7 +1066,7 @@ const BuyerDashboard = () => {
                     selectedProduct.seller?.name
                   )}
                 >
-                  Contact Seller
+                  Message Seller
                 </button>
               </div>
             </div>
@@ -1281,7 +1259,7 @@ const BuyerDashboard = () => {
   );
   
   const renderBuyerProfilePage = () => (
-    <div className="profile-page">
+    <div className={`profile-page ${darkMode ? 'dark-mode' : ''}`}>
       <div className="profile-header">
         <div className="profile-avatar-section">
           <div className="profile-avatar-large">
@@ -1296,6 +1274,16 @@ const BuyerDashboard = () => {
             <FontAwesomeIcon icon={faEdit} /> Edit Profile
           </button>
         </div>
+      </div>
+      
+      <div className="theme-toggle">
+        <button 
+          className={`theme-toggle-btn ${darkMode ? 'active' : ''}`}
+          onClick={() => setDarkMode(!darkMode)}
+        >
+          <FontAwesomeIcon icon={darkMode ? faSun : faMoon} />
+          <span>{darkMode ? 'Light Mode' : 'Dark Mode'}</span>
+        </button>
       </div>
       
       <div className="profile-stats">
@@ -1338,6 +1326,17 @@ const BuyerDashboard = () => {
           </div>
           <div className="menu-item-right">
             <span className="menu-badge">{savedItems.length}</span>
+            <FontAwesomeIcon icon={faChevronRight} />
+          </div>
+        </button>
+        
+        <button className="menu-item" onClick={() => navigate('/messages')}>
+          <div className="menu-item-left">
+            <FontAwesomeIcon icon={faMessage} />
+            <span>Messages</span>
+          </div>
+          <div className="menu-item-right">
+            <span className="menu-badge">3</span>
             <FontAwesomeIcon icon={faChevronRight} />
           </div>
         </button>
@@ -1466,7 +1465,11 @@ const BuyerDashboard = () => {
     
     return (
       <div className="reels-page">
-        <div className="reel-container">
+        <div className="reel-container"
+          onTouchStart={handleReelTouchStart}
+          onTouchMove={handleReelTouchMove}
+          onTouchEnd={handleReelTouchEnd}
+        >
           {reels.map((reel, index) => (
             <div 
               key={reel._id || reel.id || index}
@@ -1812,8 +1815,82 @@ const BuyerDashboard = () => {
     </div>
   );
 
+  const renderCategoriesPage = () => (
+    <div className="categories-page">
+      <div className="categories-header">
+        <button onClick={() => setActiveSection('home')}>
+          <FontAwesomeIcon icon={faArrowLeft} />
+        </button>
+        <h2>Categories</h2>
+        <div></div>
+      </div>
+      <div className="categories-list-full">
+        {categories.map((cat, index) => (
+          <button key={index} className="category-full-item" onClick={() => {
+            setSearchQuery(cat);
+            setActiveSection('search');
+          }}>
+            <div className="category-full-icon">
+              {index === 0 && <FontAwesomeIcon icon={faBag} />}
+              {index === 1 && <FontAwesomeIcon icon={faUser} />}
+              {index === 2 && <FontAwesomeIcon icon={faGift} />}
+              {index === 3 && <FontAwesomeIcon icon={faHome} />}
+              {index === 4 && <FontAwesomeIcon icon={faUsers} />}
+              {index === 5 && <FontAwesomeIcon icon={faPhone} />}
+              {index === 6 && <FontAwesomeIcon icon={faShoppingBasket} />}
+              {index === 7 && <FontAwesomeIcon icon={faList} />}
+            </div>
+            <span>{cat}</span>
+            <FontAwesomeIcon icon={faChevronRight} />
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+
   return (
     <div className="buyer-dashboard">
+      {/* TOP NAVIGATION */}
+      <div className="top-nav">
+        <button 
+          className="top-nav-item categories-btn"
+          onClick={() => setActiveSection('categories')}
+        >
+          <FontAwesomeIcon icon={faBars} />
+        </button>
+        
+        <div className="search-container-top">
+          <div className="search-bar-top">
+            <FontAwesomeIcon icon={faSearch} />
+            <input 
+              type="text" 
+              placeholder="Search products, brands"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
+            />
+          </div>
+        </div>
+        
+        <button 
+          className="top-nav-item message-btn"
+          onClick={() => navigate('/messages')}
+        >
+          <FontAwesomeIcon icon={faMessage} />
+          <span className="message-badge">3</span>
+        </button>
+        
+        <button 
+          className="top-nav-item cart-btn-top"
+          onClick={() => setActiveSection('cart')}
+        >
+          <FontAwesomeIcon icon={faShoppingCart} />
+          {cartItems.length > 0 && (
+            <span className="cart-count-top">{cartItems.length}</span>
+          )}
+        </button>
+      </div>
+
       <div className="main-content">
         {activeSection === 'home' && renderHomeScreen()}
         {activeSection === 'reels' && renderReelsPage()}
@@ -1823,72 +1900,10 @@ const BuyerDashboard = () => {
         {activeSection === 'cart' && renderCartPage()}
         {activeSection === 'checkout' && renderCheckoutPage()}
         {activeSection === 'orders' && renderOrdersPage()}
-        {activeSection === 'inbox' && (
-          <div className="inbox-page">
-            <div className="inbox-header">
-              <button onClick={() => setActiveSection('home')}>
-                <FontAwesomeIcon icon={faArrowLeft} />
-              </button>
-              <h2>Messages</h2>
-              <div></div>
-            </div>
-            <div className="empty-inbox">
-              <FontAwesomeIcon icon={faInbox} size="3x" />
-              <p>No messages yet</p>
-            </div>
-          </div>
-        )}
-        {activeSection === 'sell' && (
-          <div className="sell-page">
-            <div className="sell-header">
-              <button onClick={() => setActiveSection('home')}>
-                <FontAwesomeIcon icon={faArrowLeft} />
-              </button>
-              <h2>Sell</h2>
-              <div></div>
-            </div>
-            <div className="sell-content">
-              <button className="sell-main-btn">
-                <FontAwesomeIcon icon={faPlus} /> List Item for Sale
-              </button>
-            </div>
-          </div>
-        )}
-        {activeSection === 'categories' && (
-          <div className="categories-page">
-            <div className="categories-header">
-              <button onClick={() => setActiveSection('home')}>
-                <FontAwesomeIcon icon={faArrowLeft} />
-              </button>
-              <h2>Categories</h2>
-              <div></div>
-            </div>
-            <div className="categories-list-full">
-              {categories.map((cat, index) => (
-                <button key={index} className="category-full-item" onClick={() => {
-                  setSearchQuery(cat);
-                  setActiveSection('search');
-                }}>
-                  <div className="category-full-icon">
-                    {index === 0 && <FontAwesomeIcon icon={faBag} />}
-                    {index === 1 && <FontAwesomeIcon icon={faUser} />}
-                    {index === 2 && <FontAwesomeIcon icon={faGift} />}
-                    {index === 3 && <FontAwesomeIcon icon={faHome} />}
-                    {index === 4 && <FontAwesomeIcon icon={faUsers} />}
-                    {index === 5 && <FontAwesomeIcon icon={faPhone} />}
-                    {index === 6 && <FontAwesomeIcon icon={faShoppingBasket} />}
-                    {index === 7 && <FontAwesomeIcon icon={faList} />}
-                  </div>
-                  <span>{cat}</span>
-                  <FontAwesomeIcon icon={faChevronRight} />
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
+        {activeSection === 'categories' && renderCategoriesPage()}
       </div>
 
-      {/* BOTTOM NAVIGATION - CHANGED: Categories replaced with Hot deals */}
+      {/* BOTTOM NAVIGATION */}
       <div className="bottom-nav">
         <button 
           className={`bottom-nav-item ${activeSection === 'home' ? 'active' : ''}`}
@@ -1901,7 +1916,7 @@ const BuyerDashboard = () => {
         <button 
           className={`bottom-nav-item ${activeSection === 'hotdeals' ? 'active' : ''}`}
           onClick={() => {
-            setSearchQuery('deals');
+            setSearchQuery('hot deals');
             setActiveSection('search');
           }}
         >

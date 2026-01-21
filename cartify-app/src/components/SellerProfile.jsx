@@ -12,7 +12,6 @@ const SellerProfile = () => {
     securitySettings: {},
     integrations: {},
     preferences: {},
-    
     documents: {}
   });
   const [activeTab, setActiveTab] = useState('personal');
@@ -24,6 +23,19 @@ const SellerProfile = () => {
   const [isDarkMode, setIsDarkMode] = useState(false);
   const fileInputRef = useRef(null);
   const logoInputRef = useRef(null);
+
+  // Define tabs array - THIS WAS MISSING!
+  const tabs = [
+    { id: 'personal', label: 'Personal Info', icon: 'fas fa-user-circle' },
+    { id: 'business', label: 'Business Info', icon: 'fas fa-briefcase' },
+    { id: 'communication', label: 'Communication', icon: 'fas fa-comments' },
+    { id: 'operational', label: 'Operational', icon: 'fas fa-tasks' },
+    { id: 'payment', label: 'Payment Info', icon: 'fas fa-wallet' },
+    { id: 'security', label: 'Security', icon: 'fas fa-shield-alt' },
+    { id: 'integrations', label: 'Integrations', icon: 'fas fa-puzzle-piece' },
+    { id: 'preferences', label: 'Preferences', icon: 'fas fa-sliders-h' },
+    { id: 'documents', label: 'Documents', icon: 'fas fa-folder-open' }
+  ];
 
   useEffect(() => {
     fetchProfile();
