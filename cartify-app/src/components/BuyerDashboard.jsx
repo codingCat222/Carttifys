@@ -61,9 +61,9 @@ const BuyerDashboard = () => {
   ]);
   
   const [ads] = useState([
-    { id: 1, image: '/images/ads/black-friday.jpg', title: 'Black Friday Sale', description: 'Up to 70% off' },
-    { id: 2, image: '/images/ads/electronics.jpg', title: 'New Arrivals', description: 'Latest Gadgets' },
-    { id: 3, image: '/images/ads/fashion.jpg', title: 'Summer Collection', description: 'Trendy Styles' }
+    { id: 1, image: 'https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?q=80&w=2070', title: 'Black Friday Sale', description: 'Up to 70% off' },
+    { id: 2, image: 'https://images.unsplash.com/photo-1498049794561-7780e7231661?q=80&w=2070', title: 'New Arrivals', description: 'Latest Gadgets' },
+    { id: 3, image: 'https://images.unsplash.com/photo-1445205170230-053b83016050?q=80&w=2071', title: 'Summer Collection', description: 'Trendy Styles' }
   ]);
   
   const [reels, setReels] = useState([]);
@@ -112,20 +112,18 @@ const BuyerDashboard = () => {
       return product.productImage;
     }
     
-    return '/images/placeholder.jpg';
+    return 'https://images.unsplash.com/photo-1556228578-9c360e1d8d34?q=80&w=1974';
   };
   
   const formatPrice = (price) => {
     const nairaPrice = parseFloat(price);
     if (isNaN(nairaPrice)) return '₦0';
-    
     return `₦${nairaPrice.toLocaleString('en-NG')}`;
   };
 
   const formatPriceNumber = (price) => {
     const nairaPrice = parseFloat(price);
     if (isNaN(nairaPrice)) return '0';
-    
     return nairaPrice.toLocaleString('en-NG');
   };
 
@@ -201,7 +199,6 @@ const BuyerDashboard = () => {
   const fetchCartItems = async () => {
     try {
       const result = await buyerAPI.getCart();
-      
       if (result.success && result.data && result.data.items) {
         setCartItems(result.data.items);
       } else {
@@ -351,6 +348,29 @@ const BuyerDashboard = () => {
       commentInputRef.current.focus();
     }
   }, [showComments]);
+
+  useEffect(() => {
+    const handleWheel = (e) => {
+      if (activeSection !== 'reels') return;
+      
+      e.preventDefault();
+      if (Math.abs(e.deltaY) < 50) return;
+      
+      if (e.deltaY > 0 && currentReelIndex < reels.length - 1) {
+        setCurrentReelIndex(prev => prev + 1);
+      } else if (e.deltaY < 0 && currentReelIndex > 0) {
+        setCurrentReelIndex(prev => prev - 1);
+      }
+    };
+
+    if (activeSection === 'reels') {
+      window.addEventListener('wheel', handleWheel, { passive: false });
+    }
+    
+    return () => {
+      window.removeEventListener('wheel', handleWheel);
+    };
+  }, [activeSection, currentReelIndex, reels.length]);
 
   useEffect(() => {
     if (!searchQuery.trim()) {
@@ -586,10 +606,8 @@ const BuyerDashboard = () => {
     if (Math.abs(distance) < minSwipeDistance) return;
     
     if (distance > 0 && currentReelIndex < reels.length - 1) {
-      // Swipe up - next reel
       setCurrentReelIndex(prev => prev + 1);
     } else if (distance < 0 && currentReelIndex > 0) {
-      // Swipe down - previous reel
       setCurrentReelIndex(prev => prev - 1);
     }
     
@@ -752,7 +770,6 @@ const BuyerDashboard = () => {
   
   const renderHomeScreen = () => (
     <div className="home-section">
-      {/* Ads Banner */}
       <div className="ads-banner" ref={adsRef}>
         <div className="ads-container">
           {ads.map(ad => (
@@ -836,7 +853,7 @@ const BuyerDashboard = () => {
                     alt={product.name}
                     className="product-image"
                     onError={(e) => {
-                      e.target.src = '/images/placeholder.jpg';
+                      e.target.src = 'https://images.unsplash.com/photo-1556228578-9c360e1d8d34?q=80&w=1974';
                       e.target.className = 'product-image placeholder';
                     }}
                   />
@@ -1276,16 +1293,6 @@ const BuyerDashboard = () => {
         </div>
       </div>
       
-      <div className="theme-toggle">
-        <button 
-          className={`theme-toggle-btn ${darkMode ? 'active' : ''}`}
-          onClick={() => setDarkMode(!darkMode)}
-        >
-          <FontAwesomeIcon icon={darkMode ? faSun : faMoon} />
-          <span>{darkMode ? 'Light Mode' : 'Dark Mode'}</span>
-        </button>
-      </div>
-      
       <div className="profile-stats">
         <div className="stat-item">
           <FontAwesomeIcon icon={faBox} />
@@ -1372,6 +1379,16 @@ const BuyerDashboard = () => {
           </div>
           <FontAwesomeIcon icon={faChevronRight} />
         </button>
+
+        <div className="theme-toggle">
+          <button 
+            className={`theme-toggle-btn ${darkMode ? 'active' : ''}`}
+            onClick={() => setDarkMode(!darkMode)}
+          >
+            <FontAwesomeIcon icon={darkMode ? faSun : faMoon} />
+            <span>{darkMode ? 'Light Mode' : 'Dark Mode'}</span>
+          </button>
+        </div>
         
         <button className="menu-item logout-item" onClick={handleLogout}>
           <div className="menu-item-left">
@@ -1465,7 +1482,9 @@ const BuyerDashboard = () => {
     
     return (
       <div className="reels-page">
-        <div className="reel-container"
+        <div 
+          className="reel-container"
+          ref={reelContainerRef}
           onTouchStart={handleReelTouchStart}
           onTouchMove={handleReelTouchMove}
           onTouchEnd={handleReelTouchEnd}
@@ -1474,10 +1493,11 @@ const BuyerDashboard = () => {
             <div 
               key={reel._id || reel.id || index}
               className={`reel-video-wrapper ${index === currentReelIndex ? 'active' : ''}`}
+              style={{ transform: `translateY(${currentReelIndex * -100}vh)` }}
             >
               <video
                 ref={(el) => (videoRefs.current[index] = el)}
-                src={reel.videoUrl || reel.mediaUrl}
+                src={reel.videoUrl || reel.mediaUrl || 'https://assets.mixkit.co/videos/preview/mixkit-man-doing-tricks-with-a-skateboard-in-a-park-34553-large.mp4'}
                 loop
                 muted={isMuted}
                 autoPlay={index === currentReelIndex}
@@ -1850,7 +1870,6 @@ const BuyerDashboard = () => {
 
   return (
     <div className="buyer-dashboard">
-      {/* TOP NAVIGATION */}
       <div className="top-nav">
         <button 
           className="top-nav-item categories-btn"
@@ -1903,7 +1922,6 @@ const BuyerDashboard = () => {
         {activeSection === 'categories' && renderCategoriesPage()}
       </div>
 
-      {/* BOTTOM NAVIGATION */}
       <div className="bottom-nav">
         <button 
           className={`bottom-nav-item ${activeSection === 'home' ? 'active' : ''}`}
