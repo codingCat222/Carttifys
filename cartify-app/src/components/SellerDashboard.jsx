@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { sellerAPI, healthAPI, API_BASE } from '../services/Api';
 import './SellerDashboard.css';
 
@@ -13,19 +13,6 @@ const SellerDashboard = () => {
   const [success, setSuccess] = useState('');
   
   const navigate = useNavigate();
-  const location = useLocation();
-
-  // KEEP THIS FUNCTION but remove its usage in header
-  const getActiveSection = () => {
-    if (location.pathname === '/seller/dashboard') return 'dashboard';
-    if (location.pathname === '/seller/analytics') return 'analytics';
-    if (location.pathname === '/seller/products') return 'products';
-    if (location.pathname === '/seller/orders') return 'orders';
-    if (location.pathname === '/seller/profile') return 'profile';
-    return 'dashboard';
-  };
-
-  const activeSection = getActiveSection();
 
   useEffect(() => {
     initializeDashboard();
@@ -343,38 +330,6 @@ const SellerDashboard = () => {
         style={{ display: 'none' }}
       />
 
-      {/* REMOVE THIS ENTIRE HEADER SECTION: */}
-      {/* <div className="dashboard-header">
-        <div className="header-content">
-          <div className="header-left">
-            <h1>
-              <i className="fas fa-store"></i>
-              {activeSection === 'dashboard' && 'Seller Dashboard'}
-              {activeSection === 'analytics' && 'Analytics'}
-              {activeSection === 'products' && 'Products'}
-              {activeSection === 'orders' && 'Orders'}
-              {activeSection === 'profile' && 'Profile'}
-            </h1>
-          </div>
-          
-          <div className="header-right">
-            <div className="connection-status connected">
-              <i className="fas fa-circle"></i>
-              <span>Connected</span>
-            </div>
-            
-            <button 
-              className="btn btn-outline refresh-btn"
-              onClick={refreshData}
-              disabled={loading}
-            >
-              <i className="fas fa-sync-alt"></i>
-              {loading ? 'Refreshing...' : 'Refresh'}
-            </button>
-          </div>
-        </div>
-      </div> */}
-
       {error && (
         <div className="alert alert-error">
           <i className="fas fa-exclamation-circle"></i>
@@ -389,173 +344,195 @@ const SellerDashboard = () => {
         </div>
       )}
 
-      <div className="dashboard-content">
-        {/* REMOVE THE CONDITIONAL RENDERING BASED ON activeSection */}
-        {/* KEEP ONLY THE DASHBOARD CONTENT: */}
-        
-        <div className="dashboard-section">
-          <div className="stats-grid">
-            <div className="stat-card">
-              <div className="stat-icon">
-                <i className="fas fa-shopping-bag"></i>
-              </div>
-              <div className="stat-content">
-                <h3>{dashboardData?.stats?.totalProducts || 0}</h3>
-                <p>Total Products</p>
-              </div>
+      {/* DASHBOARD CONTENT ONLY - No Header, No Navigation */}
+      <div className="dashboard-section">
+        {/* Connection Status & Refresh - Keep if you want */}
+        <div className="dashboard-toolbar">
+          <div className="connection-status connected">
+            <i className="fas fa-circle"></i>
+            <span>Connected</span>
+          </div>
+          
+          <button 
+            className="btn btn-outline refresh-btn"
+            onClick={refreshData}
+            disabled={loading}
+          >
+            <i className="fas fa-sync-alt"></i>
+            {loading ? 'Refreshing...' : 'Refresh'}
+          </button>
+        </div>
+
+        <div className="stats-grid">
+          <div className="stat-card">
+            <div className="stat-icon">
+              <i className="fas fa-shopping-bag"></i>
             </div>
-            
-            <div className="stat-card">
-              <div className="stat-icon">
-                <i className="fas fa-shopping-cart"></i>
-              </div>
-              <div className="stat-content">
-                <h3>{dashboardData?.stats?.totalSales || 0}</h3>
-                <p>Total Sales</p>
-              </div>
-            </div>
-            
-            <div className="stat-card">
-              <div className="stat-icon">
-                <i className="fas fa-clock"></i>
-              </div>
-              <div className="stat-content">
-                <h3>{dashboardData?.stats?.pendingOrders || 0}</h3>
-                <p>Pending Orders</p>
-              </div>
-            </div>
-            
-            <div className="stat-card">
-              <div className="stat-icon">
-                <i className="fas fa-star"></i>
-              </div>
-              <div className="stat-content">
-                <h3>{dashboardData?.stats?.averageRating || '0.0'}</h3>
-                <p>Avg Rating</p>
-              </div>
+            <div className="stat-content">
+              <h3>{dashboardData?.stats?.totalProducts || 0}</h3>
+              <p>Total Products</p>
             </div>
           </div>
-
-          <div className="section-card">
-            <div className="section-header">
-              <h3>
-                <i className="fas fa-history"></i>
-                Recent Orders
-              </h3>
-              <button className="view-all" onClick={() => navigate('/seller/orders')}>
-                View All <i className="fas fa-arrow-right"></i>
-              </button>
+          
+          <div className="stat-card">
+            <div className="stat-icon">
+              <i className="fas fa-shopping-cart"></i>
             </div>
-            
-            {dashboardData?.recentOrders?.length > 0 ? (
-              <div className="orders-table">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Order ID</th>
-                      <th>Customer</th>
-                      <th>Amount</th>
-                      <th>Status</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {dashboardData.recentOrders.slice(0, 5).map(order => (
-                      <tr key={order.id}>
-                        <td className="order-id">#{order.orderId}</td>
-                        <td>{order.customerName}</td>
-                        <td className="order-amount">{formatCurrency(order.totalAmount)}</td>
-                        <td>
-                          <span className={`status-badge ${order.status?.toLowerCase()}`}>
-                            {order.status}
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            ) : (
-              <div className="empty-state">
-                <i className="fas fa-inbox"></i>
-                <p>No orders yet</p>
-              </div>
-            )}
+            <div className="stat-content">
+              <h3>{dashboardData?.stats?.totalSales || 0}</h3>
+              <p>Total Sales</p>
+            </div>
           </div>
-
-          <div className="section-card">
-            <div className="section-header">
-              <h3>
-                <i className="fas fa-trophy"></i>
-                Your Products
-              </h3>
-              <button className="view-all" onClick={() => navigate('/seller/products')}>
-                View All <i className="fas fa-arrow-right"></i>
-              </button>
+          
+          <div className="stat-card">
+            <div className="stat-icon">
+              <i className="fas fa-clock"></i>
             </div>
-            
-            {dashboardData?.topProducts?.length > 0 ? (
-              <div className="products-grid">
-                {dashboardData.topProducts.slice(0, 3).map(product => {
-                  const imageSrc = getProductImageSrc(product);
-                  console.log(`Product "${product.name}" - imageSrc:`, imageSrc);
-                  
-                  return (
-                    <div key={product.id} className="product-card">
-                      <div className="product-image">
-                        {imageSrc ? (
-                          <img 
-                            src={imageSrc}
-                            alt={product.name}
-                            className="product-img"
-                            onError={(e) => {
-                              console.error('IMAGE ERROR - Failed to load:', e.target.src);
-                              e.target.style.display = 'none';
-                              const placeholder = e.target.parentElement.querySelector('.image-placeholder');
-                              if (placeholder) placeholder.style.display = 'flex';
-                            }}
-                            style={{ 
-                              width: '100%', 
-                              height: '100%', 
-                              objectFit: 'cover',
-                              display: 'block'
-                            }}
-                          />
-                        ) : (
-                          <div className="image-placeholder" style={{ display: 'flex' }}>
-                            <i className="fas fa-box"></i>
-                          </div>
-                        )}
-                      </div>
-                      <div className="product-info">
-                        <h4 className="product-name">{product.name}</h4>
-                        <div className="product-details">
-                          <span className="product-price">{formatCurrency(product.price)}</span>
-                          <span className="product-sales">{product.salesCount || 0} sales</span>
-                        </div>
-                        <div className="product-rating">
-                          <i className="fas fa-star"></i>
-                          <span>{product.rating || '0.0'}</span>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            ) : (
-              <div className="empty-state">
-                <i className="fas fa-box-open"></i>
-                <p>No products yet</p>
-              </div>
-            )}
+            <div className="stat-content">
+              <h3>{dashboardData?.stats?.pendingOrders || 0}</h3>
+              <p>Pending Orders</p>
+            </div>
+          </div>
+          
+          <div className="stat-card">
+            <div className="stat-icon">
+              <i className="fas fa-star"></i>
+            </div>
+            <div className="stat-content">
+              <h3>{dashboardData?.stats?.averageRating || '0.0'}</h3>
+              <p>Avg Rating</p>
+            </div>
           </div>
         </div>
-        
-        {/* REMOVE ALL OTHER SECTIONS (analytics, products, orders, profile) */}
-        {/* {activeSection === 'analytics' ? ( ... ) : null}
-        {activeSection === 'products' ? ( ... ) : null}
-        {activeSection === 'orders' ? ( ... ) : null}
-        {activeSection === 'profile' ? ( ... ) : null} */}
-        
+
+        <div className="section-card">
+          <div className="section-header">
+            <h3>
+              <i className="fas fa-history"></i>
+              Recent Orders
+            </h3>
+            <button className="view-all" onClick={() => navigate('/seller/orders')}>
+              View All <i className="fas fa-arrow-right"></i>
+            </button>
+          </div>
+          
+          {dashboardData?.recentOrders?.length > 0 ? (
+            <div className="orders-table">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Order ID</th>
+                    <th>Customer</th>
+                    <th>Amount</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {dashboardData.recentOrders.slice(0, 5).map(order => (
+                    <tr key={order.id}>
+                      <td className="order-id">#{order.orderId}</td>
+                      <td>{order.customerName}</td>
+                      <td className="order-amount">{formatCurrency(order.totalAmount)}</td>
+                      <td>
+                        <span className={`status-badge ${order.status?.toLowerCase()}`}>
+                          {order.status}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <div className="empty-state">
+              <i className="fas fa-inbox"></i>
+              <p>No orders yet</p>
+            </div>
+          )}
+        </div>
+
+        <div className="section-card">
+          <div className="section-header">
+            <h3>
+              <i className="fas fa-trophy"></i>
+              Your Products
+            </h3>
+            <button className="view-all" onClick={() => navigate('/seller/products')}>
+              View All <i className="fas fa-arrow-right"></i>
+            </button>
+          </div>
+          
+          {dashboardData?.topProducts?.length > 0 ? (
+            <div className="products-grid">
+              {dashboardData.topProducts.slice(0, 3).map(product => {
+                const imageSrc = getProductImageSrc(product);
+                console.log(`Product "${product.name}" - imageSrc:`, imageSrc);
+                
+                return (
+                  <div key={product.id} className="product-card">
+                    <div className="product-image">
+                      {imageSrc ? (
+                        <img 
+                          src={imageSrc}
+                          alt={product.name}
+                          className="product-img"
+                          onError={(e) => {
+                            console.error('IMAGE ERROR - Failed to load:', e.target.src);
+                            e.target.style.display = 'none';
+                            const placeholder = e.target.parentElement.querySelector('.image-placeholder');
+                            if (placeholder) placeholder.style.display = 'flex';
+                          }}
+                          style={{ 
+                            width: '100%', 
+                            height: '100%', 
+                            objectFit: 'cover',
+                            display: 'block'
+                          }}
+                        />
+                      ) : (
+                        <div className="image-placeholder" style={{ display: 'flex' }}>
+                          <i className="fas fa-box"></i>
+                        </div>
+                      )}
+                    </div>
+                    <div className="product-info">
+                      <h4 className="product-name">{product.name}</h4>
+                      <div className="product-details">
+                        <span className="product-price">{formatCurrency(product.price)}</span>
+                        <span className="product-sales">{product.salesCount || 0} sales</span>
+                      </div>
+                      <div className="product-rating">
+                        <i className="fas fa-star"></i>
+                        <span>{product.rating || '0.0'}</span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="empty-state">
+              <i className="fas fa-box-open"></i>
+              <p>No products yet</p>
+            </div>
+          )}
+        </div>
+
+        {/* Quick Actions Row */}
+        <div className="quick-actions-row">
+          <button className="quick-action-btn" onClick={() => handleQuickAction('add_product')}>
+            <i className="fas fa-plus-circle"></i>
+            <span>Add Product</span>
+          </button>
+          <button className="quick-action-btn" onClick={() => handleQuickAction('view_orders')}>
+            <i className="fas fa-shopping-cart"></i>
+            <span>View Orders</span>
+          </button>
+          <button className="quick-action-btn" onClick={() => navigate('/seller/analytics')}>
+            <i className="fas fa-chart-line"></i>
+            <span>View Analytics</span>
+          </button>
+        </div>
       </div>
     </div>
   );
