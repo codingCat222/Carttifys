@@ -1,8 +1,5 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
 
-// Import your API service
-import { authAPI } from '../services/Api';
-
 const AuthContext = createContext();
 
 export const useAuth = () => {
@@ -18,31 +15,29 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Check if user is logged in (from token)
-    const checkAuthStatus = async () => {
+    console.log('AuthContext: Checking authentication status...');
+    
+    const checkAuthStatus = () => {
       const token = localStorage.getItem('token');
+      const storedUser = localStorage.getItem('user');
       
-      if (token) {
+      console.log('LocalStorage check:');
+      console.log('  - Token exists:', !!token);
+      console.log('  - User exists:', !!storedUser);
+      
+      if (token && storedUser) {
         try {
-          console.log('🔐 Checking authentication status...');
-          
-          // ✅ FIXED: Use API service instead of direct fetch
-          const result = await authAPI.getCurrentUser();
-          
-          if (result.success) {
-            console.log('✅ User authenticated:', result.user.email);
-            setCurrentUser(result.user);
-          } else {
-            // Token is invalid, clear storage
-            console.warn('❌ Token invalid, clearing auth data');
-            clearAuthData();
-          }
+          const userData = JSON.parse(storedUser);
+          console.log('User authenticated:', userData.email, '- Role:', userData.role);
+          setCurrentUser(userData);
         } catch (error) {
-          console.error('❌ Auth check failed:', error);
+          console.error('Failed to parse user data:', error);
           clearAuthData();
         }
       } else {
-        console.log('🔐 No token found, user not authenticated');
+        console.log('No authentication data found');
+        if (!token) console.log('  Missing: token');
+        if (!storedUser) console.log('  Missing: user data');
       }
       setLoading(false);
     };
@@ -50,47 +45,46 @@ export const AuthProvider = ({ children }) => {
     checkAuthStatus();
   }, []);
 
-  // Helper function to clear all auth data
   const clearAuthData = () => {
+    console.log('Clearing all authentication data');
     localStorage.removeItem('token');
+    localStorage.removeItem('user');
     localStorage.removeItem('currentUser');
     localStorage.removeItem('userRole');
     localStorage.removeItem('cart');
-    sessionStorage.removeItem('token');
-    sessionStorage.removeItem('currentUser');
+    sessionStorage.clear();
     setCurrentUser(null);
   };
 
   const login = (userData, token = null) => {
+    console.log('Login function called:', userData.email, '- Role:', userData.role);
+    
     if (token) {
       localStorage.setItem('token', token);
+      console.log('  Token stored');
     }
+    
+    localStorage.setItem('user', JSON.stringify(userData));
+    console.log('  User data stored');
+    
     setCurrentUser(userData);
-    localStorage.setItem('currentUser', JSON.stringify(userData));
-    console.log('✅ User logged in:', userData.email);
+    console.log('  Context state updated');
   };
 
   const logout = () => {
     return new Promise((resolve) => {
-      // Optional: Call backend logout if needed
-      // await authAPI.logout();
-
-      // Clear ALL user-related data from storage
       clearAuthData();
-      
-      console.log('✅ Logout completed - user data cleared');
+      console.log('Logout completed');
       resolve();
     });
   };
 
-  // Update user profile (after edits)
   const updateUser = (updatedUserData) => {
     setCurrentUser(updatedUserData);
-    localStorage.setItem('currentUser', JSON.stringify(updatedUserData));
-    console.log('✅ User profile updated');
+    localStorage.setItem('user', JSON.stringify(updatedUserData));
+    console.log('User profile updated');
   };
 
-  // Check if user has specific role
   const hasRole = (role) => {
     return currentUser?.role === role;
   };
@@ -107,9 +101,24 @@ export const AuthProvider = ({ children }) => {
     isAdmin: currentUser?.role === 'admin'
   };
 
+  if (loading) {
+    return (
+      <div style={{ 
+        display: 'flex', 
+        justifyContent: 'center', 
+        alignItems: 'center', 
+        height: '100vh' 
+      }}>
+        <div>Loading...</div>
+      </div>
+    );
+  }
+
   return (
     <AuthContext.Provider value={value}>
-      {!loading && children}
+      {children}
     </AuthContext.Provider>
   );
 };
+
+export default AuthContext;

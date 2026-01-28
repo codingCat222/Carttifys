@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
@@ -40,6 +39,7 @@ const Login = () => {
         selectedRole: loginType 
       });
       
+      // Call the API - this already stores token and user in localStorage
       const response = await authAPI.login({
         email: formData.email,
         password: formData.password
@@ -47,52 +47,69 @@ const Login = () => {
 
       console.log('Login API response:', response);
 
-      if (response.success) {
-        const user = response.user;
-        
-        if (user.role !== loginType) {
-          setError(`This account is registered as a ${user.role}. Please select "Login as ${user.role === 'buyer' ? 'Buyer' : 'Seller'}" instead.`);
-          setLoading(false);
-          return;
-        }
-        
-        const token = btoa(JSON.stringify({
-          id: user.id,
-          email: user.email,
-          role: user.role,
-          timestamp: Date.now()
-        }));
-        
-        localStorage.setItem('token', token);
-        localStorage.setItem('user', JSON.stringify(user));
-        
-        console.log('Generated token:', token);
-        console.log('User data stored:', user);
-        
-        login(user, token);
-        
-        const redirectPath = user.role === 'seller' ? '/seller/dashboard' : '/buyer/dashboard';
-        console.log('Redirecting to:', redirectPath);
-        
-        setTimeout(() => {
-          navigate(redirectPath, { replace: true });
-        }, 100);
-      } else {
-        throw new Error(response.message || 'Login failed');
+      // Check response structure
+      const user = response.user || response.data?.user;
+      const token = response.token || response.data?.token;
+
+      if (!user) {
+        throw new Error('No user data received from server');
       }
 
+      console.log('User data:', user);
+      console.log('Token received:', !!token);
+
+      // Verify role matches selected login type
+      if (user.role !== loginType) {
+        setError(`This account is registered as a ${user.role}. Please select "Login as ${user.role === 'buyer' ? 'Buyer' : 'Seller'}" instead.`);
+        setLoading(false);
+        return;
+      }
+
+      // The API already stored the token and user in localStorage
+      // Just verify it's there
+      const storedToken = localStorage.getItem('token');
+      const storedUser = localStorage.getItem('user');
+
+      console.log('Stored token exists:', !!storedToken);
+      console.log('Stored user exists:', !!storedUser);
+
+      if (!storedToken || !storedUser) {
+        console.error('API did not store auth data properly');
+        // Manually store it
+        if (token) {
+          localStorage.setItem('token', token);
+        }
+        localStorage.setItem('user', JSON.stringify(user));
+        console.log('Manually stored auth data');
+      }
+
+      // Update AuthContext state
+      login(user, storedToken || token);
+      
+      // Determine redirect path
+      const redirectPath = user.role === 'seller' ? '/seller/dashboard' : '/buyer/dashboard';
+      console.log('Redirecting to:', redirectPath);
+      
+      // Navigate
+      setTimeout(() => {
+        navigate(redirectPath, { replace: true });
+        setLoading(false);
+      }, 100);
+
     } catch (err) {
-      console.error('Login error details:', err);
+      console.error('Login error:', err);
+      
       if (err.message.includes('Network error') || err.message.includes('Failed to fetch')) {
         setError('Cannot connect to server. Please check your internet connection and try again.');
-      } else if (err.message.includes('401')) {
+      } else if (err.message.includes('401') || err.message.includes('Authentication required')) {
         setError('Invalid email or password. Please try again.');
+      } else if (err.message.includes('localStorage')) {
+        setError('Unable to save login data. Please enable cookies and try again.');
       } else {
         setError(err.message || 'Login failed. Please check your credentials and try again.');
       }
+      setLoading(false);
     }
-    
-    setLoading(false);
   };
 
   const handleBackToLanding = () => {
@@ -169,6 +186,7 @@ const Login = () => {
                 placeholder="Enter your email"
                 required
                 disabled={loading}
+                autoComplete="email"
               />
               <span className="input-icon">
                 <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
@@ -192,6 +210,7 @@ const Login = () => {
                 placeholder="Enter your password"
                 required
                 disabled={loading}
+                autoComplete="current-password"
               />
               <span className="input-icon">
                 <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
