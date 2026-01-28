@@ -16,17 +16,25 @@ const Signup = () => {
     password: '',
     confirmPassword: '',
     role: forcedRole,
-    address: '',
+    state: '',
+    lga: '',
+    streetAddress: '',
     phone: '',
     businessName: '',
     businessType: '',
-    businessAddress: ''
+    businessState: '',
+    businessLga: '',
+    businessStreetAddress: ''
   });
   
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [acceptedTerms, setAcceptedTerms] = useState(false);
-  const [serverStatus, setServerStatus] = useState('checking'); // 'checking', 'awake', 'sleeping', 'error'
+  const [serverStatus, setServerStatus] = useState('checking');
+  const [states, setStates] = useState([]);
+  const [lgas, setLgas] = useState([]);
+  const [loadingStates, setLoadingStates] = useState(false);
+  const [loadingLgas, setLoadingLgas] = useState(false);
   
   const { login } = useAuth();
   const navigate = useNavigate();
@@ -40,7 +48,7 @@ const Signup = () => {
         const response = await fetch('https://carttifys-1.onrender.com/health', {
           method: 'GET',
           headers: { 'Content-Type': 'application/json' },
-          signal: AbortSignal.timeout(5000) // 5 second timeout for health check
+          signal: AbortSignal.timeout(5000)
         });
         
         if (response.ok) {
@@ -62,7 +70,50 @@ const Signup = () => {
     };
     
     checkServer();
+    fetchStates();
   }, []);
+
+  const fetchStates = async () => {
+    try {
+      setLoadingStates(true);
+      const response = await fetch('https://nga-states-lga.onrender.com/fetch');
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch states');
+      }
+      
+      const data = await response.json();
+      setStates(data);
+      console.log('✅ States loaded successfully');
+    } catch (err) {
+      console.error('❌ Failed to load states:', err);
+      setError('Failed to load states. Please refresh the page.');
+    } finally {
+      setLoadingStates(false);
+    }
+  };
+
+  const fetchLgas = async (stateName) => {
+    try {
+      setLoadingLgas(true);
+      setLgas([]);
+      
+      const response = await fetch(`https://nga-states-lga.onrender.com/?state=${encodeURIComponent(stateName)}`);
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch LGAs');
+      }
+      
+      const data = await response.json();
+      setLgas(data);
+      console.log(`✅ LGAs loaded for ${stateName}`);
+    } catch (err) {
+      console.error('❌ Failed to load LGAs:', err);
+      setError('Failed to load LGAs. Please try again.');
+    } finally {
+      setLoadingLgas(false);
+    }
+  };
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -74,6 +125,28 @@ const Signup = () => {
         ...formData,
         [name]: limitedValue
       });
+    } else if (name === 'state') {
+      setFormData({
+        ...formData,
+        state: value,
+        lga: ''
+      });
+      if (value) {
+        fetchLgas(value);
+      } else {
+        setLgas([]);
+      }
+    } else if (name === 'businessState') {
+      setFormData({
+        ...formData,
+        businessState: value,
+        businessLga: ''
+      });
+      if (value) {
+        fetchLgas(value);
+      } else {
+        setLgas([]);
+      }
     } else {
       setFormData({
         ...formData,
@@ -111,7 +184,6 @@ const Signup = () => {
     e.preventDefault();
     setError('');
 
-    // Frontend validation
     if (formData.password !== formData.confirmPassword) {
       setError('Passwords do not match');
       return;
@@ -122,7 +194,6 @@ const Signup = () => {
       return;
     }
 
-    // Phone number validation
     if (formData.role === 'buyer' && formData.phone) {
       const phoneError = validatePhoneNumber(formData.phone);
       if (phoneError) {
@@ -131,7 +202,6 @@ const Signup = () => {
       }
     }
 
-    // Terms and conditions validation
     if (!acceptedTerms) {
       setError('Please accept the Terms and Conditions to continue');
       return;
@@ -140,30 +210,30 @@ const Signup = () => {
     setLoading(true);
 
     try {
-      // Prepare data for backend based on role
       const userData = {
         email: formData.email,
         password: formData.password,
         role: formData.role,
       };
 
-      // Add role-specific fields
       if (formData.role === 'buyer') {
         userData.name = formData.name;
         userData.phone = formData.phone;
-        userData.address = formData.address;
+        userData.address = `${formData.streetAddress}, ${formData.lga}, ${formData.state}`;
+        userData.state = formData.state;
+        userData.lga = formData.lga;
       } else if (formData.role === 'seller') {
         userData.businessName = formData.businessName;
         userData.businessType = formData.businessType;
-        userData.businessAddress = formData.businessAddress;
-        // Include name field for seller too
+        userData.businessAddress = `${formData.businessStreetAddress}, ${formData.businessLga}, ${formData.businessState}`;
+        userData.state = formData.businessState;
+        userData.lga = formData.businessLga;
         userData.name = formData.businessName;
       }
 
       console.log('🔄 Attempting registration...');
       console.log('📤 Data:', userData);
 
-      // Show warning if server is sleeping
       if (serverStatus === 'sleeping') {
         setError('Server is waking up... This may take 20-30 seconds. Please wait.');
       }
@@ -193,12 +263,10 @@ const Signup = () => {
         throw new Error(errorMessage);
       }
 
-      // Parse successful response
       const data = await response.json();
       console.log('✅ Registration successful:', data);
 
       if (data.success) {
-        // Store token in localStorage
         if (data.token) {
           localStorage.setItem('token', data.token);
           console.log('🔑 Token stored in localStorage');
@@ -206,7 +274,6 @@ const Signup = () => {
           console.warn('⚠️ No token received in response');
         }
         
-        // Update auth context
         try {
           if (login) {
             await login(data.user || data.data, data.token);
@@ -215,10 +282,8 @@ const Signup = () => {
           }
         } catch (authError) {
           console.error('Auth context error:', authError);
-          // Continue anyway - the user is registered
         }
         
-        // Navigate to appropriate dashboard
         if (data.redirectTo) {
           navigate(data.redirectTo);
         } else {
@@ -237,10 +302,8 @@ const Signup = () => {
         stack: err.stack
       });
       
-      // Better error messages
       let errorMessage = err.message || 'Failed to create account. Please try again.';
       
-      // Handle specific error cases
       if (err.name === 'AbortError') {
         errorMessage = 'Request was cancelled or timed out. This usually happens when the server is waking up. Please try again in 30 seconds.';
       } else if (err.message.includes('Network Error') || err.message.includes('Failed to fetch')) {
@@ -265,13 +328,12 @@ const Signup = () => {
     const basicFields = formData.email && formData.password && formData.confirmPassword;
     
     if (formData.role === 'buyer') {
-      return basicFields && formData.name && formData.address && formData.phone && formData.phone.length === 11;
+      return basicFields && formData.name && formData.state && formData.lga && formData.streetAddress && formData.phone && formData.phone.length === 11;
     } else {
-      return basicFields && formData.businessName && formData.businessType && formData.businessAddress;
+      return basicFields && formData.businessName && formData.businessType && formData.businessState && formData.businessLga && formData.businessStreetAddress;
     }
   };
 
-  // Server status indicators
   const renderServerStatus = () => {
     switch (serverStatus) {
       case 'checking':
@@ -298,7 +360,6 @@ const Signup = () => {
   return (
     <div className="signup-container">
       <div className="signup-card">
-        {/* Back to Home Button - ADDED HERE */}
         <button 
           className="back-to-home-button"
           onClick={handleBackToHome}
@@ -315,17 +376,14 @@ const Signup = () => {
           </h1>
           <p>Create your {formData.role === 'seller' ? 'Seller' : 'Buyer'} account</p>
           
-          {/* Server status indicator */}
           {renderServerStatus()}
           
-          {/* Role indicator */}
           <div className={`role-badge ${formData.role}`}>
             <i className={`fas ${formData.role === 'seller' ? 'fa-store' : 'fa-shopping-cart'}`}></i>
             {formData.role === 'seller' ? 'Seller Account' : 'Buyer Account'}
           </div>
         </div>
 
-        {/* Error display */}
         {error && (
           <div className="alert alert-error">
             <i className="fas fa-exclamation-circle"></i>
@@ -343,7 +401,6 @@ const Signup = () => {
           </div>
         )}
 
-        {/* Loading overlay for server wakeup */}
         {loading && serverStatus === 'sleeping' && (
           <div className="server-wakeup-overlay">
             <div className="wakeup-message">
@@ -359,7 +416,6 @@ const Signup = () => {
         )}
 
         <form onSubmit={handleSubmit} className="signup-form">
-          {/* Common Fields */}
           <div className="form-grid">
             <div className="form-group">
               <label htmlFor="email" className="form-label">
@@ -398,105 +454,221 @@ const Signup = () => {
             </div>
           </div>
 
-          {/* Role Specific Fields */}
           {formData.role === 'buyer' ? (
-            <div className="form-grid">
-              <div className="form-group">
-                <label htmlFor="address" className="form-label">
-                  <i className="fas fa-home"></i>
-                  Address
-                </label>
-                <input
-                  type="text"
-                  className="form-input"
-                  id="address"
-                  name="address"
-                  value={formData.address}
-                  onChange={handleChange}
-                  required
-                  placeholder="Enter your address"
-                  disabled={loading}
-                />
-              </div>
-              <div className="form-group">
-                <label htmlFor="phone" className="form-label">
-                  <i className="fas fa-phone"></i>
-                  Phone Number
-                  <span className="required-asterisk">*</span>
-                </label>
-                <input
-                  type="tel"
-                  className="form-input"
-                  id="phone"
-                  name="phone"
-                  value={formData.phone}
-                  onChange={handleChange}
-                  onInput={handlePhoneInput}
-                  required
-                  placeholder="09XXXXXXXXX (11 digits)"
-                  pattern="[0-9]{11}"
-                  maxLength="11"
-                  inputMode="numeric"
-                  disabled={loading}
-                />
-                <div className="phone-hint">
-                  <i className="fas fa-info-circle"></i>
-                  Must be exactly 11 digits (e.g., 09123456789)
+            <>
+              <div className="form-grid">
+                <div className="form-group">
+                  <label htmlFor="state" className="form-label">
+                    <i className="fas fa-map"></i>
+                    State
+                  </label>
+                  <select
+                    className="form-select"
+                    id="state"
+                    name="state"
+                    value={formData.state}
+                    onChange={handleChange}
+                    required
+                    disabled={loading || loadingStates}
+                  >
+                    <option value="">
+                      {loadingStates ? 'Loading states...' : 'Select your state'}
+                    </option>
+                    {states.map((state, index) => (
+                      <option key={index} value={state}>
+                        {state}
+                      </option>
+                    ))}
+                  </select>
                 </div>
-                {formData.phone && (
-                  <div className={`phone-validation ${formData.phone.length === 11 ? 'valid' : 'invalid'}`}>
-                    <i className={`fas ${formData.phone.length === 11 ? 'fa-check-circle' : 'fa-times-circle'}`}></i>
-                    {formData.phone.length}/11 digits
+                
+                <div className="form-group">
+                  <label htmlFor="lga" className="form-label">
+                    <i className="fas fa-map-marker-alt"></i>
+                    LGA (Local Government Area)
+                  </label>
+                  <select
+                    className="form-select"
+                    id="lga"
+                    name="lga"
+                    value={formData.lga}
+                    onChange={handleChange}
+                    required
+                    disabled={loading || loadingLgas || !formData.state}
+                  >
+                    <option value="">
+                      {!formData.state 
+                        ? 'Select state first' 
+                        : loadingLgas 
+                        ? 'Loading LGAs...' 
+                        : 'Select your LGA'}
+                    </option>
+                    {lgas.map((lga, index) => (
+                      <option key={index} value={lga}>
+                        {lga}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              
+              <div className="form-grid">
+                <div className="form-group">
+                  <label htmlFor="streetAddress" className="form-label">
+                    <i className="fas fa-home"></i>
+                    Street Address
+                  </label>
+                  <input
+                    type="text"
+                    className="form-input"
+                    id="streetAddress"
+                    name="streetAddress"
+                    value={formData.streetAddress}
+                    onChange={handleChange}
+                    required
+                    placeholder="Enter your street address"
+                    disabled={loading}
+                  />
+                </div>
+                
+                <div className="form-group">
+                  <label htmlFor="phone" className="form-label">
+                    <i className="fas fa-phone"></i>
+                    Phone Number
+                    <span className="required-asterisk">*</span>
+                  </label>
+                  <input
+                    type="tel"
+                    className="form-input"
+                    id="phone"
+                    name="phone"
+                    value={formData.phone}
+                    onChange={handleChange}
+                    onInput={handlePhoneInput}
+                    required
+                    placeholder="09XXXXXXXXX (11 digits)"
+                    pattern="[0-9]{11}"
+                    maxLength="11"
+                    inputMode="numeric"
+                    disabled={loading}
+                  />
+                  <div className="phone-hint">
+                    <i className="fas fa-info-circle"></i>
+                    Must be exactly 11 digits (e.g., 09123456789)
                   </div>
-                )}
+                  {formData.phone && (
+                    <div className={`phone-validation ${formData.phone.length === 11 ? 'valid' : 'invalid'}`}>
+                      <i className={`fas ${formData.phone.length === 11 ? 'fa-check-circle' : 'fa-times-circle'}`}></i>
+                      {formData.phone.length}/11 digits
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
+            </>
           ) : (
-            <div className="form-grid">
-              <div className="form-group">
-                <label htmlFor="businessType" className="form-label">
-                  <i className="fas fa-briefcase"></i>
-                  Business Type
-                </label>
-                <select
-                  className="form-select"
-                  id="businessType"
-                  name="businessType"
-                  value={formData.businessType}
-                  onChange={handleChange}
-                  required
-                  disabled={loading}
-                >
-                  <option value="">Select business type</option>
-                  <option value="fashion">Fashion & Clothing</option>
-                  <option value="electronics">Electronics</option>
-                  <option value="food">Food & Beverages</option>
-                  <option value="home">Home & Garden</option>
-                  <option value="beauty">Beauty & Cosmetics</option>
-                  <option value="other">Other</option>
-                </select>
+            <>
+              <div className="form-grid">
+                <div className="form-group">
+                  <label htmlFor="businessType" className="form-label">
+                    <i className="fas fa-briefcase"></i>
+                    Business Type
+                  </label>
+                  <select
+                    className="form-select"
+                    id="businessType"
+                    name="businessType"
+                    value={formData.businessType}
+                    onChange={handleChange}
+                    required
+                    disabled={loading}
+                  >
+                    <option value="">Select business type</option>
+                    <option value="fashion">Fashion & Clothing</option>
+                    <option value="electronics">Electronics</option>
+                    <option value="food">Food & Beverages</option>
+                    <option value="home">Home & Garden</option>
+                    <option value="beauty">Beauty & Cosmetics</option>
+                    <option value="other">Other</option>
+                  </select>
+                </div>
+                
+                <div className="form-group">
+                  <label htmlFor="businessState" className="form-label">
+                    <i className="fas fa-map"></i>
+                    Business State
+                  </label>
+                  <select
+                    className="form-select"
+                    id="businessState"
+                    name="businessState"
+                    value={formData.businessState}
+                    onChange={handleChange}
+                    required
+                    disabled={loading || loadingStates}
+                  >
+                    <option value="">
+                      {loadingStates ? 'Loading states...' : 'Select business state'}
+                    </option>
+                    {states.map((state, index) => (
+                      <option key={index} value={state}>
+                        {state}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
-              <div className="form-group">
-                <label htmlFor="businessAddress" className="form-label">
-                  <i className="fas fa-map-marker-alt"></i>
-                  Business Address
-                </label>
-                <input
-                  type="text"
-                  className="form-input"
-                  id="businessAddress"
-                  name="businessAddress"
-                  value={formData.businessAddress}
-                  onChange={handleChange}
-                  required
-                  placeholder="Enter business address"
-                  disabled={loading}
-                />
+              
+              <div className="form-grid">
+                <div className="form-group">
+                  <label htmlFor="businessLga" className="form-label">
+                    <i className="fas fa-map-marker-alt"></i>
+                    Business LGA
+                  </label>
+                  <select
+                    className="form-select"
+                    id="businessLga"
+                    name="businessLga"
+                    value={formData.businessLga}
+                    onChange={handleChange}
+                    required
+                    disabled={loading || loadingLgas || !formData.businessState}
+                  >
+                    <option value="">
+                      {!formData.businessState 
+                        ? 'Select state first' 
+                        : loadingLgas 
+                        ? 'Loading LGAs...' 
+                        : 'Select business LGA'}
+                    </option>
+                    {lgas.map((lga, index) => (
+                      <option key={index} value={lga}>
+                        {lga}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                
+                <div className="form-group">
+                  <label htmlFor="businessStreetAddress" className="form-label">
+                    <i className="fas fa-building"></i>
+                    Business Street Address
+                  </label>
+                  <input
+                    type="text"
+                    className="form-input"
+                    id="businessStreetAddress"
+                    name="businessStreetAddress"
+                    value={formData.businessStreetAddress}
+                    onChange={handleChange}
+                    required
+                    placeholder="Enter business street address"
+                    disabled={loading}
+                  />
+                </div>
               </div>
-            </div>
+            </>
           )}
 
-          {/* Password Fields */}
           <div className="form-grid">
             <div className="form-group">
               <label htmlFor="password" className="form-label">
@@ -551,7 +723,6 @@ const Signup = () => {
             </div>
           </div>
 
-          {/* Terms and Conditions */}
           <div className="terms-section">
             <div className="terms-checkbox">
               <input
@@ -626,6 +797,4 @@ const Signup = () => {
   );
 };
 
-
 export default Signup;
-

@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
@@ -11,7 +12,7 @@ const Login = () => {
     email: '',
     password: ''
   });
-  const [loginType, setLoginType] = useState('buyer'); // 'buyer' or 'seller'
+  const [loginType, setLoginType] = useState('buyer');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   
@@ -36,20 +37,25 @@ const Login = () => {
     try {
       console.log('Attempting login with:', { 
         email: formData.email, 
-        role: loginType 
+        selectedRole: loginType 
       });
       
       const response = await authAPI.login({
         email: formData.email,
-        password: formData.password,
-        role: loginType // Send selected role to backend
+        password: formData.password
       });
 
       console.log('Login API response:', response);
 
       if (response.success) {
-        // ✅ FIXED: Generate token from user data since backend doesn't return token
         const user = response.user;
+        
+        if (user.role !== loginType) {
+          setError(`This account is registered as a ${user.role}. Please select "Login as ${user.role === 'buyer' ? 'Buyer' : 'Seller'}" instead.`);
+          setLoading(false);
+          return;
+        }
+        
         const token = btoa(JSON.stringify({
           id: user.id,
           email: user.email,
@@ -57,21 +63,17 @@ const Login = () => {
           timestamp: Date.now()
         }));
         
-        // Store token in localStorage
         localStorage.setItem('token', token);
         localStorage.setItem('user', JSON.stringify(user));
         
         console.log('Generated token:', token);
         console.log('User data stored:', user);
         
-        // Update auth context
         login(user, token);
         
-        // Navigate based on user role
         const redirectPath = user.role === 'seller' ? '/seller/dashboard' : '/buyer/dashboard';
         console.log('Redirecting to:', redirectPath);
         
-        // Use setTimeout to ensure context updates before navigation
         setTimeout(() => {
           navigate(redirectPath, { replace: true });
         }, 100);
@@ -100,7 +102,6 @@ const Login = () => {
   return (
     <div className="login-container">
       <div className="dashboard-card">
-        {/* Back Button */}
         <button 
           className="back-button"
           onClick={handleBackToLanding}
@@ -124,7 +125,6 @@ const Login = () => {
           </div>
         )}
 
-        {/* Login Type Selection */}
         <div className="login-type-selector">
           <div className="login-type-options">
             <button
@@ -229,22 +229,13 @@ const Login = () => {
         </div>
 
         <div className="demo-accounts">
-          <h6>Test Accounts (Register first if you haven't)</h6>
-          <div className="demo-account-list">
-            <div className="demo-account-item">
-              <span className="demo-role">Buyer Account:</span>
-              <span className="demo-email">Use any email</span>
-              <span className="demo-password">Use any password</span>
-            </div>
-            <div className="demo-account-item">
-              <span className="demo-role">Seller Account:</span>
-              <span className="demo-email">Use any email</span>
-              <span className="demo-password">Use any password</span>
-            </div>
-          </div>
+          <h6>Important Notice</h6>
           <div className="demo-note">
             <small>
-              <i>You must register an account first before logging in</i>
+              <i className="fas fa-info-circle"></i>
+              <strong> Make sure to select the correct account type that matches your registration.</strong>
+              <br />
+              If you registered as a Buyer, click "Login as Buyer". If you registered as a Seller, click "Login as Seller".
             </small>
           </div>
         </div>
@@ -252,6 +243,5 @@ const Login = () => {
     </div>
   );
 };
-
 
 export default Login;

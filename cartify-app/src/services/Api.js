@@ -36,14 +36,14 @@ export const setCurrentUser = (user) => {
 
 const handleAuthRedirect = () => {
   const currentPath = window.location.pathname;
-  const authRoutes = ['/login', '/auth/login', '/register', '/auth/register'];
+  const authRoutes = ['/login', '/register', '/signup'];
   
   if (authRoutes.includes(currentPath)) {
     return;
   }
   
   sessionStorage.setItem('redirectAfterLogin', currentPath);
-  window.location.href = '/auth/login';
+  window.location.href = '/login';
 };
 
 export const apiCall = async (endpoint, options = {}) => {
@@ -246,7 +246,6 @@ export const buyerAPI = {
     method: 'POST'
   }),
   
-  // Place order alias
   placeOrder: (orderData) => apiCall('/api/buyer/orders', {
     method: 'POST',
     body: orderData
