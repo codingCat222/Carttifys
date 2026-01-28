@@ -7,10 +7,10 @@ const SellerDashboard = () => {
   const [dashboardData, setDashboardData] = useState(null);
   const [profileData, setProfileData] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [profileLoading, setProfileLoading] = useState(false);
   const [backendStatus, setBackendStatus] = useState('checking');
   const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
+  const [showSidebar, setShowSidebar] = useState(false);
+  const [activeDays, setActiveDays] = useState(29);
   
   const navigate = useNavigate();
 
@@ -28,11 +28,7 @@ const SellerDashboard = () => {
       
       if (healthResult?.success) {
         setBackendStatus('connected');
-        
-        await Promise.all([
-          fetchDashboard(),
-          fetchProfile()
-        ]);
+        await Promise.all([fetchDashboard(), fetchProfile()]);
       } else {
         throw new Error('Backend health check failed');
       }
@@ -47,38 +43,22 @@ const SellerDashboard = () => {
   const fetchDashboard = async () => {
     try {
       const response = await sellerAPI.getDashboard();
-      
       if (response?.success && response.data) {
-        console.log('RAW Dashboard data:', response.data);
-        
-        // Deep clean the data
         const cleanedData = {
           ...response.data,
           topProducts: response.data.topProducts?.map(product => {
             const cleanProduct = { ...product };
-            
-            // Remove ANY field that contains "undefined" in the ENTIRE product object
             Object.keys(cleanProduct).forEach(key => {
               const value = cleanProduct[key];
               if (typeof value === 'string' && value.includes('undefined')) {
-                console.log('REMOVING undefined from field:', key, 'value:', value);
                 delete cleanProduct[key];
               }
             });
-            
-            // Ensure images array exists
-            if (!cleanProduct.images) {
-              cleanProduct.images = [];
-            }
-            
+            if (!cleanProduct.images) cleanProduct.images = [];
             return cleanProduct;
           }) || []
         };
-        
-        console.log('CLEANED Dashboard data:', cleanedData);
         setDashboardData(cleanedData);
-      } else {
-        throw new Error('No dashboard data received');
       }
     } catch (error) {
       console.error('Error fetching dashboard:', error);
@@ -89,7 +69,6 @@ const SellerDashboard = () => {
   const fetchProfile = async () => {
     try {
       const response = await sellerAPI.getProfile();
-      
       if (response?.success && response.data) {
         setProfileData(response.data);
       }
@@ -98,440 +77,237 @@ const SellerDashboard = () => {
     }
   };
 
-  const updateProfile = async (section, data) => {
-    try {
-      setProfileLoading(true);
-      setError('');
-      setSuccess('');
-      
-      const response = await sellerAPI.updateProfile({
-        ...data,
-        section
-      });
-      
-      if (response?.success) {
-        setSuccess('Profile updated successfully!');
-        await fetchProfile();
-      } else {
-        throw new Error(response?.message || 'Update failed');
-      }
-    } catch (error) {
-      setError(error.message || 'Failed to update profile');
-    } finally {
-      setProfileLoading(false);
-    }
-  };
-
-  const handleProfilePictureUpload = async (event) => {
-    const file = event.target.files[0];
-    if (!file) return;
-    
-    try {
-      setProfileLoading(true);
-      setError('');
-      
-      const formData = new FormData();
-      formData.append('profileImage', file);
-      
-      const response = await sellerAPI.updateProfilePicture(formData);
-      
-      if (response?.success) {
-        setSuccess('Profile picture updated!');
-        await fetchProfile();
-      } else {
-        throw new Error('Failed to upload profile picture');
-      }
-    } catch (error) {
-      setError('Failed to upload profile picture');
-    } finally {
-      setProfileLoading(false);
-    }
-  };
-
   const formatCurrency = (amount) => {
-    return new Intl.NumberFormat('en-US', {
+    return new Intl.NumberFormat('en-NG', {
       style: 'currency',
-      currency: 'USD',
+      currency: 'NGN',
       minimumFractionDigits: 0,
       maximumFractionDigits: 0
     }).format(amount || 0);
   };
 
-  const handleQuickAction = (action) => {
-    switch(action) {
-      case 'add_product':
-        navigate('/seller/products/add');
-        break;
-      case 'manage_products':
-        navigate('/seller/products');
-        break;
-      case 'view_orders':
-        navigate('/seller/orders');
-        break;
-      default:
-        break;
-    }
-  };
-
-  const refreshData = async () => {
-    setLoading(true);
-    setError('');
-    try {
-      await Promise.all([
-        fetchDashboard(),
-        fetchProfile()
-      ]);
-    } catch (error) {
-      console.error('Error refreshing data:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const getProductImageSrc = (product) => {
-    if (!product) return null;
-
-    console.log('Checking product:', product.name);
-    console.log('Product full data:', JSON.stringify(product, null, 2));
-
-    // CRITICAL FIX: Check if ANY image field contains "undefined" - if yes, return null immediately
-    const checkAllFieldsForUndefined = () => {
-      const fieldsToCheck = ['imageUrl', 'image'];
-      
-      for (const field of fieldsToCheck) {
-        if (product[field] && typeof product[field] === 'string' && product[field].includes('undefined')) {
-          console.log('FOUND undefined in field:', field, 'value:', product[field]);
-          return true;
-        }
-      }
-      
-      // Also check images array
-      if (product.images && Array.isArray(product.images)) {
-        for (const img of product.images) {
-          if (img && typeof img === 'object') {
-            if (img.url && typeof img.url === 'string' && img.url.includes('undefined')) {
-              console.log('FOUND undefined in images.url:', img.url);
-              return true;
-            }
-            if (img.path && typeof img.path === 'string' && img.path.includes('undefined')) {
-              console.log('FOUND undefined in images.path:', img.path);
-              return true;
-            }
-          }
-        }
-      }
-      
-      return false;
-    };
-
-    // If ANY field contains "undefined", return null immediately
-    if (checkAllFieldsForUndefined()) {
-      console.log('RETURNING NULL - product has undefined image fields');
-      return null;
-    }
-
-    // Now safely check for valid images
-    // 1. Check images array first
-    if (product.images && Array.isArray(product.images) && product.images.length > 0) {
-      const primaryImage = product.images.find(img => img.isPrimary) || product.images[0];
-      
-      // Check for full URL
-      if (primaryImage.url && typeof primaryImage.url === 'string') {
-        console.log('Using URL from images array:', primaryImage.url);
-        if (primaryImage.url.startsWith('http') || primaryImage.url.startsWith('data:')) {
-          return primaryImage.url;
-        }
-        return `${API_BASE}${primaryImage.url}`;
-      }
-      
-      // Check for path
-      if (primaryImage.path && typeof primaryImage.path === 'string') {
-        console.log('Using path from images array:', primaryImage.path);
-        return `${API_BASE}${primaryImage.path}`;
-      }
-      
-      // Check for dataUrl
-      if (primaryImage.dataUrl && typeof primaryImage.dataUrl === 'string') {
-        console.log('Using dataUrl from images array');
-        return primaryImage.dataUrl;
-      }
-      
-      // Check for base64 data
-      if (primaryImage.data) {
-        console.log('Using base64 data from images array');
-        const base64Data = typeof primaryImage.data === 'string' 
-          ? primaryImage.data 
-          : primaryImage.data.toString('base64');
-        const contentType = primaryImage.contentType || 'image/jpeg';
-        return `data:${contentType};base64,${base64Data}`;
-      }
-    }
-
-    // 2. Check imageUrl field
-    if (product.imageUrl && typeof product.imageUrl === 'string') {
-      console.log('Using imageUrl field:', product.imageUrl);
-      if (product.imageUrl.startsWith('http') || product.imageUrl.startsWith('data:')) {
-        return product.imageUrl;
-      }
-      return `${API_BASE}${product.imageUrl}`;
-    }
-
-    // 3. Check image field
-    if (product.image && typeof product.image === 'string') {
-      console.log('Using image field:', product.image);
-      if (product.image.startsWith('http') || product.image.startsWith('data:')) {
-        return product.image;
-      }
-      return `${API_BASE}${product.image}`;
-    }
-
-    console.log('No valid image found for product:', product.name);
-    return null;
-  };
-
   if (loading) {
     return (
-      <div className="seller-dashboard loading">
-        <div className="loading-content">
-          <div className="loading-spinner"></div>
-          <p>Loading your dashboard...</p>
-        </div>
+      <div className="dashboard-loading">
+        <div className="spinner"></div>
+        <p>Loading dashboard...</p>
       </div>
     );
   }
 
   if (backendStatus === 'disconnected') {
     return (
-      <div className="seller-dashboard error">
-        <div className="error-content">
-          <div className="error-icon">
-            <i className="fas fa-exclamation-triangle"></i>
-          </div>
-          <h3>Connection Error</h3>
-          <p>Unable to connect to the server.</p>
-          <button 
-            className="btn btn-primary"
-            onClick={initializeDashboard}
-          >
-            <i className="fas fa-redo"></i> Retry Connection
-          </button>
-        </div>
+      <div className="dashboard-error">
+        <div className="error-icon">⚠️</div>
+        <h3>Connection Error</h3>
+        <p>Unable to connect to the server.</p>
+        <button onClick={initializeDashboard}>
+          Retry
+        </button>
       </div>
     );
   }
 
   return (
-    <div className="seller-dashboard">
-      <input
-        type="file"
-        id="profile-picture-upload"
-        accept="image/*"
-        onChange={handleProfilePictureUpload}
-        style={{ display: 'none' }}
-      />
-
-      {error && (
-        <div className="alert alert-error">
-          <i className="fas fa-exclamation-circle"></i>
-          {error}
-        </div>
-      )}
-
-      {success && (
-        <div className="alert alert-success">
-          <i className="fas fa-check-circle"></i>
-          {success}
-        </div>
-      )}
-
-      {/* DASHBOARD CONTENT ONLY - No Header, No Navigation */}
-      <div className="dashboard-section">
-        {/* Connection Status & Refresh - Keep if you want */}
-        <div className="dashboard-toolbar">
-          <div className="connection-status connected">
-            <i className="fas fa-circle"></i>
-            <span>Connected</span>
+    <div className="seller-dashboard-container">
+      {/* Sidebar Navigation - Based on second image */}
+      <div className={`sidebar-nav ${showSidebar ? 'active' : ''}`}>
+        <div className="sidebar-header">
+          <h2>Smm</h2>
+          <div className="sidebar-close" onClick={() => setShowSidebar(false)}>
+            ✕
           </div>
-          
-          <button 
-            className="btn btn-outline refresh-btn"
-            onClick={refreshData}
-            disabled={loading}
-          >
-            <i className="fas fa-sync-alt"></i>
-            {loading ? 'Refreshing...' : 'Refresh'}
+        </div>
+        
+        <div className="sidebar-section">
+          <h3 className="section-title">MAIN MENU</h3>
+          <ul className="nav-menu">
+            <li className="nav-item active">
+              <span>Dashboard</span>
+            </li>
+            <li className="nav-item">
+              <span>Add Product</span>
+            </li>
+            <li className="nav-item">
+              <span>Products ({dashboardData?.stats?.totalProducts || 0})</span>
+            </li>
+            <li className="nav-item">
+              <span>Orders ({dashboardData?.stats?.totalSales || 0})</span>
+            </li>
+            <li className="nav-item">
+              <span>Deliveries</span>
+            </li>
+            <li className="nav-item">
+              <span>Customize Store</span>
+            </li>
+            <li className="nav-item">
+              <span>Analytics</span>
+            </li>
+          </ul>
+        </div>
+
+        <div className="sidebar-section">
+          <h3 className="section-title">MANAGEMENT</h3>
+          <ul className="nav-menu">
+            <li className="nav-item">
+              <span>Products ({dashboardData?.stats?.totalProducts || 0})</span>
+            </li>
+            <li className="nav-item">
+              <span>Orders ({dashboardData?.stats?.totalSales || 0})</span>
+            </li>
+            <li className="nav-item">
+              <span>Deliveries</span>
+            </li>
+          </ul>
+        </div>
+
+        <div className="sidebar-section">
+          <h3 className="section-title">STORE SETTINGS</h3>
+          <ul className="nav-menu">
+            <li className="nav-item">
+              <span>Customize Store</span>
+            </li>
+            <li className="nav-item">
+              <span>Analytics</span>
+            </li>
+          </ul>
+        </div>
+
+        <div className="sidebar-footer">
+          <div className="store-info">
+            <div className="store-name">ACC@UN26 Student Marketplace</div>
+            <div className="seller-id">Seller ID: 2620</div>
+          </div>
+          <div className="profile-link">
+            <span>Profile</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Main Dashboard Content - Based on first image */}
+      <div className="main-dashboard">
+        {/* Hamburger Menu */}
+        <div className="hamburger-menu" onClick={() => setShowSidebar(true)}>
+          <div className="hamburger-line"></div>
+          <div className="hamburger-line"></div>
+          <div className="hamburger-line"></div>
+        </div>
+
+        {/* Welcome Header */}
+        <div className="welcome-section">
+          <h1>Hello {profileData?.name || 'Seller'}</h1>
+          <p>Welcome to your dashboard</p>
+        </div>
+
+        {/* Action Buttons */}
+        <div className="action-buttons">
+          <button className="action-btn primary-btn" onClick={() => navigate('/seller/products/add')}>
+            Add Product
+          </button>
+          <button className="action-btn" onClick={() => navigate('/seller/orders')}>
+            View Orders
+          </button>
+          <button className="action-btn">
+            Notifications
           </button>
         </div>
 
+        {/* Subscription Status */}
+        <div className="subscription-card">
+          <div className="subscription-status">
+            <span className="status-active">Active</span>
+            <span className="days-left">({activeDays} days left)</span>
+          </div>
+          <button className="renew-btn">Renew</button>
+        </div>
+
+        {/* Stats Cards */}
         <div className="stats-grid">
           <div className="stat-card">
-            <div className="stat-icon">
-              <i className="fas fa-shopping-bag"></i>
+            <div className="stat-header">
+              <h3>Active Products</h3>
+              <div className="stat-trend up">↑12.5% from last week</div>
             </div>
-            <div className="stat-content">
-              <h3>{dashboardData?.stats?.totalProducts || 0}</h3>
-              <p>Total Products</p>
-            </div>
+            <div className="stat-value">{dashboardData?.stats?.activeProducts || 0}</div>
           </div>
-          
+
           <div className="stat-card">
-            <div className="stat-icon">
-              <i className="fas fa-shopping-cart"></i>
+            <div className="stat-header">
+              <h3>Total Sales</h3>
+              <div className="stat-trend up">↑12.5% from last week</div>
             </div>
-            <div className="stat-content">
-              <h3>{dashboardData?.stats?.totalSales || 0}</h3>
-              <p>Total Sales</p>
-            </div>
-          </div>
-          
-          <div className="stat-card">
-            <div className="stat-icon">
-              <i className="fas fa-clock"></i>
-            </div>
-            <div className="stat-content">
-              <h3>{dashboardData?.stats?.pendingOrders || 0}</h3>
-              <p>Pending Orders</p>
-            </div>
-          </div>
-          
-          <div className="stat-card">
-            <div className="stat-icon">
-              <i className="fas fa-star"></i>
-            </div>
-            <div className="stat-content">
-              <h3>{dashboardData?.stats?.averageRating || '0.0'}</h3>
-              <p>Avg Rating</p>
-            </div>
+            <div className="stat-value">{formatCurrency(dashboardData?.stats?.totalRevenue || 0)}</div>
           </div>
         </div>
 
-        <div className="section-card">
+        {/* Recent Orders Section */}
+        <div className="recent-section">
           <div className="section-header">
-            <h3>
-              <i className="fas fa-history"></i>
-              Recent Orders
-            </h3>
+            <h3>Recent Orders</h3>
             <button className="view-all" onClick={() => navigate('/seller/orders')}>
-              View All <i className="fas fa-arrow-right"></i>
+              View All
             </button>
           </div>
-          
           {dashboardData?.recentOrders?.length > 0 ? (
-            <div className="orders-table">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Order ID</th>
-                    <th>Customer</th>
-                    <th>Amount</th>
-                    <th>Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {dashboardData.recentOrders.slice(0, 5).map(order => (
-                    <tr key={order.id}>
-                      <td className="order-id">#{order.orderId}</td>
-                      <td>{order.customerName}</td>
-                      <td className="order-amount">{formatCurrency(order.totalAmount)}</td>
-                      <td>
-                        <span className={`status-badge ${order.status?.toLowerCase()}`}>
-                          {order.status}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            <div className="orders-list">
+              {dashboardData.recentOrders.slice(0, 5).map(order => (
+                <div key={order.id} className="order-item">
+                  <div className="order-id">Order #{order.orderId}</div>
+                  <div className="order-customer">{order.customerName}</div>
+                  <div className="order-date">{new Date(order.date).toLocaleDateString()}</div>
+                  <div className="order-amount">{formatCurrency(order.totalAmount)}</div>
+                  <div className={`order-status ${order.status?.toLowerCase()}`}>
+                    {order.status}
+                  </div>
+                </div>
+              ))}
             </div>
           ) : (
-            <div className="empty-state">
-              <i className="fas fa-inbox"></i>
+            <div className="empty-orders">
               <p>No orders yet</p>
             </div>
           )}
         </div>
 
-        <div className="section-card">
+        {/* Recent Products Section */}
+        <div className="recent-section">
           <div className="section-header">
-            <h3>
-              <i className="fas fa-trophy"></i>
-              Your Products
-            </h3>
+            <h3>Recent Products</h3>
             <button className="view-all" onClick={() => navigate('/seller/products')}>
-              View All <i className="fas fa-arrow-right"></i>
+              View All
             </button>
           </div>
-          
           {dashboardData?.topProducts?.length > 0 ? (
             <div className="products-grid">
-              {dashboardData.topProducts.slice(0, 3).map(product => {
-                const imageSrc = getProductImageSrc(product);
-                console.log(`Product "${product.name}" - imageSrc:`, imageSrc);
-                
-                return (
-                  <div key={product.id} className="product-card">
-                    <div className="product-image">
-                      {imageSrc ? (
-                        <img 
-                          src={imageSrc}
-                          alt={product.name}
-                          className="product-img"
-                          onError={(e) => {
-                            console.error('IMAGE ERROR - Failed to load:', e.target.src);
-                            e.target.style.display = 'none';
-                            const placeholder = e.target.parentElement.querySelector('.image-placeholder');
-                            if (placeholder) placeholder.style.display = 'flex';
-                          }}
-                          style={{ 
-                            width: '100%', 
-                            height: '100%', 
-                            objectFit: 'cover',
-                            display: 'block'
-                          }}
-                        />
-                      ) : (
-                        <div className="image-placeholder" style={{ display: 'flex' }}>
-                          <i className="fas fa-box"></i>
-                        </div>
-                      )}
-                    </div>
-                    <div className="product-info">
-                      <h4 className="product-name">{product.name}</h4>
-                      <div className="product-details">
-                        <span className="product-price">{formatCurrency(product.price)}</span>
-                        <span className="product-sales">{product.salesCount || 0} sales</span>
-                      </div>
-                      <div className="product-rating">
-                        <i className="fas fa-star"></i>
-                        <span>{product.rating || '0.0'}</span>
-                      </div>
+              {dashboardData.topProducts.slice(0, 4).map(product => (
+                <div key={product.id} className="product-card">
+                  <div className="product-image">
+                    {product.imageUrl ? (
+                      <img src={product.imageUrl} alt={product.name} />
+                    ) : (
+                      <div className="image-placeholder">📦</div>
+                    )}
+                  </div>
+                  <div className="product-info">
+                    <h4>{product.name}</h4>
+                    <p className="product-price">{formatCurrency(product.price)}</p>
+                    <div className="product-meta">
+                      <span>{product.category || 'Uncategorized'}</span>
+                      <span>•</span>
+                      <span>{product.salesCount || 0} sold</span>
                     </div>
                   </div>
-                );
-              })}
+                </div>
+              ))}
             </div>
           ) : (
-            <div className="empty-state">
-              <i className="fas fa-box-open"></i>
+            <div className="empty-products">
               <p>No products yet</p>
+              <button onClick={() => navigate('/seller/products/add')}>
+                Add Your First Product
+              </button>
             </div>
           )}
-        </div>
-
-        {/* Quick Actions Row */}
-        <div className="quick-actions-row">
-          <button className="quick-action-btn" onClick={() => handleQuickAction('add_product')}>
-            <i className="fas fa-plus-circle"></i>
-            <span>Add Product</span>
-          </button>
-          <button className="quick-action-btn" onClick={() => handleQuickAction('view_orders')}>
-            <i className="fas fa-shopping-cart"></i>
-            <span>View Orders</span>
-          </button>
-          <button className="quick-action-btn" onClick={() => navigate('/seller/analytics')}>
-            <i className="fas fa-chart-line"></i>
-            <span>View Analytics</span>
-          </button>
         </div>
       </div>
     </div>

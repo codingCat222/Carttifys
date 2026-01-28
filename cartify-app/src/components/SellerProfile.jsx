@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { sellerAPI } from '../services/Api'; 
+import { useNavigate } from 'react-router-dom';
+import { sellerAPI } from '../services/Api';
 import './SellerProfile.css';
 
 const SellerProfile = () => {
-  // YOUR EXISTING CODE - NO CHANGES
   const [profileData, setProfileData] = useState({
     personalInfo: {},
     businessInfo: {},
@@ -15,7 +15,7 @@ const SellerProfile = () => {
     preferences: {},
     documents: {}
   });
-  const [activeTab, setActiveTab] = useState('personal');
+  const [activeTab, setActiveTab] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState({});
@@ -24,6 +24,7 @@ const SellerProfile = () => {
   const [isDarkMode, setIsDarkMode] = useState(false);
   const fileInputRef = useRef(null);
   const logoInputRef = useRef(null);
+  const navigate = useNavigate();
 
   const tabs = [
     { id: 'personal', label: 'Personal Info', icon: 'fas fa-user-circle' },
@@ -153,709 +154,344 @@ const SellerProfile = () => {
     }
   };
 
-  const maskSensitiveData = (value, type) => {
-    if (!value) return '';
-    if (type === 'account') return '••••••••';
-    if (type === 'routing') return '••••••••';
-    return value;
+  const handleLogout = () => {
+    localStorage.clear();
+    navigate('/login');
   };
 
-  // RENDER 1: Profile Header Section (From your design)
-  const renderProfileHeader = () => (
-    <div className="profile-header-container">
-      <div className="profile-picture-box">
-        {profileData.personalInfo.profileImage ? (
-          <img src={profileData.personalInfo.profileImage} alt="Profile" />
-        ) : (
-          <div className="avatar-placeholder">
-            <i className="fas fa-user"></i>
-          </div>
-        )}
-      </div>
-      
-      <div className="profile-info-content">
-        <h2 className="profile-name">{profileData.personalInfo.fullName || "Sarah Johnson"}</h2>
-        <p className="store-name">{profileData.businessInfo.displayName || "FashionHub"}</p>
-        
-        <div className="verification-status">
-          <span className="verified-badge">
-            <i className="fas fa-check-circle"></i> Verified Seller
-          </span>
-        </div>
-        
-        <div className="rating-section">
-          <div className="stars">
-            <i className="fas fa-star"></i>
-            <i className="fas fa-star"></i>
-            <i className="fas fa-star"></i>
-            <i className="fas fa-star"></i>
-            <i className="fas fa-star-half-alt"></i>
-          </div>
-          <span className="rating-text">4.5/5</span>
-        </div>
-        
-        <div className="profile-stats">
-          <div className="stat">
-            <span className="stat-label">Products:</span>
-            <span className="stat-value">{profileData.businessInfo.products || 24}</span>
-          </div>
-          <div className="stat">
-            <span className="stat-label">Sales:</span>
-            <span className="stat-value">{profileData.businessInfo.sales || 128}</span>
-          </div>
-        </div>
-        
-        <div className="profile-buttons">
-          <button className="btn-edit" onClick={() => setIsEditing(true)}>
-            <i className="fas fa-edit"></i> Edit Profile
-          </button>
-          <button className="btn-view-store" onClick={() => window.location.href = '/store'}>
-            <i className="fas fa-store"></i> View Store
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-
-  // RENDER 2: Quick Actions Section (From your design)
-  const renderQuickActions = () => (
-    <div className="quick-actions-container">
-      <h3>Quick Actions</h3>
-      <div className="quick-actions-list">
-        <div className="quick-action" onClick={() => setActiveTab('payment')}>
-          <div className="action-icon">💼</div>
-          <div className="action-content">
-            <div className="action-title">Wallet: ${profileData.paymentInfo.balance || 1250}</div>
-            <div className="action-arrow">→</div>
-          </div>
-        </div>
-        
-        <div className="quick-action" onClick={() => setActiveTab('payment')}>
-          <div className="action-icon">💰</div>
-          <div className="action-content">
-            <div className="action-title">Payout Settings</div>
-            <div className="action-arrow">→</div>
-          </div>
-        </div>
-        
-        <div className="quick-action" onClick={() => setActiveTab('documents')}>
-          <div className="action-icon">⭐</div>
-          <div className="action-content">
-            <div className="action-title">Reviews & Ratings</div>
-            <div className="action-arrow">→</div>
-          </div>
-        </div>
-        
-        <div className="quick-action" onClick={() => {/* Handle messages */}}>
-          <div className="action-icon">📩</div>
-          <div className="action-content">
-            <div className="action-title">Messages (3)</div>
-            <div className="action-arrow">→</div>
-          </div>
-        </div>
-        
-        <div className="quick-action" onClick={() => {/* Handle help */}}>
-          <div className="action-icon">🆘</div>
-          <div className="action-content">
-            <div className="action-title">Help & Support</div>
-            <div className="action-arrow">→</div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-
-  // RENDER 3: Management Section (From your design)
-  const renderManagementSection = () => (
-    <div className="management-container">
-      <h3>Management</h3>
-      <div className="management-list">
-        <div className="management-item" onClick={() => {/* Handle notifications */}}>
-          <div className="item-icon">🔔</div>
-          <div className="item-content">
-            <div className="item-title">Notifications (5)</div>
-            <div className="item-arrow">→</div>
-          </div>
-        </div>
-        
-        <div className="management-item" onClick={() => setActiveTab('security')}>
-          <div className="item-icon">🔐</div>
-          <div className="item-content">
-            <div className="item-title">Security & Privacy</div>
-            <div className="item-arrow">→</div>
-          </div>
-        </div>
-        
-        <div className="management-item" onClick={() => setActiveTab('preferences')}>
-          <div className="item-icon">🌐</div>
-          <div className="item-content">
-            <div className="item-title">Language & Region</div>
-            <div className="item-arrow">→</div>
-          </div>
-        </div>
-        
-        <div className="management-item" onClick={toggleTheme}>
-          <div className="item-icon">🎨</div>
-          <div className="item-content">
-            <div className="item-title">Appearance</div>
-            <div className="item-arrow">→</div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-
-  // RENDER 4: Account Section (From your design)
-  const renderAccountSection = () => (
-    <div className="account-container">
-      <h3>Account</h3>
-      <div className="account-list">
-        <div className="account-item" onClick={() => setActiveTab('preferences')}>
-          <div className="item-icon">⚙️</div>
-          <div className="item-content">
-            <div className="item-title">App Settings</div>
-            <div className="item-arrow">→</div>
-          </div>
-        </div>
-        
-        <div className="account-item logout" onClick={() => {
-          localStorage.removeItem('token');
-          window.location.href = '/login';
-        }}>
-          <div className="item-icon">🚪</div>
-          <div className="item-content">
-            <div className="item-title">Logout</div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-
-  // RENDER 5: Verification Prompt (From your design)
-  const renderVerificationPrompt = () => {
-    if (profileData.documents.idVerified) return null;
-    
-    return (
-      <div className="verification-prompt">
-        <div className="verification-content">
-          <div className="verification-icon">⚠️</div>
-          <div>
-            <div className="verification-title">Complete Verification</div>
-            <div className="verification-subtitle">Get verified badge & features</div>
-          </div>
-        </div>
-        <button className="verify-btn" onClick={() => setActiveTab('documents')}>
-          Verify Now
-        </button>
-      </div>
-    );
-  };
-
-  // YOUR EXISTING RENDER FUNCTIONS - NO CHANGES
-  const renderPublicProfile = () => (
-    <div className="marketverse-profile">
-      {/* YOUR EXISTING renderPublicProfile CODE */}
-      <div className="profile-time-bar">
-        <span className="time-display">7:56</span>
-        <div className="theme-toggle-btn" onClick={toggleTheme}>
-          <i className={isDarkMode ? "fas fa-sun" : "fas fa-moon"}></i>
-        </div>
-      </div>
-
-      <div className="profile-header-section">
-        <div className="profile-identity">
-          <div className="profile-avatar-large">
-            {profileData.personalInfo.profileImage ? (
-              <img src={profileData.personalInfo.profileImage} alt="Profile" />
-            ) : (
-              <div className="avatar-placeholder-large">
-                <i className="fas fa-user"></i>
-              </div>
-            )}
-          </div>
-          
-          <div className="profile-info">
-            <h2 className="profile-username">{profileData.personalInfo.username || "cartify_market.926"}</h2>
-            <h1 className="profile-display-name">{profileData.businessInfo.displayName || "Your Store Name"}</h1>
-            <div className="profile-bio">
-              <p>{profileData.businessInfo.description || "Add your business description here"}</p>
-              <div className="profile-tags">
-                <span>Shop</span>
-                <span>Sell</span>
-                <span>Promote</span>
-                <span>more</span>
-              </div>
-            </div>
-          </div>
-        </div>
-        
-        <div className="profile-actions">
-          <button className="btn-edit-profile" onClick={() => setIsEditing(true)}>
-            <i className="fas fa-edit"></i> Edit profile
-          </button>
-          <button className="btn-share-profile">
-            <i className="fas fa-share-alt"></i> Share profile
-          </button>
-        </div>
-      </div>
-
-      <div className="profile-completion-section">
-        <h3>Complete your profile</h3>
-        <div className="completion-indicator">
-          <div className="completion-dots">
-            <div className="dot complete"></div>
-            <div className="dot complete"></div>
-            <div className="dot complete"></div>
-            <div className="dot"></div>
-          </div>
-          <span className="completion-text">3 of 4 complete</span>
-        </div>
-        
-        <div className="completion-tasks">
-          <div className="completion-task">
-            <i className="fas fa-user-plus"></i>
-            <div className="task-info">
-              <p className="task-title">Find people to follow</p>
-              <p className="task-subtitle">Follow 5 or more accounts.</p>
-            </div>
-            <button className="btn-task">Find people</button>
-          </div>
-          <div className="completion-task">
-            <i className="fas fa-user-edit"></i>
-            <div className="task-info">
-              <p className="task-title">Add your name</p>
-              <p className="task-subtitle">Add your full name so you can make friends know it's you.</p>
-            </div>
-            <button className="btn-task">Edit name</button>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-
-  const renderEditProfile = () => (
-    <div className="edit-profile-view">
-      {/* YOUR EXISTING renderEditProfile CODE */}
-      <div className="edit-header">
-        <h2>Edit profile</h2>
-        <button className="btn-close-edit" onClick={() => setIsEditing(false)}>
-          <i className="fas fa-arrow-left"></i> Back
-        </button>
-      </div>
-
-      <div className="edit-form-container">
-        <div className="edit-business-header">
-          <h3>{profileData.businessInfo.displayName || "Your Business"}</h3>
-        </div>
-
-        <div className="edit-form">
-          <div className="form-section">
-            <label className="form-label">Edit picture or avatar</label>
-            <div className="avatar-upload-section">
-              <div className="avatar-preview-edit">
-                {profileData.personalInfo.profileImage ? (
-                  <img src={profileData.personalInfo.profileImage} alt="Profile" />
-                ) : (
-                  <div className="avatar-placeholder-edit">
-                    <i className="fas fa-camera"></i>
-                  </div>
-                )}
-              </div>
-              <input 
-                type="file" 
-                ref={fileInputRef}
-                accept="image/*"
-                style={{ display: 'none' }}
-                onChange={(e) => {
-                  const file = e.target.files[0];
-                  if (file) handleImageUpload(file, 'profileImage');
-                }}
-              />
-              <button className="btn-change-avatar" onClick={() => fileInputRef.current.click()}>
-                <i className="fas fa-upload"></i> Upload Photo
-              </button>
-            </div>
-          </div>
-
-          <div className="form-section">
-            <div className="form-group">
-              <label className="form-label">Name</label>
-              <input 
-                type="text" 
-                className="form-input"
-                value={profileData.businessInfo.displayName || ""}
-                onChange={(e) => handleInputChange('businessInfo', 'displayName', e.target.value)}
-                placeholder="Your Business Name"
-              />
-            </div>
-
-            <div className="form-group">
-              <label className="form-label">Username</label>
-              <input 
-                type="text" 
-                className="form-input readonly"
-                value={profileData.personalInfo.username || "cartify_market.926"}
-                readOnly
-              />
-            </div>
-
-            <div className="form-group">
-              <label className="form-label">Pronouns</label>
-              <select 
-                className="form-select"
-                value={profileData.personalInfo.pronouns || ""}
-                onChange={(e) => handleInputChange('personalInfo', 'pronouns', e.target.value)}
-              >
-                <option value="">Pronouns</option>
-                <option value="she/her">She/Her</option>
-                <option value="he/him">He/Him</option>
-                <option value="they/them">They/Them</option>
-              </select>
-            </div>
-
-            <div className="form-group">
-              <label className="form-label">Bio</label>
-              <textarea 
-                className="form-textarea"
-                value={profileData.businessInfo.description || ""}
-                onChange={(e) => handleInputChange('businessInfo', 'description', e.target.value)}
-                rows="5"
-                placeholder="Tell about your business..."
-              />
-            </div>
-
-            <div className="form-group">
-              <label className="form-label">Links</label>
-              <button className="btn-add-item">
-                <i className="fas fa-plus"></i> Add links
-              </button>
-            </div>
-
-            <div className="form-group">
-              <label className="form-label">Banners</label>
-              <button className="btn-add-item">
-                <i className="fas fa-plus"></i> Add banners
-              </button>
-            </div>
-
-            <div className="form-group">
-              <label className="form-label">Gender</label>
-              <select 
-                className="form-select"
-                value={profileData.personalInfo.gender || ""}
-                onChange={(e) => handleInputChange('personalInfo', 'gender', e.target.value)}
-              >
-                <option value="">Gender</option>
-                <option value="male">Male</option>
-                <option value="female">Female</option>
-                <option value="other">Other</option>
-                <option value="not-say">Prefer not to say</option>
-              </select>
-            </div>
-          </div>
-
-          <div className="form-section business-info-section">
-            <h4 className="section-title">Public business information</h4>
-            
-            <div className="form-group">
-              <label className="form-label">Page</label>
-              <button className="btn-connect-page">
-                <i className="fas fa-link"></i> Connect or create
-              </button>
-            </div>
-
-            <div className="form-group">
-              <label className="form-label">Category</label>
-              <select 
-                className="form-select"
-                value={profileData.businessInfo.category || "Shopping & retail"}
-                onChange={(e) => handleInputChange('businessInfo', 'category', e.target.value)}
-              >
-                <option value="Shopping & retail">Shopping & retail</option>
-                <option value="Fashion">Fashion</option>
-                <option value="Electronics">Electronics</option>
-                <option value="Home & Garden">Home & Garden</option>
-                <option value="Food & Drink">Food & Drink</option>
-              </select>
-            </div>
-
-            <div className="form-group">
-              <label className="form-label">Contact options</label>
-              <div className="checkbox-group">
-                <label className="checkbox-label">
-                  <input 
-                    type="checkbox" 
-                    checked={profileData.businessInfo.emailContact || true}
-                    onChange={(e) => handleInputChange('businessInfo', 'emailContact', e.target.checked)}
-                  />
-                  <span className="checkbox-custom"></span>
-                  Email
-                </label>
-                <label className="checkbox-label">
-                  <input 
-                    type="checkbox" 
-                    checked={profileData.businessInfo.phoneContact || false}
-                    onChange={(e) => handleInputChange('businessInfo', 'phoneContact', e.target.checked)}
-                  />
-                  <span className="checkbox-custom"></span>
-                  Phone
-                </label>
-                <label className="checkbox-label">
-                  <input 
-                    type="checkbox" 
-                    checked={profileData.businessInfo.chatContact || false}
-                    onChange={(e) => handleInputChange('businessInfo', 'chatContact', e.target.checked)}
-                  />
-                  <span className="checkbox-custom"></span>
-                  Live Chat
-                </label>
-              </div>
-            </div>
-
-            <div className="form-group">
-              <label className="form-label">Action buttons</label>
-              <div className="action-buttons-status">
-                <span className="status-badge inactive">None active</span>
-                <button className="btn-activate-actions">
-                  Activate buttons
-                </button>
-              </div>
-            </div>
-          </div>
-
-          <div className="form-actions">
-            <button className="btn-save-changes" onClick={() => saveSection('businessInfo')}>
-              <i className="fas fa-save"></i> Save Changes
-            </button>
-            <button className="btn-cancel-changes" onClick={() => setIsEditing(false)}>
-              Cancel
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-
-  // YOUR EXISTING TAB RENDERERS - NO CHANGES
-  const renderPersonalInfo = () => (
-    <div className="profile-section-card">
-      <div className="section-header">
-        <div className="section-title">
-          <i className="fas fa-user-circle"></i>
-          <h3>Personal Information</h3>
-        </div>
-        <button 
-          className="btn btn-primary"
-          onClick={() => saveSection('personalInfo')}
-          disabled={saving}
-        >
-          <i className="fas fa-save"></i> {saving ? 'Saving...' : 'Save Changes'}
-        </button>
-      </div>
-
-      <div className="section-content">
-        <div className="form-row">
-          <div className="form-group">
-            <label><i className="fas fa-id-card"></i> Full Name</label>
-            <input 
-              type="text" 
-              value={profileData.personalInfo.fullName || ''}
-              onChange={(e) => handleInputChange('personalInfo', 'fullName', e.target.value)}
-              placeholder="First Last"
-            />
-            {errors.personalInfo?.fullName && (
-              <div className="error-message">{errors.personalInfo.fullName}</div>
-            )}
-          </div>
-          
-          <div className="form-group">
-            <label><i className="fas fa-envelope"></i> Contact Email</label>
-            <input 
-              type="email" 
-              value={profileData.personalInfo.contactEmail || ''}
-              onChange={(e) => handleInputChange('personalInfo', 'contactEmail', e.target.value)}
-              placeholder="contact@example.com"
-            />
-            {errors.personalInfo?.contactEmail && (
-              <div className="error-message">{errors.personalInfo.contactEmail}</div>
-            )}
-          </div>
-        </div>
-
-        <div className="form-row">
-          <div className="form-group">
-            <label><i className="fas fa-phone"></i> Phone Number</label>
-            <input 
-              type="tel" 
-              value={profileData.personalInfo.phone || ''}
-              onChange={(e) => handleInputChange('personalInfo', 'phone', e.target.value)}
-              placeholder="+1 (555) 123-4567"
-            />
-          </div>
-          
-          <div className="form-group">
-            <label><i className="fas fa-birthday-cake"></i> Date of Birth</label>
-            <input 
-              type="date" 
-              value={profileData.personalInfo.dob || ''}
-              onChange={(e) => handleInputChange('personalInfo', 'dob', e.target.value)}
-            />
-          </div>
-        </div>
-
-        <div className="form-group">
-          <label><i className="fas fa-map-marker-alt"></i> Address</label>
-          <textarea 
-            value={profileData.personalInfo.address || ''}
-            onChange={(e) => handleInputChange('personalInfo', 'address', e.target.value)}
-            placeholder="Street, City, State, ZIP"
-            rows="3"
-          />
-        </div>
-
-        <div className="image-upload-section">
-          <label><i className="fas fa-camera"></i> Profile Photo</label>
-          <div className="image-upload-container">
-            <div className="image-preview">
-              {profileData.personalInfo.profileImage ? (
-                <img src={profileData.personalInfo.profileImage} alt="Profile" />
-              ) : (
-                <div className="image-placeholder">
-                  <i className="fas fa-user"></i>
-                </div>
-              )}
-            </div>
-            <div className="upload-controls">
-              <input 
-                type="file" 
-                ref={fileInputRef}
-                accept="image/*"
-                style={{ display: 'none' }}
-                onChange={(e) => {
-                  const file = e.target.files[0];
-                  if (file) handleImageUpload(file, 'profileImage');
-                }}
-              />
-              <button 
-                className="btn btn-outline"
-                onClick={() => fileInputRef.current.click()}
-                disabled={saving}
-              >
-                <i className="fas fa-upload"></i> {saving ? 'Uploading...' : 'Upload Photo'}
-              </button>
-              <button className="btn btn-text" disabled={saving}>
-                <i className="fas fa-crop"></i> Crop
-              </button>
-            </div>
-          </div>
-          {errors.image && <div className="error-message">{errors.image}</div>}
-        </div>
-      </div>
-    </div>
-  );
-
-  // ... Keep ALL your other render functions (renderBusinessInfo, renderCommunicationPrefs, etc.)
-
-  // MAIN RENDER - MODIFIED TO MATCH YOUR LAYOUT
   if (loading) {
     return (
-      <div className="seller-profile loading">
-        <div className="loading-content">
-          <div className="loading-spinner"></div>
-          <p>Loading profile...</p>
-        </div>
+      <div className="profile-loading">
+        <div className="loading-spinner"></div>
+        <p>Loading profile...</p>
       </div>
     );
   }
 
   return (
-    <div className="seller-profile">
-      {isEditing ? renderEditProfile() : renderPublicProfile()}
-      
-      {!isEditing && (
-        <div className="profile-layout-container">
-          {/* Left Column: Your layout sections */}
-          <div className="left-column">
-            {/* Profile Header from your design */}
-            {renderProfileHeader()}
-            
-            {/* Quick Actions from your design */}
-            {renderQuickActions()}
-            
-            {/* Verification Prompt from your design */}
-            {renderVerificationPrompt()}
-          </div>
-          
-          {/* Right Column: Your layout sections */}
-          <div className="right-column">
-            {/* Management from your design */}
-            {renderManagementSection()}
-            
-            {/* Account from your design */}
-            {renderAccountSection()}
-          </div>
+    <div className="modern-seller-profile">
+      {/* Alerts */}
+      {success && (
+        <div className="alert alert-success">
+          <i className="fas fa-check-circle"></i>
+          {success}
         </div>
       )}
       
-      {/* Your existing tabbed interface - hidden by default, shown when clicking sections */}
-      {!isEditing && activeTab && (
-        <div className="tabbed-interface-overlay">
-          <div className="tabbed-interface">
-            <div className="tabbed-header">
-              <h2>Profile Settings</h2>
-              <button className="close-tabbed" onClick={() => setActiveTab(null)}>
+      {errors.general && (
+        <div className="alert alert-error">
+          <i className="fas fa-exclamation-circle"></i>
+          {errors.general}
+        </div>
+      )}
+
+      {/* Profile Hero */}
+      <div className="profile-hero">
+        <div className="profile-cover"></div>
+        
+        <div className="profile-main">
+          <div className="profile-avatar-section">
+            <div className="profile-avatar-large">
+              {profileData.personalInfo.profileImage ? (
+                <img src={profileData.personalInfo.profileImage} alt="Profile" />
+              ) : (
+                <div className="avatar-placeholder">
+                  <i className="fas fa-user"></i>
+                </div>
+              )}
+            </div>
+            <button 
+              className="btn-change-photo"
+              onClick={() => fileInputRef.current.click()}
+            >
+              <i className="fas fa-camera"></i>
+            </button>
+            <input 
+              type="file" 
+              ref={fileInputRef}
+              accept="image/*"
+              style={{ display: 'none' }}
+              onChange={(e) => {
+                const file = e.target.files[0];
+                if (file) handleImageUpload(file, 'profileImage');
+              }}
+            />
+          </div>
+
+          <div className="profile-header-text">
+            <h1>{profileData.businessInfo.displayName || profileData.personalInfo.fullName || 'Your Business Name'}</h1>
+            <p className="profile-email">{profileData.personalInfo.contactEmail || 'email@example.com'}</p>
+            
+            <div className="profile-badges">
+              {profileData.documents.idVerified && (
+                <span className="badge verified">
+                  <i className="fas fa-check-circle"></i>
+                  Verified Seller
+                </span>
+              )}
+              <span className="badge rating">
+                <i className="fas fa-star"></i>
+                {profileData.businessInfo.rating || '4.8'} Rating
+              </span>
+            </div>
+          </div>
+
+          <button className="btn-edit-profile" onClick={() => setIsEditing(!isEditing)}>
+            <i className="fas fa-edit"></i>
+            {isEditing ? 'View Profile' : 'Edit Profile'}
+          </button>
+        </div>
+      </div>
+
+      {/* Profile Stats */}
+      <div className="profile-stats-row">
+        <div className="stat-box">
+          <span className="stat-value">{profileData.businessInfo.products || 0}</span>
+          <span className="stat-label">Products</span>
+        </div>
+        <div className="stat-box">
+          <span className="stat-value">{profileData.businessInfo.sales || 0}</span>
+          <span className="stat-label">Total Sales</span>
+        </div>
+        <div className="stat-box">
+          <span className="stat-value">${profileData.paymentInfo.balance || 0}</span>
+          <span className="stat-label">Balance</span>
+        </div>
+        <div className="stat-box">
+          <span className="stat-value">{profileData.businessInfo.reviews || 0}</span>
+          <span className="stat-label">Reviews</span>
+        </div>
+      </div>
+
+      {/* Quick Actions */}
+      <div className="profile-section">
+        <h2>Quick Actions</h2>
+        <div className="action-cards-grid">
+          <div className="action-card-item" onClick={() => navigate('/seller/products')}>
+            <div className="action-card-icon blue">
+              <i className="fas fa-boxes"></i>
+            </div>
+            <div className="action-card-content">
+              <h3>Manage Products</h3>
+              <p>Add, edit, or remove products</p>
+            </div>
+            <i className="fas fa-chevron-right"></i>
+          </div>
+
+          <div className="action-card-item" onClick={() => navigate('/seller/orders')}>
+            <div className="action-card-icon green">
+              <i className="fas fa-shopping-cart"></i>
+            </div>
+            <div className="action-card-content">
+              <h3>View Orders</h3>
+              <p>Track and manage orders</p>
+            </div>
+            <i className="fas fa-chevron-right"></i>
+          </div>
+
+          <div className="action-card-item" onClick={() => setActiveTab('payment')}>
+            <div className="action-card-icon purple">
+              <i className="fas fa-wallet"></i>
+            </div>
+            <div className="action-card-content">
+              <h3>Payment Settings</h3>
+              <p>Balance: ${profileData.paymentInfo.balance || 0}</p>
+            </div>
+            <i className="fas fa-chevron-right"></i>
+          </div>
+
+          <div className="action-card-item" onClick={() => navigate('/seller/analytics')}>
+            <div className="action-card-icon orange">
+              <i className="fas fa-chart-line"></i>
+            </div>
+            <div className="action-card-content">
+              <h3>Analytics</h3>
+              <p>View performance insights</p>
+            </div>
+            <i className="fas fa-chevron-right"></i>
+          </div>
+        </div>
+      </div>
+
+      {/* Settings */}
+      <div className="profile-section">
+        <h2>Settings</h2>
+        <div className="settings-list">
+          <div className="setting-item" onClick={() => setActiveTab('personal')}>
+            <div className="setting-icon">
+              <i className="fas fa-user-circle"></i>
+            </div>
+            <div className="setting-content">
+              <h3>Personal Information</h3>
+              <p>Update your personal details</p>
+            </div>
+            <i className="fas fa-chevron-right"></i>
+          </div>
+
+          <div className="setting-item" onClick={() => setActiveTab('business')}>
+            <div className="setting-icon">
+              <i className="fas fa-briefcase"></i>
+            </div>
+            <div className="setting-content">
+              <h3>Business Information</h3>
+              <p>Update your store details</p>
+            </div>
+            <i className="fas fa-chevron-right"></i>
+          </div>
+
+          <div className="setting-item" onClick={() => setActiveTab('communication')}>
+            <div className="setting-icon">
+              <i className="fas fa-comments"></i>
+            </div>
+            <div className="setting-content">
+              <h3>Communication Preferences</h3>
+              <p>Email and notification settings</p>
+            </div>
+            <i className="fas fa-chevron-right"></i>
+          </div>
+
+          <div className="setting-item" onClick={() => setActiveTab('security')}>
+            <div className="setting-icon">
+              <i className="fas fa-shield-alt"></i>
+            </div>
+            <div className="setting-content">
+              <h3>Security & Privacy</h3>
+              <p>Password and authentication</p>
+            </div>
+            <i className="fas fa-chevron-right"></i>
+          </div>
+
+          <div className="setting-item" onClick={() => setActiveTab('payment')}>
+            <div className="setting-icon">
+              <i className="fas fa-wallet"></i>
+            </div>
+            <div className="setting-content">
+              <h3>Payment Information</h3>
+              <p>Bank accounts and payout settings</p>
+            </div>
+            <i className="fas fa-chevron-right"></i>
+          </div>
+
+          <div className="setting-item" onClick={() => setActiveTab('preferences')}>
+            <div className="setting-icon">
+              <i className="fas fa-sliders-h"></i>
+            </div>
+            <div className="setting-content">
+              <h3>Preferences</h3>
+              <p>Language, timezone, and more</p>
+            </div>
+            <i className="fas fa-chevron-right"></i>
+          </div>
+
+          <div className="setting-item" onClick={() => navigate('/help')}>
+            <div className="setting-icon">
+              <i className="fas fa-question-circle"></i>
+            </div>
+            <div className="setting-content">
+              <h3>Help & Support</h3>
+              <p>Get help and contact support</p>
+            </div>
+            <i className="fas fa-chevron-right"></i>
+          </div>
+        </div>
+      </div>
+
+      {/* Account Section */}
+      <div className="profile-section">
+        <h2>Account</h2>
+        <div className="settings-list">
+          <div className="setting-item" onClick={toggleTheme}>
+            <div className="setting-icon">
+              <i className={isDarkMode ? "fas fa-sun" : "fas fa-moon"}></i>
+            </div>
+            <div className="setting-content">
+              <h3>Dark Mode</h3>
+              <p>Toggle dark mode theme</p>
+            </div>
+            <label className="toggle-switch">
+              <input type="checkbox" checked={isDarkMode} onChange={toggleTheme} />
+              <span className="slider"></span>
+            </label>
+          </div>
+
+          <div className="setting-item danger" onClick={handleLogout}>
+            <div className="setting-icon">
+              <i className="fas fa-sign-out-alt"></i>
+            </div>
+            <div className="setting-content">
+              <h3>Logout</h3>
+              <p>Sign out of your account</p>
+            </div>
+            <i className="fas fa-chevron-right"></i>
+          </div>
+        </div>
+      </div>
+
+      {/* Verification Banner */}
+      {!profileData.documents?.idVerified && (
+        <div className="verification-banner">
+          <div className="verification-content">
+            <div className="verification-icon">
+              <i className="fas fa-shield-check"></i>
+            </div>
+            <div>
+              <h3>Complete Account Verification</h3>
+              <p>Get verified to unlock all features and build trust with buyers</p>
+            </div>
+          </div>
+          <button className="btn-verify" onClick={() => setActiveTab('documents')}>
+            Verify Now
+            <i className="fas fa-arrow-right"></i>
+          </button>
+        </div>
+      )}
+
+      {/* Detail Modal for Tabs */}
+      {activeTab && (
+        <div className="modal-overlay" onClick={() => setActiveTab(null)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>{tabs.find(t => t.id === activeTab)?.label}</h2>
+              <button className="btn-close" onClick={() => setActiveTab(null)}>
                 <i className="fas fa-times"></i>
               </button>
             </div>
-            
-            <div className="profile-layout">
-              <div className="profile-sidebar">
-                <div className="profile-summary">
-                  <div className="profile-avatar">
-                    {profileData.personalInfo.profileImage ? (
-                      <img src={profileData.personalInfo.profileImage} alt="Profile" />
-                    ) : (
-                      <div className="avatar-placeholder">
-                        <i className="fas fa-user"></i>
-                      </div>
-                    )}
+            <div className="modal-body">
+              <p>This section will contain detailed settings for {activeTab}.</p>
+              <p>All your original form fields and functionality will be here.</p>
+              
+              {/* Add your original form sections here based on activeTab */}
+              {activeTab === 'personal' && (
+                <div className="form-section">
+                  <div className="form-group">
+                    <label>Full Name</label>
+                    <input 
+                      type="text" 
+                      value={profileData.personalInfo.fullName || ''}
+                      onChange={(e) => handleInputChange('personalInfo', 'fullName', e.target.value)}
+                      placeholder="Your full name"
+                    />
                   </div>
-                  <h3>{profileData.personalInfo.fullName || profileData.businessInfo.displayName || 'Seller Name'}</h3>
-                  <p className="store-name">
-                    <i className="fas fa-store"></i>
-                    {profileData.businessInfo.displayName || 'Business Name'}
-                  </p>
-                  <div className="profile-verification">
-                    {profileData.documents.idVerified && (
-                      <span className="badge verified">
-                        <i className="fas fa-check-circle"></i> Verified
-                      </span>
-                    )}
-                    <span className="badge rating">
-                      <i className="fas fa-star"></i> 4.8
-                    </span>
+                  <div className="form-group">
+                    <label>Email</label>
+                    <input 
+                      type="email" 
+                      value={profileData.personalInfo.contactEmail || ''}
+                      onChange={(e) => handleInputChange('personalInfo', 'contactEmail', e.target.value)}
+                      placeholder="your@email.com"
+                    />
                   </div>
+                  <button 
+                    className="btn-save"
+                    onClick={() => saveSection('personalInfo')}
+                    disabled={saving}
+                  >
+                    {saving ? 'Saving...' : 'Save Changes'}
+                  </button>
                 </div>
+              )}
 
-                <nav className="profile-tabs">
-                  {tabs.map(tab => (
-                    <button
-                      key={tab.id}
-                      className={`tab-btn ${activeTab === tab.id ? 'active' : ''}`}
-                      onClick={() => setActiveTab(tab.id)}
-                      disabled={saving}
-                    >
-                      <i className={tab.icon}></i>
-                      {tab.label}
-                    </button>
-                  ))}
-                </nav>
-              </div>
-
-              <div className="profile-main">
-                {activeTab === 'personal' && renderPersonalInfo()}
-                {/* Render other tabs as needed */}
-              </div>
+              {/* Add all other tab sections here... */}
             </div>
           </div>
         </div>
