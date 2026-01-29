@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { authAPI } from '../services/Api';
+import ReCAPTCHA from 'react-google-recaptcha';
 import './Signup.css';
 
 const Signup = () => {
@@ -30,6 +31,7 @@ const Signup = () => {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [acceptedTerms, setAcceptedTerms] = useState(false);
+  const [captchaValue, setCaptchaValue] = useState(null);
   const [serverStatus, setServerStatus] = useState('checking');
   const [states, setStates] = useState([]);
   const [lgas, setLgas] = useState([]);
@@ -39,11 +41,14 @@ const Signup = () => {
   const { login } = useAuth();
   const navigate = useNavigate();
 
+  // Your reCAPTCHA site key
+  const RECAPTCHA_SITE_KEY = '6LdvsFksAAAAAM0RrfXyJpUW-oagElOQqVAukB_z';
+
   useEffect(() => {
     const checkServer = async () => {
       try {
         setServerStatus('checking');
-        console.log('🔍 Checking server status...');
+        console.log('Checking server status...');
         
         const response = await fetch('https://carttifys-1.onrender.com/health', {
           method: 'GET',
@@ -53,18 +58,18 @@ const Signup = () => {
         
         if (response.ok) {
           setServerStatus('awake');
-          console.log('✅ Server is awake and ready');
+          console.log('Server is awake and ready');
         } else {
           setServerStatus('error');
-          console.warn('⚠️ Server responded with error:', response.status);
+          console.warn('Server responded with error:', response.status);
         }
       } catch (err) {
         if (err.name === 'AbortError') {
           setServerStatus('sleeping');
-          console.log('😴 Server is sleeping (Render free tier) - first request will be slow');
+          console.log('Server is sleeping (Render free tier) - first request will be slow');
         } else {
           setServerStatus('error');
-          console.error('❌ Server check failed:', err.message);
+          console.error('Server check failed:', err.message);
         }
       }
     };
@@ -84,9 +89,9 @@ const Signup = () => {
       
       const data = await response.json();
       setStates(data);
-      console.log('✅ States loaded successfully');
+      console.log('States loaded successfully');
     } catch (err) {
-      console.error('❌ Failed to load states:', err);
+      console.error('Failed to load states:', err);
       setError('Failed to load states. Please refresh the page.');
     } finally {
       setLoadingStates(false);
@@ -106,9 +111,9 @@ const Signup = () => {
       
       const data = await response.json();
       setLgas(data);
-      console.log(`✅ LGAs loaded for ${stateName}`);
+      console.log(`LGAs loaded for ${stateName}`);
     } catch (err) {
-      console.error('❌ Failed to load LGAs:', err);
+      console.error('Failed to load LGAs:', err);
       setError('Failed to load LGAs. Please try again.');
     } finally {
       setLoadingLgas(false);
@@ -161,6 +166,11 @@ const Signup = () => {
     handleChange(e);
   };
 
+  const handleCaptchaChange = (value) => {
+    setCaptchaValue(value);
+    setError(''); // Clear any captcha error
+  };
+
   const validatePhoneNumber = (phone) => {
     if (phone.length !== 11) {
       return 'Phone number must be exactly 11 digits';
@@ -183,6 +193,12 @@ const Signup = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+
+    // Validate CAPTCHA
+    if (!captchaValue) {
+      setError('Please complete the CAPTCHA verification');
+      return;
+    }
 
     if (formData.password !== formData.confirmPassword) {
       setError('Passwords do not match');
@@ -214,6 +230,7 @@ const Signup = () => {
         email: formData.email,
         password: formData.password,
         role: formData.role,
+        captcha: captchaValue // Add captcha token
       };
 
       if (formData.role === 'buyer') {
@@ -231,8 +248,8 @@ const Signup = () => {
         userData.name = formData.businessName;
       }
 
-      console.log('🔄 Attempting registration...');
-      console.log('📤 Data:', userData);
+      console.log('Attempting registration...');
+      console.log('Data:', userData);
 
       if (serverStatus === 'sleeping') {
         setError('Server is waking up... This may take 20-30 seconds. Please wait.');
@@ -247,7 +264,7 @@ const Signup = () => {
         body: JSON.stringify(userData),
       });
 
-      console.log('📥 Response status:', response.status);
+      console.log('Response status:', response.status);
       
       if (!response.ok) {
         let errorMessage = `HTTP ${response.status}: `;
@@ -260,25 +277,27 @@ const Signup = () => {
           errorMessage += errorText || response.statusText;
         }
         
+        // Reset captcha on error
+        setCaptchaValue(null);
         throw new Error(errorMessage);
       }
 
       const data = await response.json();
-      console.log('✅ Registration successful:', data);
+      console.log('Registration successful:', data);
 
       if (data.success) {
         if (data.token) {
           localStorage.setItem('token', data.token);
-          console.log('🔑 Token stored in localStorage');
+          console.log('Token stored in localStorage');
         } else {
-          console.warn('⚠️ No token received in response');
+          console.warn('No token received in response');
         }
         
         try {
           if (login) {
             await login(data.user || data.data, data.token);
           } else {
-            console.warn('⚠️ login function not available in AuthContext');
+            console.warn('login function not available in AuthContext');
           }
         } catch (authError) {
           console.error('Auth context error:', authError);
@@ -288,19 +307,24 @@ const Signup = () => {
           navigate(data.redirectTo);
         } else {
           const redirectPath = formData.role === 'buyer' ? '/buyer/dashboard' : '/seller/dashboard';
-          console.log(`📍 Navigating to: ${redirectPath}`);
+          console.log(`Navigating to: ${redirectPath}`);
           navigate(redirectPath);
         }
       } else {
+        // Reset captcha on error
+        setCaptchaValue(null);
         throw new Error(data.message || 'Registration failed');
       }
 
     } catch (err) {
-      console.error('❌ Registration error details:', {
+      console.error('Registration error details:', {
         name: err.name,
         message: err.message,
         stack: err.stack
       });
+      
+      // Reset captcha on error
+      setCaptchaValue(null);
       
       let errorMessage = err.message || 'Failed to create account. Please try again.';
       
@@ -316,6 +340,8 @@ const Signup = () => {
         errorMessage = 'Registration endpoint not found. Please contact support.';
       } else if (err.message.includes('500')) {
         errorMessage = 'Server error. Please try again in a few minutes.';
+      } else if (err.message.includes('captcha') || err.message.includes('CAPTCHA')) {
+        errorMessage = 'CAPTCHA verification failed. Please try again.';
       }
       
       setError(errorMessage);
@@ -723,6 +749,20 @@ const Signup = () => {
             </div>
           </div>
 
+          {/* reCAPTCHA */}
+          <div className="form-group captcha-container">
+            <ReCAPTCHA
+              sitekey={RECAPTCHA_SITE_KEY}
+              onChange={handleCaptchaChange}
+              onExpired={() => setCaptchaValue(null)}
+              onErrored={() => {
+                setCaptchaValue(null);
+                setError('CAPTCHA verification failed. Please try again.');
+              }}
+              theme="light"
+            />
+          </div>
+
           <div className="terms-section">
             <div className="terms-checkbox">
               <input
@@ -754,8 +794,8 @@ const Signup = () => {
 
           <button 
             type="submit" 
-            className={`submit-btn ${(!isFormValid() || !acceptedTerms || loading) ? 'disabled' : ''}`}
-            disabled={!isFormValid() || !acceptedTerms || loading}
+            className={`submit-btn ${(!isFormValid() || !acceptedTerms || !captchaValue || loading) ? 'disabled' : ''}`}
+            disabled={!isFormValid() || !acceptedTerms || !captchaValue || loading}
           >
             {loading ? (
               <>

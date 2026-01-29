@@ -553,8 +553,42 @@
     justify-content: flex-start;
     padding: 12px 15px;
   }
-<<<<<<< HEAD
+
 }
-=======
+/* Add this to your existing Login.css */
+
+/* CAPTCHA Container */
+.captcha-container {
+  display: flex;
+  justify-content: center;
+  margin: 1.5rem 0;
 }
->>>>>>> c2101a68649d9082e9cf568fcbc35984d7a3ac6b
+
+/* Make reCAPTCHA responsive */
+.captcha-container > div {
+  transform: scale(0.95);
+  transform-origin: center;
+}
+
+@media (max-width: 480px) {
+  .captcha-container > div {
+    transform: scale(0.85);
+  }
+}
+
+@media (max-width: 380px) {
+  .captcha-container > div {
+    transform: scale(0.75);
+  }
+}
+
+.login-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  background: #94a3b8;
+}
+
+.login-btn:disabled:hover {
+  transform: none;
+  box-shadow: none;
+}

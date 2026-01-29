@@ -4,6 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { authAPI } from '../services/Api';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faArrowLeft, faUser, faStore } from '@fortawesome/free-solid-svg-icons';
+import ReCAPTCHA from 'react-google-recaptcha';
 import './Login.css';
 
 const Login = () => {
@@ -14,12 +15,16 @@ const Login = () => {
   const [loginType, setLoginType] = useState('buyer');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [captchaValue, setCaptchaValue] = useState(null);
   
   const { login } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   
   const from = location.state?.from?.pathname || '/';
+
+  // Your actual Google reCAPTCHA site key
+  const RECAPTCHA_SITE_KEY = '6LdvsFksAAAAAM0RrfXyJpUW-oagElOQqVAukB_z';
 
   const handleChange = (e) => {
     setFormData({
@@ -28,21 +33,35 @@ const Login = () => {
     });
   };
 
+  const handleCaptchaChange = (value) => {
+    setCaptchaValue(value);
+    setError(''); // Clear any captcha error
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+
+    // Validate CAPTCHA
+    if (!captchaValue) {
+      setError('Please complete the CAPTCHA verification');
+      return;
+    }
+
     setLoading(true);
 
     try {
       console.log('Attempting login with:', { 
         email: formData.email, 
-        selectedRole: loginType 
+        selectedRole: loginType,
+        hasCaptcha: !!captchaValue
       });
       
       // Call the API - this already stores token and user in localStorage
       const response = await authAPI.login({
         email: formData.email,
-        password: formData.password
+        password: formData.password,
+        captcha: captchaValue // Send captcha token to backend
       });
 
       console.log('Login API response:', response);
@@ -62,6 +81,8 @@ const Login = () => {
       if (user.role !== loginType) {
         setError(`This account is registered as a ${user.role}. Please select "Login as ${user.role === 'buyer' ? 'Buyer' : 'Seller'}" instead.`);
         setLoading(false);
+        // Reset captcha on error
+        setCaptchaValue(null);
         return;
       }
 
@@ -99,12 +120,17 @@ const Login = () => {
     } catch (err) {
       console.error('Login error:', err);
       
+      // Reset captcha on error
+      setCaptchaValue(null);
+      
       if (err.message.includes('Network error') || err.message.includes('Failed to fetch')) {
         setError('Cannot connect to server. Please check your internet connection and try again.');
       } else if (err.message.includes('401') || err.message.includes('Authentication required')) {
         setError('Invalid email or password. Please try again.');
       } else if (err.message.includes('localStorage')) {
         setError('Unable to save login data. Please enable cookies and try again.');
+      } else if (err.message.includes('captcha') || err.message.includes('CAPTCHA')) {
+        setError('CAPTCHA verification failed. Please try again.');
       } else {
         setError(err.message || 'Login failed. Please check your credentials and try again.');
       }
@@ -220,10 +246,24 @@ const Login = () => {
             </div>
           </div>
 
+          {/* reCAPTCHA */}
+          <div className="form-group captcha-container">
+            <ReCAPTCHA
+              sitekey={RECAPTCHA_SITE_KEY}
+              onChange={handleCaptchaChange}
+              onExpired={() => setCaptchaValue(null)}
+              onErrored={() => {
+                setCaptchaValue(null);
+                setError('CAPTCHA verification failed. Please try again.');
+              }}
+              theme="light"
+            />
+          </div>
+
           <button 
             type="submit" 
             className="login-btn"
-            disabled={loading}
+            disabled={loading || !captchaValue}
           >
             {loading ? (
               <span className="loading-dots">Logging in</span>
