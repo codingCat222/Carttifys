@@ -9,6 +9,7 @@
   },
   "dependencies": {
     "@google-cloud/storage": "^6.9.5",
+    "axios": "^1.13.4",
     "bcryptjs": "^2.4.3",
     "cloudinary": "^2.8.0",
     "compression": "^1.8.1",
