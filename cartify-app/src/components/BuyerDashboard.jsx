@@ -60,11 +60,16 @@ const BuyerDashboard = () => {
     { id: 'card2', type: 'MasterCard', number: '**** 5678', isDefault: false }
   ]);
   
-  const [ads] = useState([
+  // Ads Carousel State
+  const [ads, setAds] = useState([
     { id: 1, image: 'https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?q=80&w=2070', title: 'Black Friday Sale', description: 'Up to 70% off' },
     { id: 2, image: 'https://images.unsplash.com/photo-1498049794561-7780e7231661?q=80&w=2070', title: 'New Arrivals', description: 'Latest Gadgets' },
-    { id: 3, image: 'https://images.unsplash.com/photo-1445205170230-053b83016050?q=80&w=2071', title: 'Summer Collection', description: 'Trendy Styles' }
+    { id: 3, image: 'https://images.unsplash.com/photo-1445205170230-053b83016050?q=80&w=2071', title: 'Summer Collection', description: 'Trendy Styles' },
+    { id: 4, image: 'https://images.unsplash.com/photo-1556228578-9c360e1d8d34?q=80&w=1974', title: 'Clearance Sale', description: 'Last Chance Deals' },
+    { id: 5, image: 'https://images.unsplash.com/photo-1555529669-e69e7aa0ba9a?q=80&w=2070', title: 'Tech Week', description: 'Best Electronics Deals' }
   ]);
+  const [currentAdIndex, setCurrentAdIndex] = useState(0);
+  const [showAdsPopup, setShowAdsPopup] = useState(true); // Changed to true to show on entry
   
   const [reels, setReels] = useState([]);
   const [currentReelIndex, setCurrentReelIndex] = useState(0);
@@ -79,11 +84,48 @@ const BuyerDashboard = () => {
   const [replyText, setReplyText] = useState('');
   const [touchStartY, setTouchStartY] = useState(0);
   const [touchEndY, setTouchEndY] = useState(0);
+  const [isScrolling, setIsScrolling] = useState(false);
   
   const videoRefs = useRef([]);
   const reelContainerRef = useRef(null);
   const commentInputRef = useRef(null);
   const adsRef = useRef(null);
+  const adsIntervalRef = useRef(null);
+  const touchStartTimeRef = useRef(0);
+
+  // Fetch ads from API
+  useEffect(() => {
+    fetchAds();
+  }, []);
+
+  const fetchAds = async () => {
+    try {
+      const result = await buyerAPI.getAds();
+      if (result.success && result.data) {
+        setAds(result.data);
+      }
+    } catch (error) {
+      console.error('Failed to fetch ads:', error);
+      // Keep default ads if API fails
+    }
+  };
+
+  // Carousel autoplay for ads
+  useEffect(() => {
+    if (showAdsPopup && ads.length > 1) {
+      adsIntervalRef.current = setInterval(() => {
+        setCurrentAdIndex((prevIndex) => 
+          prevIndex === ads.length - 1 ? 0 : prevIndex + 1
+        );
+      }, 4000); // Change ad every 4 seconds
+    }
+    
+    return () => {
+      if (adsIntervalRef.current) {
+        clearInterval(adsIntervalRef.current);
+      }
+    };
+  }, [showAdsPopup, ads.length]);
 
   const getProductImage = (product) => {
     if (!product) return '/images/placeholder.jpg';
@@ -228,14 +270,35 @@ const BuyerDashboard = () => {
     try {
       const result = await buyerAPI.getReels();
       if (result.success && result.data) {
-        setReels(result.data);
-        const commentsData = result.data.map(reel => ({
-          reelId: reel._id || reel.id,
-          comments: reel.comments || [
-            { id: 1, user: 'User1', text: 'Nice product! 🔥', time: '2h', likes: 5, replies: [] },
-            { id: 2, user: 'User2', text: 'Where can I buy this?', time: '1h', likes: 2, replies: [] }
-          ]
+        const reelsWithDefaults = result.data.map(reel => ({
+          ...reel,
+          isLiked: reel.isLiked || false,
+          likesCount: reel.likesCount || 0,
+          sharesCount: reel.sharesCount || 0,
+          product: reel.product || null
         }));
+        setReels(reelsWithDefaults);
+        
+        // Fetch real comments for each reel
+        const commentsPromises = reelsWithDefaults.map(async (reel) => {
+          try {
+            const commentsResult = await buyerAPI.getReelComments(reel._id || reel.id);
+            if (commentsResult.success) {
+              return {
+                reelId: reel._id || reel.id,
+                comments: commentsResult.data || []
+              };
+            }
+          } catch (error) {
+            console.error(`Failed to fetch comments for reel ${reel._id}:`, error);
+          }
+          return {
+            reelId: reel._id || reel.id,
+            comments: [] // Empty array if API fails
+          };
+        });
+        
+        const commentsData = await Promise.all(commentsPromises);
         setComments(commentsData);
       } else {
         setReels([]);
@@ -246,92 +309,124 @@ const BuyerDashboard = () => {
     }
   };
 
-  const handleAddComment = () => {
+  const handleAddComment = async () => {
     if (!newComment.trim()) return;
     
     const currentReel = reels[currentReelIndex];
     const reelId = currentReel._id || currentReel.id;
     
-    const newCommentObj = {
-      id: Date.now(),
-      user: userProfile.name || 'You',
-      text: newComment,
-      time: 'Just now',
-      likes: 0,
-      replies: []
-    };
-    
-    setComments(prev => 
-      prev.map(item => 
-        item.reelId === reelId 
-          ? { ...item, comments: [...item.comments, newCommentObj] }
-          : item
-      )
-    );
-    
-    setNewComment('');
-    if (commentInputRef.current) {
-      commentInputRef.current.focus();
+    try {
+      const result = await buyerAPI.addReelComment(reelId, { text: newComment });
+      
+      if (result.success) {
+        const newCommentObj = {
+          id: result.data._id || Date.now(),
+          user: {
+            name: userProfile.name || 'You',
+            avatar: userProfile.avatar
+          },
+          text: newComment,
+          time: 'Just now',
+          likes: 0,
+          replies: []
+        };
+        
+        setComments(prev => 
+          prev.map(item => 
+            item.reelId === reelId 
+              ? { ...item, comments: [...item.comments, newCommentObj] }
+              : item
+          )
+        );
+        
+        setNewComment('');
+        if (commentInputRef.current) {
+          commentInputRef.current.focus();
+        }
+      }
+    } catch (error) {
+      console.error('Failed to add comment:', error);
+      showNotification('Failed to add comment. Please try again.', 'error');
     }
   };
 
-  const handleAddReply = (commentId) => {
+  const handleAddReply = async (commentId) => {
     if (!replyText.trim()) return;
     
     const currentReel = reels[currentReelIndex];
     const reelId = currentReel._id || currentReel.id;
     
-    setComments(prev => 
-      prev.map(item => 
-        item.reelId === reelId 
-          ? {
-              ...item,
-              comments: item.comments.map(comment => 
-                comment.id === commentId 
-                  ? {
-                      ...comment,
-                      replies: [
-                        ...(comment.replies || []),
-                        {
-                          id: Date.now(),
-                          user: userProfile.name || 'You',
-                          text: replyText,
-                          time: 'Just now',
-                          likes: 0
+    try {
+      const result = await buyerAPI.addCommentReply(reelId, commentId, { text: replyText });
+      
+      if (result.success) {
+        setComments(prev => 
+          prev.map(item => 
+            item.reelId === reelId 
+              ? {
+                  ...item,
+                  comments: item.comments.map(comment => 
+                    comment.id === commentId 
+                      ? {
+                          ...comment,
+                          replies: [
+                            ...(comment.replies || []),
+                            {
+                              id: result.data._id || Date.now(),
+                              user: {
+                                name: userProfile.name || 'You',
+                                avatar: userProfile.avatar
+                              },
+                              text: replyText,
+                              time: 'Just now',
+                              likes: 0
+                            }
+                          ]
                         }
-                      ]
-                    }
-                  : comment
-              )
-            }
-          : item
-      )
-    );
-    
-    setReplyText('');
-    setReplyingTo(null);
+                      : comment
+                  )
+                }
+              : item
+          )
+        );
+        
+        setReplyText('');
+        setReplyingTo(null);
+      }
+    } catch (error) {
+      console.error('Failed to add reply:', error);
+      showNotification('Failed to add reply. Please try again.', 'error');
+    }
   };
 
-  const handleLikeComment = (commentId, isReply = false) => {
+  const handleLikeComment = async (commentId, isReply = false) => {
     const currentReel = reels[currentReelIndex];
     const reelId = currentReel._id || currentReel.id;
     
-    setComments(prev => 
-      prev.map(item => 
-        item.reelId === reelId 
-          ? {
-              ...item,
-              comments: isReply 
-                ? item.comments
-                : item.comments.map(comment => 
-                    comment.id === commentId 
-                      ? { ...comment, likes: (comment.likes || 0) + 1 }
-                      : comment
-                  )
-            }
-          : item
-      )
-    );
+    try {
+      const result = await buyerAPI.likeComment(reelId, commentId, isReply);
+      
+      if (result.success) {
+        setComments(prev => 
+          prev.map(item => 
+            item.reelId === reelId 
+              ? {
+                  ...item,
+                  comments: isReply 
+                    ? item.comments
+                    : item.comments.map(comment => 
+                        comment.id === commentId 
+                          ? { ...comment, likes: (comment.likes || 0) + 1 }
+                          : comment
+                      )
+                }
+              : item
+          )
+        );
+      }
+    } catch (error) {
+      console.error('Failed to like comment:', error);
+    }
   };
 
   const getCurrentReelComments = () => {
@@ -349,18 +444,24 @@ const BuyerDashboard = () => {
     }
   }, [showComments]);
 
+  // Improved reel scrolling with better touch handling
   useEffect(() => {
     const handleWheel = (e) => {
-      if (activeSection !== 'reels') return;
+      if (activeSection !== 'reels' || isScrolling) return;
       
       e.preventDefault();
-      if (Math.abs(e.deltaY) < 50) return;
+      if (Math.abs(e.deltaY) < 30) return;
+      
+      setIsScrolling(true);
       
       if (e.deltaY > 0 && currentReelIndex < reels.length - 1) {
         setCurrentReelIndex(prev => prev + 1);
       } else if (e.deltaY < 0 && currentReelIndex > 0) {
         setCurrentReelIndex(prev => prev - 1);
       }
+      
+      // Reset scrolling flag after animation
+      setTimeout(() => setIsScrolling(false), 300);
     };
 
     if (activeSection === 'reels') {
@@ -370,7 +471,32 @@ const BuyerDashboard = () => {
     return () => {
       window.removeEventListener('wheel', handleWheel);
     };
-  }, [activeSection, currentReelIndex, reels.length]);
+  }, [activeSection, currentReelIndex, reels.length, isScrolling]);
+
+  // Video autoplay management
+  useEffect(() => {
+    if (activeSection === 'reels' && reels.length > 0) {
+      const currentVideo = videoRefs.current[currentReelIndex];
+      if (currentVideo) {
+        const playPromise = currentVideo.play();
+        if (playPromise !== undefined) {
+          playPromise.catch(error => {
+            console.error('Autoplay failed:', error);
+            setIsPlaying(false);
+          });
+        }
+        currentVideo.muted = isMuted;
+      }
+      
+      // Pause other videos
+      videoRefs.current.forEach((video, index) => {
+        if (video && index !== currentReelIndex) {
+          video.pause();
+          video.currentTime = 0;
+        }
+      });
+    }
+  }, [currentReelIndex, activeSection, reels.length]);
 
   useEffect(() => {
     if (!searchQuery.trim()) {
@@ -589,7 +715,9 @@ const BuyerDashboard = () => {
     navigate('/profile/edit');
   };
   
+  // Improved touch handlers for reels
   const handleReelTouchStart = (e) => {
+    touchStartTimeRef.current = Date.now();
     setTouchStartY(e.touches[0].clientY);
   };
 
@@ -598,10 +726,15 @@ const BuyerDashboard = () => {
   };
 
   const handleReelTouchEnd = () => {
+    const touchDuration = Date.now() - touchStartTimeRef.current;
+    
+    // Don't process swipe if it was a long press (could be for other interactions)
+    if (touchDuration > 300) return;
+    
     if (!touchStartY || !touchEndY) return;
     
     const distance = touchStartY - touchEndY;
-    const minSwipeDistance = 50;
+    const minSwipeDistance = 80; // Increased for better detection
     
     if (Math.abs(distance) < minSwipeDistance) return;
     
@@ -648,13 +781,21 @@ const BuyerDashboard = () => {
     }
   };
   
-  const handleReelSave = (reelId) => {
-    if (savedReels.includes(reelId)) {
-      setSavedReels(savedReels.filter(id => id !== reelId));
-      showNotification('Removed from saved reels', 'info');
-    } else {
-      setSavedReels([...savedReels, reelId]);
-      showNotification('Saved to favorites', 'success');
+  const handleReelSave = async (reelId) => {
+    try {
+      const result = await buyerAPI.saveReel(reelId);
+      if (result.success) {
+        if (savedReels.includes(reelId)) {
+          setSavedReels(savedReels.filter(id => id !== reelId));
+          showNotification('Removed from saved reels', 'info');
+        } else {
+          setSavedReels([...savedReels, reelId]);
+          showNotification('Saved to favorites', 'success');
+        }
+      }
+    } catch (error) {
+      console.error('Failed to save reel:', error);
+      showNotification('Failed to save reel. Please try again.', 'error');
     }
   };
   
@@ -709,35 +850,91 @@ const BuyerDashboard = () => {
     };
   };
 
-  useEffect(() => {
-    if (activeSection === 'reels' && reels.length > 0) {
-      const currentVideo = videoRefs.current[currentReelIndex];
-      if (currentVideo) {
-        if (isPlaying) {
-          currentVideo.play().catch(console.error);
-        } else {
-          currentVideo.pause();
-        }
-        currentVideo.muted = isMuted;
-      }
-    }
-  }, [currentReelIndex, isPlaying, isMuted, activeSection]);
-
-  useEffect(() => {
-    const handleVideoEnd = () => {
-      if (currentReelIndex < reels.length - 1) {
-        setCurrentReelIndex(prev => prev + 1);
-      }
-    };
-
-    if (activeSection === 'reels' && reels.length > 0) {
-      const currentVideo = videoRefs.current[currentReelIndex];
-      if (currentVideo) {
-        currentVideo.addEventListener('ended', handleVideoEnd);
-        return () => currentVideo.removeEventListener('ended', handleVideoEnd);
-      }
-    }
-  }, [currentReelIndex, reels.length, activeSection]);
+  // Render Ads Popup Carousel
+  const renderAdsPopup = () => {
+    if (!showAdsPopup) return null;
+    
+    return (
+      <div className="ads-popup-overlay">
+        <div className="ads-popup-container">
+          <div className="ads-popup-content">
+            <div className="ads-carousel">
+              <div 
+                className="ads-carousel-track"
+                style={{ transform: `translateX(-${currentAdIndex * 100}%)` }}
+              >
+                {ads.map((ad, index) => (
+                  <div 
+                    key={ad.id} 
+                    className={`ads-carousel-slide ${index === currentAdIndex ? 'active' : ''}`}
+                  >
+                    <div className="ads-popup-image">
+                      <img src={ad.image} alt={ad.title} />
+                      <div className="ads-popup-overlay">
+                        <h3>{ad.title}</h3>
+                        <p>{ad.description}</p>
+                        <button 
+                          className="ads-popup-action-btn"
+                          onClick={() => {
+                            // Navigate to relevant products or promotions
+                            setSearchQuery(ad.title);
+                            setShowAdsPopup(false);
+                            setActiveSection('search');
+                          }}
+                        >
+                          Shop Now
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              
+              {/* Carousel Indicators */}
+              <div className="ads-carousel-indicators">
+                {ads.map((_, index) => (
+                  <button
+                    key={index}
+                    className={`ads-indicator ${index === currentAdIndex ? 'active' : ''}`}
+                    onClick={() => setCurrentAdIndex(index)}
+                  />
+                ))}
+              </div>
+              
+              {/* Carousel Navigation */}
+              <button 
+                className="ads-carousel-nav prev"
+                onClick={() => setCurrentAdIndex(prev => prev === 0 ? ads.length - 1 : prev - 1)}
+              >
+                <FontAwesomeIcon icon={faChevronLeft} />
+              </button>
+              <button 
+                className="ads-carousel-nav next"
+                onClick={() => setCurrentAdIndex(prev => prev === ads.length - 1 ? 0 : prev + 1)}
+              >
+                <FontAwesomeIcon icon={faChevronRight} />
+              </button>
+            </div>
+            
+            <div className="ads-popup-footer">
+              <button 
+                className="ads-popup-skip-btn"
+                onClick={() => setShowAdsPopup(false)}
+              >
+                Skip Ads
+              </button>
+              <button 
+                className="ads-popup-close-btn"
+                onClick={() => setShowAdsPopup(false)}
+              >
+                <FontAwesomeIcon icon={faTimes} />
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
 
   if (loading && activeSection === 'home' && dashboardData.recommendedProducts.length === 0) {
     return (
@@ -771,18 +968,45 @@ const BuyerDashboard = () => {
   const renderHomeScreen = () => (
     <div className="home-section">
       <div className="ads-banner" ref={adsRef}>
-        <div className="ads-container">
-          {ads.map(ad => (
-            <div key={ad.id} className="ad-item">
-              <div className="ad-image">
-                <img src={ad.image} alt={ad.title} />
-                <div className="ad-overlay">
-                  <h3>{ad.title}</h3>
-                  <p>{ad.description}</p>
+        <div className="ads-carousel">
+          <div 
+            className="ads-carousel-track"
+            style={{ transform: `translateX(-${currentAdIndex * 100}%)` }}
+          >
+            {ads.slice(0, 3).map((ad, index) => (
+              <div 
+                key={ad.id} 
+                className={`ads-carousel-slide ${index === currentAdIndex ? 'active' : ''}`}
+              >
+                <div className="ad-image">
+                  <img src={ad.image} alt={ad.title} />
+                  <div className="ad-overlay">
+                    <h3>{ad.title}</h3>
+                    <p>{ad.description}</p>
+                    <button 
+                      className="ad-action-btn"
+                      onClick={() => {
+                        setSearchQuery(ad.title);
+                        setActiveSection('search');
+                      }}
+                    >
+                      View Offer
+                    </button>
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
+            ))}
+          </div>
+          
+          <div className="ads-carousel-indicators">
+            {ads.slice(0, 3).map((_, index) => (
+              <button
+                key={index}
+                className={`ads-indicator ${index === currentAdIndex ? 'active' : ''}`}
+                onClick={() => setCurrentAdIndex(index)}
+              />
+            ))}
+          </div>
         </div>
       </div>
 
@@ -970,7 +1194,12 @@ const BuyerDashboard = () => {
         <div className="recently-viewed">
           <div className="section-header">
             <h3>Recently Viewed</h3>
-            <button className="view-all-btn">See All</button>
+            <button 
+              className="view-all-btn"
+              onClick={() => setActiveSection('profile')}
+            >
+              See All
+            </button>
           </div>
           <div className="recent-items">
             {savedItems.slice(0, 3).map(item => (
@@ -1018,7 +1247,10 @@ const BuyerDashboard = () => {
             <FontAwesomeIcon icon={faArrowLeft} />
           </button>
           <h2>Product Details</h2>
-          <button onClick={() => handleToggleSaveItem(selectedProduct)}>
+          <button 
+            onClick={() => handleToggleSaveItem(selectedProduct)}
+            className={savedItems.find(item => item._id === selectedProduct._id || item.id === selectedProduct.id) ? 'active' : ''}
+          >
             <FontAwesomeIcon icon={faHeart} />
           </button>
         </div>
@@ -1035,7 +1267,7 @@ const BuyerDashboard = () => {
           <div className="product-title-section">
             <h1>{selectedProduct.name}</h1>
             <div className="product-price-large">
-              ₦{formatPriceNumber(selectedProduct.price)}
+              <span className="naira-price">₦{formatPriceNumber(selectedProduct.price)}</span>
               {selectedProduct.originalPrice && (
                 <span className="original-price-large">
                   ₦{formatPriceNumber(selectedProduct.originalPrice)}
@@ -1139,7 +1371,9 @@ const BuyerDashboard = () => {
                 />
                 <div className="cart-item-details">
                   <h4>{item.product.name}</h4>
-                  <p className="cart-item-price">₦{formatPriceNumber(item.product.price)}</p>
+                  <p className="cart-item-price">
+                    <span className="naira-price">₦{formatPriceNumber(item.product.price)}</span>
+                  </p>
                   <div className="quantity-selector">
                     <button onClick={() => handleUpdateQuantity(item.id, item.quantity - 1)}>
                       <FontAwesomeIcon icon={faMinus} />
@@ -1152,7 +1386,7 @@ const BuyerDashboard = () => {
                 </div>
                 <div className="cart-item-actions">
                   <p className="item-total-price">
-                    ₦{formatPriceNumber(item.product.price * item.quantity)}
+                    <span className="naira-price">₦{formatPriceNumber(item.product.price * item.quantity)}</span>
                   </p>
                   <button 
                     onClick={() => handleRemoveFromCart(item.id)}
@@ -1168,15 +1402,15 @@ const BuyerDashboard = () => {
           <div className="cart-summary">
             <div className="summary-row">
               <span>Subtotal</span>
-              <span>₦{formatPriceNumber(cartItems.reduce((sum, item) => sum + (parseFloat(item.product.price) * item.quantity), 0))}</span>
+              <span className="naira-price">₦{formatPriceNumber(cartItems.reduce((sum, item) => sum + (parseFloat(item.product.price) * item.quantity), 0))}</span>
             </div>
             <div className="summary-row">
               <span>Shipping</span>
-              <span>₦500</span>
+              <span className="naira-price">₦500</span>
             </div>
             <div className="summary-row total-row">
               <span>Total</span>
-              <span>₦{formatPriceNumber(cartItems.reduce((sum, item) => sum + (parseFloat(item.product.price) * item.quantity), 0) + 500)}</span>
+              <span className="naira-price">₦{formatPriceNumber(cartItems.reduce((sum, item) => sum + (parseFloat(item.product.price) * item.quantity), 0) + 500)}</span>
             </div>
             
             <button className="checkout-button" onClick={handleCheckout}>
@@ -1254,12 +1488,12 @@ const BuyerDashboard = () => {
             {cartItems.map(item => (
               <div key={item.id} className="order-item">
                 <span>{item.product.name} x {item.quantity}</span>
-                <span>₦{formatPriceNumber(item.product.price * item.quantity)}</span>
+                <span className="naira-price">₦{formatPriceNumber(item.product.price * item.quantity)}</span>
               </div>
             ))}
             <div className="order-total-row">
               <span>Total</span>
-              <span>₦{formatPriceNumber(cartItems.reduce((sum, item) => sum + (parseFloat(item.product.price) * item.quantity), 0) + 500)}</span>
+              <span className="naira-price">₦{formatPriceNumber(cartItems.reduce((sum, item) => sum + (parseFloat(item.product.price) * item.quantity), 0) + 500)}</span>
             </div>
           </div>
         </div>
@@ -1270,7 +1504,7 @@ const BuyerDashboard = () => {
         onClick={handlePlaceOrder}
         disabled={!selectedAddress || !selectedPayment}
       >
-        Place Order - ₦{formatPriceNumber(cartItems.reduce((sum, item) => sum + (parseFloat(item.product.price) * item.quantity), 0) + 500)}
+        Place Order - <span className="naira-price">₦{formatPriceNumber(cartItems.reduce((sum, item) => sum + (parseFloat(item.product.price) * item.quantity), 0) + 500)}</span>
       </button>
     </div>
   );
@@ -1326,7 +1560,10 @@ const BuyerDashboard = () => {
           <FontAwesomeIcon icon={faChevronRight} />
         </button>
         
-        <button className="menu-item">
+        <button className="menu-item" onClick={() => {
+          setSearchQuery('');
+          setActiveSection('search');
+        }}>
           <div className="menu-item-left">
             <FontAwesomeIcon icon={faHeart} />
             <span>Saved Items</span>
@@ -1441,7 +1678,7 @@ const BuyerDashboard = () => {
                 <p className="order-date">{order.date}</p>
                 <div className="order-total">
                   <span>Total:</span>
-                  <span className="total-amount">{formatPrice(order.total)}</span>
+                  <span className="total-amount naira-price">{formatPrice(order.total)}</span>
                 </div>
               </div>
               <button className="track-order-btn">
@@ -1493,7 +1730,6 @@ const BuyerDashboard = () => {
             <div 
               key={reel._id || reel.id || index}
               className={`reel-video-wrapper ${index === currentReelIndex ? 'active' : ''}`}
-              style={{ transform: `translateY(${currentReelIndex * -100}vh)` }}
             >
               <video
                 ref={(el) => (videoRefs.current[index] = el)}
@@ -1573,6 +1809,7 @@ const BuyerDashboard = () => {
                     onClick={() => handleReelSave(reel._id || reel.id)}
                   >
                     <FontAwesomeIcon icon={faBookmark} />
+                    <span className="action-count-tiktok">Save</span>
                   </button>
                   
                   <button className="action-btn-tiktok">
@@ -1616,7 +1853,7 @@ const BuyerDashboard = () => {
                       </div>
                       <div className="product-info-tiktok">
                         <h5>{reel.productName || reel.product.name}</h5>
-                        <p className="product-price-tiktok">
+                        <p className="product-price-tiktok naira-price">
                           ₦{formatPriceNumber(reel.productPrice || reel.product.price)}
                         </p>
                       </div>
@@ -1663,11 +1900,15 @@ const BuyerDashboard = () => {
                 currentComments.map(comment => (
                   <div key={comment.id} className="comment-item">
                     <div className="comment-avatar">
-                      <FontAwesomeIcon icon={faUserCircle} />
+                      {comment.user?.avatar ? (
+                        <img src={comment.user.avatar} alt={comment.user.name} />
+                      ) : (
+                        <FontAwesomeIcon icon={faUserCircle} />
+                      )}
                     </div>
                     <div className="comment-content">
                       <div className="comment-header">
-                        <strong>{comment.user}</strong>
+                        <strong>{comment.user?.name || comment.user}</strong>
                         <span className="comment-time">{comment.time}</span>
                       </div>
                       <p className="comment-text">{comment.text}</p>
@@ -1711,11 +1952,15 @@ const BuyerDashboard = () => {
                           {comment.replies.map(reply => (
                             <div key={reply.id} className="reply-item">
                               <div className="reply-avatar">
-                                <FontAwesomeIcon icon={faUserCircle} />
+                                {reply.user?.avatar ? (
+                                  <img src={reply.user.avatar} alt={reply.user.name} />
+                                ) : (
+                                  <FontAwesomeIcon icon={faUserCircle} />
+                                )}
                               </div>
                               <div className="reply-content">
                                 <div className="reply-header">
-                                  <strong>{reply.user}</strong>
+                                  <strong>{reply.user?.name || reply.user}</strong>
                                   <span className="reply-time">{reply.time}</span>
                                 </div>
                                 <p className="reply-text">{reply.text}</p>
@@ -1812,7 +2057,7 @@ const BuyerDashboard = () => {
               />
               <div className="search-product-info">
                 <h4>{product.name}</h4>
-                <p className="search-product-price">₦{formatPriceNumber(product.price)}</p>
+                <p className="search-product-price naira-price">₦{formatPriceNumber(product.price)}</p>
                 <div className="search-product-actions">
                   <button onClick={(e) => {
                     e.stopPropagation();
@@ -1870,6 +2115,9 @@ const BuyerDashboard = () => {
 
   return (
     <div className="buyer-dashboard">
+      {/* Ads Popup Carousel */}
+      {renderAdsPopup()}
+      
       <div className="top-nav">
         <button 
           className="top-nav-item categories-btn"

@@ -53,6 +53,294 @@ body {
   flex-direction: column;
   background: var(--white);
   overflow: hidden;
+  position: relative;
+}
+
+/* Ads Popup Styles */
+.ads-popup-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.95);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  animation: fadeIn 0.3s ease;
+}
+
+.ads-popup-container {
+  width: 90%;
+  max-width: 500px;
+  max-height: 90vh;
+  background: var(--white);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  box-shadow: var(--shadow-lg);
+  animation: slideUp 0.3s ease;
+}
+
+.ads-popup-content {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.ads-carousel {
+  position: relative;
+  overflow: hidden;
+  height: 400px;
+}
+
+.ads-carousel-track {
+  display: flex;
+  transition: transform 0.5s ease-in-out;
+  height: 100%;
+}
+
+.ads-carousel-slide {
+  flex: 0 0 100%;
+  height: 100%;
+}
+
+.ads-popup-image {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.ads-popup-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.ads-popup-overlay {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: linear-gradient(transparent, rgba(0, 0, 0, 0.9));
+  color: var(--white);
+  padding: 20px;
+  text-align: center;
+}
+
+.ads-popup-overlay h3 {
+  margin: 0 0 8px 0;
+  font-size: 24px;
+  font-weight: 800;
+}
+
+.ads-popup-overlay p {
+  margin: 0 0 20px 0;
+  font-size: 16px;
+  opacity: 0.9;
+}
+
+.ads-popup-action-btn {
+  background: linear-gradient(135deg, var(--primary-blue) 0%, var(--accent-blue) 100%);
+  color: var(--white);
+  border: none;
+  padding: 12px 32px;
+  border-radius: var(--radius-full);
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.ads-popup-action-btn:active {
+  transform: scale(0.95);
+}
+
+.ads-carousel-indicators {
+  position: absolute;
+  bottom: 20px;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  z-index: 2;
+}
+
+.ads-indicator {
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-full);
+  background: rgba(255, 255, 255, 0.5);
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.ads-indicator.active {
+  background: var(--white);
+  width: 24px;
+}
+
+.ads-carousel-nav {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  background: rgba(255, 255, 255, 0.2);
+  border: none;
+  color: var(--white);
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-full);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  backdrop-filter: blur(10px);
+  cursor: pointer;
+  z-index: 2;
+  transition: all 0.2s ease;
+}
+
+.ads-carousel-nav.prev {
+  left: 16px;
+}
+
+.ads-carousel-nav.next {
+  right: 16px;
+}
+
+.ads-carousel-nav:active {
+  background: rgba(255, 255, 255, 0.3);
+  transform: translateY(-50%) scale(0.95);
+}
+
+.ads-popup-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px;
+  background: var(--white);
+  border-top: 1px solid var(--light-blue);
+}
+
+.ads-popup-skip-btn {
+  background: none;
+  border: 2px solid var(--gray-300);
+  color: var(--gray-700);
+  padding: 10px 24px;
+  border-radius: var(--radius-full);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.ads-popup-skip-btn:active {
+  border-color: var(--primary-blue);
+  color: var(--primary-blue);
+  transform: scale(0.95);
+}
+
+.ads-popup-close-btn {
+  background: var(--light-blue);
+  border: none;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-full);
+  color: var(--gray-700);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.ads-popup-close-btn:active {
+  background: var(--primary-blue);
+  color: var(--white);
+  transform: rotate(90deg);
+}
+
+/* Black Naira Sign Style */
+.naira-price {
+  color: #000000; /* Pure black for naira sign */
+  font-weight: 800;
+}
+
+/* All buttons made blue */
+.add-cart-btn,
+.buy-now-btn,
+.add-to-cart-large,
+.buy-now-large,
+.checkout-button,
+.place-order-button,
+.refresh-btn,
+.refresh-small,
+.view-all-btn,
+.ad-action-btn,
+.track-order-btn,
+.ads-popup-action-btn,
+.seller-info-large button,
+.search-product-actions button,
+.comment-submit-btn,
+.reply-submit-btn,
+.add-new-btn,
+.order-tab.active,
+.follow-btn-tiktok,
+.shop-btn-tiktok {
+  background: linear-gradient(135deg, var(--primary-blue) 0%, var(--accent-blue) 100%) !important;
+  color: var(--white) !important;
+  border: none !important;
+}
+
+/* Hover/Active states for blue buttons */
+.add-cart-btn:active,
+.buy-now-btn:active,
+.add-to-cart-large:active,
+.buy-now-large:active,
+.checkout-button:active,
+.place-order-button:active:not(:disabled),
+.refresh-btn:active,
+.refresh-small:active,
+.view-all-btn:active,
+.ad-action-btn:active,
+.track-order-btn:active,
+.ads-popup-action-btn:active,
+.seller-info-large button:active,
+.search-product-actions button:active,
+.comment-submit-btn:active,
+.reply-submit-btn:active:not(:disabled),
+.add-new-btn:active,
+.order-tab.active:active,
+.follow-btn-tiktok:active,
+.shop-btn-tiktok:active {
+  background: var(--dark-blue) !important;
+  transform: scale(0.95);
+}
+
+/* Secondary blue buttons */
+.add-cart-btn,
+.add-to-cart-large {
+  background: var(--white) !important;
+  color: var(--gray-800) !important;
+  border: 2px solid var(--light-blue) !important;
+}
+
+.add-cart-btn:active,
+.add-to-cart-large:active {
+  background: var(--light-blue) !important;
+  border-color: var(--primary-blue) !important;
+  color: var(--primary-blue) !important;
+}
+
+/* Disabled state */
+.place-order-button:disabled,
+.comment-submit-btn:disabled,
+.reply-submit-btn:disabled {
+  background: var(--gray-400) !important;
+  cursor: not-allowed;
 }
 
 .top-nav {
@@ -165,59 +453,36 @@ body {
   overflow: hidden;
   box-shadow: var(--shadow);
   border: 1px solid var(--light-blue);
+  height: 180px;
 }
 
-.ads-container {
-  display: flex;
-  overflow-x: auto;
-  scroll-snap-type: x mandatory;
-  gap: 10px;
-  -webkit-overflow-scrolling: touch;
-}
-
-.ads-container::-webkit-scrollbar {
-  display: none;
-}
-
-.ad-item {
-  flex: 0 0 calc(100% - 20px);
-  scroll-snap-align: start;
-}
-
-.ad-image {
-  position: relative;
-  width: 100%;
-  height: 160px;
-  border-radius: var(--radius-lg);
-  overflow: hidden;
-}
-
-.ad-image img {
-  width: 100%;
+.ads-carousel .ad-image {
   height: 100%;
-  object-fit: cover;
 }
 
-.ad-overlay {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  background: linear-gradient(transparent, rgba(0, 122, 255, 0.9));
+.ads-carousel .ad-overlay {
+  padding: 20px;
+}
+
+.ads-carousel .ad-overlay h3 {
+  font-size: 20px;
+  margin-bottom: 8px;
+}
+
+.ad-action-btn {
+  background: var(--primary-blue);
   color: var(--white);
-  padding: 16px;
+  border: none;
+  padding: 8px 20px;
+  border-radius: var(--radius-full);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
 }
 
-.ad-overlay h3 {
-  margin: 0 0 4px 0;
-  font-size: 18px;
-  font-weight: 700;
-}
-
-.ad-overlay p {
-  margin: 0;
-  font-size: 14px;
-  opacity: 0.95;
+.ad-action-btn:active {
+  transform: scale(0.95);
 }
 
 .categories-grid {
@@ -316,9 +581,8 @@ body {
 }
 
 .view-all-btn {
-  background: var(--white);
-  border: 2px solid var(--primary-blue);
-  color: var(--primary-blue);
+  background: var(--primary-blue);
+  color: var(--white);
   padding: 6px 16px;
   border-radius: var(--radius-full);
   font-size: 12px;
@@ -328,8 +592,7 @@ body {
 }
 
 .view-all-btn:active {
-  background: var(--primary-blue);
-  color: var(--white);
+  background: var(--dark-blue);
   transform: scale(0.95);
 }
 
@@ -366,6 +629,11 @@ body {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  transition: transform 0.3s ease;
+}
+
+.product-card-vertical:active .product-image {
+  transform: scale(1.05);
 }
 
 .product-badge {
@@ -466,7 +734,7 @@ body {
 
 .current-price {
   font-size: 18px;
-  color: var(--primary-blue);
+  color: #000000; /* Black for naira sign */
   font-weight: 800;
 }
 
@@ -560,7 +828,6 @@ body {
 .add-cart-btn, .buy-now-btn {
   flex: 1;
   padding: 12px;
-  border: none;
   border-radius: var(--radius);
   font-size: 13px;
   font-weight: 700;
@@ -570,28 +837,6 @@ body {
   gap: 6px;
   cursor: pointer;
   transition: all 0.2s ease;
-}
-
-.add-cart-btn {
-  background: var(--white);
-  color: var(--gray-800);
-  border: 2px solid var(--light-blue);
-}
-
-.add-cart-btn:active {
-  background: var(--light-blue);
-  border-color: var(--primary-blue);
-  transform: scale(0.95);
-}
-
-.buy-now-btn {
-  background: linear-gradient(135deg, var(--primary-blue) 0%, var(--accent-blue) 100%);
-  color: var(--white);
-}
-
-.buy-now-btn:active {
-  background: var(--dark-blue);
-  transform: scale(0.95);
 }
 
 .recently-viewed {
@@ -639,6 +884,11 @@ body {
   object-fit: cover;
   margin-bottom: 8px;
   border: 2px solid var(--light-blue);
+  transition: transform 0.2s ease;
+}
+
+.recent-item:active img {
+  transform: scale(1.05);
 }
 
 .recent-item p {
@@ -762,7 +1012,7 @@ body {
 }
 
 .refresh-btn {
-  background: linear-gradient(135deg, var(--primary-blue) 0%, var(--accent-blue) 100%);
+  background: var(--primary-blue);
   color: var(--white);
   border: none;
   padding: 12px 24px;
@@ -799,9 +1049,8 @@ body {
 }
 
 .refresh-small {
-  background: var(--white);
-  border: 2px solid var(--primary-blue);
-  color: var(--primary-blue);
+  background: var(--primary-blue);
+  color: var(--white);
   padding: 8px 16px;
   border-radius: var(--radius-full);
   margin-top: 12px;
@@ -812,8 +1061,7 @@ body {
 }
 
 .refresh-small:active {
-  background: var(--primary-blue);
-  color: var(--white);
+  background: var(--dark-blue);
   transform: scale(0.95);
 }
 
@@ -867,6 +1115,7 @@ body {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  transition: transform 0.3s ease;
 }
 
 .product-detail-content {
@@ -883,7 +1132,7 @@ body {
 
 .product-price-large {
   font-size: 28px;
-  color: var(--primary-blue);
+  color: #000000; /* Black for naira sign */
   font-weight: 900;
   margin-bottom: 20px;
   display: flex;
@@ -1001,7 +1250,7 @@ body {
 }
 
 .seller-info-large button {
-  background: linear-gradient(135deg, var(--primary-blue) 0%, var(--accent-blue) 100%);
+  background: var(--primary-blue);
   color: var(--white);
   border: none;
   padding: 10px 20px;
@@ -1033,7 +1282,6 @@ body {
 .add-to-cart-large, .buy-now-large {
   flex: 1;
   padding: 16px;
-  border: none;
   border-radius: var(--radius);
   font-size: 14px;
   font-weight: 800;
@@ -1043,28 +1291,6 @@ body {
   gap: 8px;
   transition: all 0.2s ease;
   cursor: pointer;
-}
-
-.add-to-cart-large {
-  background: var(--white);
-  color: var(--gray-800);
-  border: 2px solid var(--light-blue);
-}
-
-.buy-now-large {
-  background: linear-gradient(135deg, var(--primary-blue) 0%, var(--accent-blue) 100%);
-  color: var(--white);
-}
-
-.add-to-cart-large:active {
-  background: var(--light-blue);
-  border-color: var(--primary-blue);
-  transform: scale(0.95);
-}
-
-.buy-now-large:active {
-  background: var(--dark-blue);
-  transform: scale(0.95);
 }
 
 .cart-page {
@@ -1136,7 +1362,7 @@ body {
 }
 
 .empty-cart button, .no-orders button, .no-reels button {
-  background: linear-gradient(135deg, var(--primary-blue) 0%, var(--accent-blue) 100%);
+  background: var(--primary-blue);
   color: var(--white);
   border: none;
   padding: 12px 24px;
@@ -1197,7 +1423,7 @@ body {
 
 .cart-item-price {
   margin: 0 0 12px 0;
-  color: var(--primary-blue);
+  color: #000000; /* Black for naira sign */
   font-weight: 800;
   font-size: 16px;
 }
@@ -1250,7 +1476,7 @@ body {
 
 .item-total-price {
   font-weight: 900;
-  color: var(--gray-900);
+  color: #000000; /* Black for naira sign */
   font-size: 18px;
   margin: 0;
 }
@@ -1300,7 +1526,7 @@ body {
 
 .checkout-button {
   width: 100%;
-  background: linear-gradient(135deg, var(--primary-blue) 0%, var(--accent-blue) 100%);
+  background: var(--primary-blue);
   color: var(--white);
   border: none;
   padding: 16px;
@@ -1403,9 +1629,8 @@ body {
   display: flex;
   align-items: center;
   gap: 8px;
-  background: none;
-  border: 2px dashed var(--gray-400);
-  color: var(--gray-600);
+  background: var(--primary-blue);
+  color: var(--white);
   padding: 16px;
   border-radius: var(--radius);
   width: 100%;
@@ -1417,9 +1642,7 @@ body {
 }
 
 .add-new-btn:active {
-  border-color: var(--primary-blue);
-  color: var(--primary-blue);
-  background: var(--light-blue);
+  background: var(--dark-blue);
   transform: scale(0.95);
 }
 
@@ -1455,7 +1678,7 @@ body {
   bottom: 70px;
   left: 16px;
   right: 16px;
-  background: linear-gradient(135deg, var(--primary-blue) 0%, var(--accent-blue) 100%);
+  background: var(--primary-blue);
   color: var(--white);
   border: none;
   padding: 18px;
@@ -1758,7 +1981,7 @@ body {
 }
 
 .order-tab.active {
-  background: linear-gradient(135deg, var(--primary-blue) 0%, var(--accent-blue) 100%);
+  background: var(--primary-blue);
   color: var(--white);
 }
 
@@ -1841,15 +2064,14 @@ body {
 
 .total-amount {
   font-weight: 900;
-  color: var(--primary-blue);
+  color: #000000; /* Black for naira sign */
   font-size: 20px;
 }
 
 .track-order-btn {
   width: 100%;
-  background: var(--light-blue);
-  border: 2px solid #E6F0FF;
-  color: var(--gray-800);
+  background: var(--primary-blue);
+  color: var(--white);
   padding: 12px;
   border-radius: var(--radius);
   font-size: 13px;
@@ -1859,9 +2081,6 @@ body {
 }
 
 .track-order-btn:active {
-  background: var(--white);
-  border-color: var(--primary-blue);
-  color: var(--primary-blue);
   transform: scale(0.95);
 }
 
@@ -1879,21 +2098,24 @@ body {
   position: relative;
   width: 100%;
   height: 100%;
-  overflow-y: scroll;
-  scroll-snap-type: y mandatory;
+  overflow-y: hidden;
   scroll-behavior: smooth;
-  -webkit-overflow-scrolling: touch;
 }
 
 .reel-video-wrapper {
   height: 100vh;
-  scroll-snap-align: start;
-  scroll-snap-stop: always;
-  position: relative;
+  width: 100%;
+  position: absolute;
+  top: 0;
+  left: 0;
+  transition: transform 0.3s ease;
+  opacity: 0;
+  pointer-events: none;
 }
 
-.reel-container::-webkit-scrollbar {
-  display: none;
+.reel-video-wrapper.active {
+  opacity: 1;
+  pointer-events: auto;
 }
 
 .reel-video {
@@ -2015,7 +2237,7 @@ body {
   bottom: -6px;
   left: 50%;
   transform: translateX(-50%);
-  background: linear-gradient(135deg, var(--primary-blue) 0%, var(--accent-blue) 100%);
+  background: var(--primary-blue);
   color: var(--white);
   border: 3px solid var(--white);
   border-radius: var(--radius-full);
@@ -2056,7 +2278,7 @@ body {
 }
 
 .action-btn-tiktok.saved svg {
-  color: #FBBF24;
+  color: var(--primary-blue);
 }
 
 .action-count-tiktok {
@@ -2090,7 +2312,7 @@ body {
 }
 
 .follow-btn-tiktok {
-  background: linear-gradient(135deg, var(--primary-blue) 0%, var(--accent-blue) 100%);
+  background: var(--primary-blue);
   color: var(--white);
   border: none;
   padding: 6px 16px;
@@ -2192,13 +2414,13 @@ body {
 
 .product-price-tiktok {
   margin: 0;
-  color: var(--primary-blue);
+  color: #000000; /* Black for naira sign */
   font-weight: 800;
   font-size: 16px;
 }
 
 .shop-btn-tiktok {
-  background: linear-gradient(135deg, var(--primary-blue) 0%, var(--accent-blue) 100%);
+  background: var(--primary-blue);
   color: var(--white);
   border: none;
   width: 40px;
@@ -2297,6 +2519,13 @@ body {
   color: var(--primary-blue);
   font-size: 18px;
   flex-shrink: 0;
+  overflow: hidden;
+}
+
+.comment-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .comment-content {
@@ -2400,6 +2629,13 @@ body {
   color: var(--primary-blue);
   font-size: 14px;
   flex-shrink: 0;
+  overflow: hidden;
+}
+
+.reply-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .reply-content {
@@ -2665,7 +2901,7 @@ body {
 
 .search-product-price {
   margin: 0 0 12px 0;
-  color: var(--primary-blue);
+  color: #000000; /* Black for naira sign */
   font-weight: 800;
   font-size: 16px;
 }
@@ -2677,14 +2913,10 @@ body {
 
 .search-product-actions button {
   flex: 1;
-  background: var(--light-blue);
-  border: none;
+  background: var(--primary-blue);
+  color: var(--white);
   padding: 8px;
   border-radius: var(--radius);
-  color: var(--gray-700);
-  display: flex;
-  align-items: center;
-  justify-content: center;
   font-size: 16px;
   cursor: pointer;
   transition: all 0.2s ease;
@@ -2853,18 +3085,34 @@ body {
   }
 }
 
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(50px) scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
 @media (min-width: 768px) {
   .products-vertical-list {
     grid-template-columns: repeat(2, 1fr);
     gap: 20px;
   }
   
-  .ads-container {
-    gap: 16px;
-  }
-  
-  .ad-item {
-    flex: 0 0 calc(50% - 32px);
+  .ads-carousel {
+    height: 300px;
   }
   
   .categories-grid {
@@ -2875,16 +3123,20 @@ body {
     grid-template-columns: repeat(3, 1fr);
     gap: 20px;
   }
+  
+  .ads-popup-container {
+    max-width: 600px;
+  }
+  
+  .ads-carousel {
+    height: 450px;
+  }
 }
 
 @media (min-width: 1024px) {
   .products-vertical-list {
     grid-template-columns: repeat(3, 1fr);
     gap: 24px;
-  }
-  
-  .ad-item {
-    flex: 0 0 calc(33.333% - 48px);
   }
   
   .search-results-grid {
@@ -2896,6 +3148,14 @@ body {
   .home-section {
     max-width: 1200px;
     margin: 0 auto;
+  }
+  
+  .ads-popup-container {
+    max-width: 800px;
+  }
+  
+  .ads-carousel {
+    height: 500px;
   }
 }
 
@@ -2928,6 +3188,10 @@ body {
   .search-bar-top {
     padding: 8px 12px;
   }
+  
+  .ads-popup-container {
+    width: 95%;
+  }
 }
 
 @media (max-width: 768px) {
@@ -2944,6 +3208,14 @@ body {
   
   .category-name {
     font-size: 10px;
+  }
+  
+  .ads-popup-overlay h3 {
+    font-size: 20px;
+  }
+  
+  .ads-popup-overlay p {
+    font-size: 14px;
   }
 }
 
