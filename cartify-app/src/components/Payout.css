@@ -1,0 +1,670 @@
+/* Payouts Page - Blue Theme */
+
+.payouts-page {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 2rem 1rem;
+  background: var(--bg-white);
+  border-radius: var(--radius-lg);
+}
+
+/* Paystack Connection Banner */
+.paystack-banner {
+  background: linear-gradient(135deg, var(--primary-blue) 0%, var(--dark-blue) 100%);
+  border-radius: var(--radius-lg);
+  padding: 1.5rem;
+  margin-bottom: 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: white;
+  box-shadow: var(--shadow-lg);
+}
+
+.banner-content {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.banner-icon {
+  font-size: 2rem;
+  opacity: 0.9;
+}
+
+.banner-content h3 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin-bottom: 0.25rem;
+}
+
+.banner-content p {
+  opacity: 0.9;
+  max-width: 500px;
+}
+
+.btn-connect {
+  background: white;
+  color: var(--primary-blue);
+  border: none;
+  border-radius: var(--radius-md);
+  padding: 0.75rem 1.5rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.btn-connect:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-lg);
+}
+
+/* Balance Overview */
+.balance-overview {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+}
+
+.balance-card {
+  background: white;
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-lg);
+  padding: 1.5rem;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  transition: all 0.2s;
+  box-shadow: var(--shadow-sm);
+}
+
+.balance-card:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-lg);
+}
+
+.balance-card.total {
+  border-top: 4px solid var(--primary-blue);
+}
+
+.balance-card.available {
+  border-top: 4px solid var(--success-green);
+}
+
+.balance-card.pending {
+  border-top: 4px solid var(--warning-orange);
+}
+
+.balance-icon {
+  width: 60px;
+  height: 60px;
+  border-radius: var(--radius-lg);
+  background: var(--light-blue);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--primary-blue);
+  font-size: 1.5rem;
+  flex-shrink: 0;
+}
+
+.balance-card.available .balance-icon {
+  background: #d1fae5;
+  color: var(--success-green);
+}
+
+.balance-card.pending .balance-icon {
+  background: #fef3c7;
+  color: var(--warning-orange);
+}
+
+.balance-content {
+  flex: 1;
+}
+
+.balance-content h3 {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-light);
+  margin-bottom: 0.25rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.balance-amount {
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--text-dark);
+  margin-bottom: 0.25rem;
+}
+
+.balance-subtext {
+  color: var(--text-light);
+  font-size: 0.875rem;
+}
+
+/* Withdrawal Section */
+.withdrawal-section {
+  background: white;
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-lg);
+  padding: 1.5rem;
+  margin-bottom: 2rem;
+  box-shadow: var(--shadow-sm);
+}
+
+.withdrawal-section h2 {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: var(--text-dark);
+  margin-bottom: 1.5rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 2px solid var(--light-blue);
+}
+
+.withdrawal-card {
+  background: var(--bg-gray);
+  border-radius: var(--radius-lg);
+  padding: 1.5rem;
+}
+
+.withdrawal-form {
+  max-width: 500px;
+}
+
+.form-group {
+  margin-bottom: 1.5rem;
+}
+
+.form-group label {
+  display: block;
+  font-weight: 600;
+  color: var(--text-dark);
+  margin-bottom: 0.5rem;
+}
+
+.form-group input {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border: 2px solid var(--border-light);
+  border-radius: var(--radius-md);
+  font-size: 1rem;
+  transition: all 0.2s;
+  background: white;
+}
+
+.form-group input:focus {
+  outline: none;
+  border-color: var(--primary-blue);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+.amount-hint {
+  font-size: 0.875rem;
+  color: var(--text-light);
+  margin-top: 0.5rem;
+}
+
+.bank-account-selected {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem;
+  background: white;
+  border: 2px solid var(--border-light);
+  border-radius: var(--radius-md);
+}
+
+.bank-account-selected i {
+  font-size: 1.5rem;
+  color: var(--primary-blue);
+}
+
+.bank-account-selected div {
+  flex: 1;
+}
+
+.bank-account-selected strong {
+  display: block;
+  color: var(--text-dark);
+  margin-bottom: 0.25rem;
+}
+
+.bank-account-selected p {
+  color: var(--text-light);
+  font-size: 0.875rem;
+}
+
+.btn-change {
+  padding: 0.5rem 1rem;
+  background: var(--light-blue);
+  color: var(--primary-blue);
+  border: none;
+  border-radius: var(--radius-md);
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-change:hover {
+  background: var(--primary-blue);
+  color: white;
+}
+
+.btn-add-bank {
+  width: 100%;
+  padding: 1rem;
+  background: white;
+  border: 2px dashed var(--border-light);
+  border-radius: var(--radius-md);
+  color: var(--text-light);
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  transition: all 0.2s;
+}
+
+.btn-add-bank:hover {
+  border-color: var(--primary-blue);
+  color: var(--primary-blue);
+}
+
+.btn-withdraw {
+  width: 100%;
+  padding: 1rem;
+  background: var(--primary-blue);
+  color: white;
+  border: none;
+  border-radius: var(--radius-md);
+  font-size: 1.125rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  transition: all 0.2s;
+  margin-bottom: 1.5rem;
+}
+
+.btn-withdraw:hover:not(:disabled) {
+  background: var(--primary-blue-dark);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+.btn-withdraw:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.withdrawal-info {
+  background: white;
+  border-radius: var(--radius-md);
+  padding: 1rem;
+  border-left: 4px solid var(--primary-blue);
+}
+
+.withdrawal-info p {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--text-light);
+  font-size: 0.875rem;
+  margin-bottom: 0.5rem;
+}
+
+.withdrawal-info p:last-child {
+  margin-bottom: 0;
+}
+
+/* Next Payout Section */
+.next-payout-section {
+  background: white;
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-lg);
+  padding: 1.5rem;
+  margin-bottom: 2rem;
+  box-shadow: var(--shadow-sm);
+}
+
+.next-payout-section h2 {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: var(--text-dark);
+  margin-bottom: 1.5rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 2px solid var(--light-blue);
+}
+
+.next-payout-card {
+  background: linear-gradient(135deg, var(--light-blue) 0%, #e0f2fe 100%);
+  border-radius: var(--radius-lg);
+  padding: 1.5rem;
+  border: 1px solid var(--primary-blue-light);
+}
+
+.payout-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.payout-date, .payout-amount {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.payout-date i {
+  font-size: 2rem;
+  color: var(--primary-blue);
+}
+
+.payout-date h3 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--text-dark);
+  margin-bottom: 0.25rem;
+}
+
+.payout-date p {
+  color: var(--text-light);
+  font-size: 0.875rem;
+}
+
+.payout-amount h3 {
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--primary-blue);
+  margin-bottom: 0.25rem;
+}
+
+.payout-amount p {
+  color: var(--text-light);
+  font-size: 0.875rem;
+  text-align: right;
+}
+
+.payout-progress {
+  height: 8px;
+  background: white;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.progress-bar {
+  height: 100%;
+  background: linear-gradient(90deg, var(--primary-blue) 0%, var(--secondary-blue) 100%);
+  border-radius: 4px;
+  transition: width 0.3s ease;
+}
+
+/* Payout History */
+.payout-history {
+  background: white;
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-lg);
+  padding: 1.5rem;
+  box-shadow: var(--shadow-sm);
+}
+
+.payout-history h2 {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: var(--text-dark);
+  margin-bottom: 1.5rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 2px solid var(--light-blue);
+}
+
+.payouts-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: white;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.payouts-table thead {
+  background: var(--light-blue);
+}
+
+.payouts-table th {
+  padding: 1rem;
+  text-align: left;
+  font-weight: 600;
+  color: var(--text-dark);
+  border-bottom: 2px solid var(--border-light);
+  white-space: nowrap;
+}
+
+.payouts-table tbody tr {
+  border-bottom: 1px solid var(--border-light);
+}
+
+.payouts-table tbody tr:hover {
+  background: var(--bg-gray);
+}
+
+.payouts-table td {
+  padding: 1rem;
+  vertical-align: middle;
+}
+
+.payout-id {
+  font-weight: 600;
+  color: var(--primary-blue);
+}
+
+.amount {
+  font-weight: 600;
+  color: var(--text-dark);
+}
+
+.bank-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.bank-name {
+  font-weight: 500;
+  color: var(--text-dark);
+}
+
+.account-number {
+  font-size: 0.875rem;
+  color: var(--text-light);
+}
+
+.reference {
+  font-family: monospace;
+  color: var(--text-light);
+  font-size: 0.875rem;
+}
+
+/* Status Badges in Table */
+.status-badge {
+  padding: 0.375rem 0.75rem;
+  border-radius: 1rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  white-space: nowrap;
+}
+
+.status-completed {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.status-pending {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.status-failed {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+/* Modals */
+.paystack-modal, .bank-modal {
+  background: white;
+  border-radius: var(--radius-lg);
+  max-width: 500px;
+  width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: var(--shadow-lg);
+}
+
+.paystack-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin-bottom: 2rem;
+}
+
+.step {
+  display: flex;
+  gap: 1rem;
+  padding: 1rem;
+  background: var(--bg-gray);
+  border-radius: var(--radius-md);
+  border-left: 4px solid var(--border-light);
+}
+
+.step.active {
+  border-left-color: var(--primary-blue);
+  background: var(--light-blue);
+}
+
+.step-number {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--border-light);
+  color: var(--text-light);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.step.active .step-number {
+  background: var(--primary-blue);
+  color: white;
+}
+
+.step-content h3 {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-dark);
+  margin-bottom: 0.25rem;
+}
+
+.step-content p {
+  color: var(--text-light);
+  font-size: 0.875rem;
+}
+
+.connect-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.bank-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.modal-footer {
+  padding: 1.5rem;
+  border-top: 1px solid var(--border-light);
+  display: flex;
+  justify-content: flex-end;
+  gap: 1rem;
+  background: var(--bg-gray);
+  border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+}
+
+/* Empty State */
+.empty-state {
+  padding: 3rem 2rem;
+  text-align: center;
+  color: var(--text-light);
+}
+
+.empty-state i {
+  font-size: 3rem;
+  color: var(--border-light);
+  margin-bottom: 1rem;
+}
+
+.empty-state h3 {
+  color: var(--text-dark);
+  margin-bottom: 0.5rem;
+}
+
+.loading-container {
+  padding: 3rem 2rem;
+  text-align: center;
+  color: var(--text-light);
+}
+
+.loading-container .spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid var(--light-blue);
+  border-top-color: var(--primary-blue);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin: 0 auto 1rem;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .paystack-banner {
+    flex-direction: column;
+    gap: 1rem;
+    text-align: center;
+  }
+  
+  .balance-overview {
+    grid-template-columns: 1fr;
+  }
+  
+  .payout-info {
+    flex-direction: column;
+    align-items: stretch;
+    text-align: center;
+  }
+  
+  .payout-date, .payout-amount {
+    flex-direction: column;
+    text-align: center;
+  }
+  
+  .payouts-table {
+    display: block;
+    overflow-x: auto;
+  }
+}
