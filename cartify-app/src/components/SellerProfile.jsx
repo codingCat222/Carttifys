@@ -15,7 +15,6 @@ const SellerProfile = () => {
     preferences: {},
     documents: {}
   });
-  const [activeTab, setActiveTab] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState({});
@@ -25,18 +24,6 @@ const SellerProfile = () => {
   const fileInputRef = useRef(null);
   const logoInputRef = useRef(null);
   const navigate = useNavigate();
-
-  const tabs = [
-    { id: 'personal', label: 'Personal Info', icon: 'fas fa-user-circle' },
-    { id: 'business', label: 'Business Info', icon: 'fas fa-briefcase' },
-    { id: 'communication', label: 'Communication', icon: 'fas fa-comments' },
-    { id: 'operational', label: 'Operational', icon: 'fas fa-tasks' },
-    { id: 'payment', label: 'Payment Info', icon: 'fas fa-wallet' },
-    { id: 'security', label: 'Security', icon: 'fas fa-shield-alt' },
-    { id: 'integrations', label: 'Integrations', icon: 'fas fa-puzzle-piece' },
-    { id: 'preferences', label: 'Preferences', icon: 'fas fa-sliders-h' },
-    { id: 'documents', label: 'Documents', icon: 'fas fa-folder-open' }
-  ];
 
   useEffect(() => {
     fetchProfile();
@@ -74,40 +61,6 @@ const SellerProfile = () => {
       console.error('Failed to fetch profile:', error);
     } finally {
       setLoading(false);
-    }
-  };
-
-  const handleInputChange = (section, field, value) => {
-    setProfileData(prev => ({
-      ...prev,
-      [section]: {
-        ...prev[section],
-        [field]: value
-      }
-    }));
-  };
-
-  const saveSection = async (section) => {
-    try {
-      setSaving(true);
-      setErrors({});
-      setSuccess('');
-      
-      const response = await sellerAPI.updateProfileSection({
-        section,
-        data: profileData[section]
-      });
-      
-      if (response?.success) {
-        setSuccess(`${section.replace(/([A-Z])/g, ' $1')} updated successfully!`);
-        setTimeout(() => setSuccess(''), 3000);
-      } else {
-        setErrors({ [section]: response?.message || 'Update failed' });
-      }
-    } catch (error) {
-      setErrors({ [section]: error.message || 'Failed to update' });
-    } finally {
-      setSaving(false);
     }
   };
 
@@ -254,7 +207,7 @@ const SellerProfile = () => {
           <span className="stat-label">Total Sales</span>
         </div>
         <div className="stat-box">
-          <span className="stat-value">${profileData.paymentInfo.balance || 0}</span>
+          <span className="stat-value">₦{profileData.paymentInfo.balance || 0}</span>
           <span className="stat-label">Balance</span>
         </div>
         <div className="stat-box">
@@ -263,140 +216,97 @@ const SellerProfile = () => {
         </div>
       </div>
 
-      {/* Quick Actions */}
+      {/* YOUR REQUESTED NAVIGATION SECTION */}
       <div className="profile-section">
-        <h2>Quick Actions</h2>
-        <div className="action-cards-grid">
-          <div className="action-card-item" onClick={() => navigate('/seller/products')}>
-            <div className="action-card-icon blue">
-              <i className="fas fa-boxes"></i>
-            </div>
-            <div className="action-card-content">
-              <h3>Manage Products</h3>
-              <p>Add, edit, or remove products</p>
-            </div>
-            <i className="fas fa-chevron-right"></i>
-          </div>
-
-          <div className="action-card-item" onClick={() => navigate('/seller/orders')}>
-            <div className="action-card-icon green">
+        <h2>Seller Dashboard</h2>
+        <div className="settings-list">
+          {/* ORDERS */}
+          <div className="setting-item" onClick={() => navigate('/seller/orders')}>
+            <div className="setting-icon">
               <i className="fas fa-shopping-cart"></i>
             </div>
-            <div className="action-card-content">
-              <h3>View Orders</h3>
-              <p>Track and manage orders</p>
+            <div className="setting-content">
+              <h3>Orders</h3>
+              <p>Manage and track all orders</p>
             </div>
             <i className="fas fa-chevron-right"></i>
           </div>
 
-          <div className="action-card-item" onClick={() => setActiveTab('payment')}>
-            <div className="action-card-icon purple">
+          {/* PAYOUTS */}
+          <div className="setting-item" onClick={() => navigate('/seller/payouts')}>
+            <div className="setting-icon">
+              <i className="fas fa-money-bill-wave"></i>
+            </div>
+            <div className="setting-content">
+              <h3>Payouts</h3>
+              <p>Paystack earnings & withdrawals</p>
+            </div>
+            <i className="fas fa-chevron-right"></i>
+          </div>
+
+          {/* WALLET */}
+          <div className="setting-item" onClick={() => navigate('/seller/wallet')}>
+            <div className="setting-icon">
               <i className="fas fa-wallet"></i>
             </div>
-            <div className="action-card-content">
-              <h3>Payment Settings</h3>
-              <p>Balance: ${profileData.paymentInfo.balance || 0}</p>
+            <div className="setting-content">
+              <h3>Wallet</h3>
+              <p>₦ Balance: ₦{profileData.paymentInfo.balance || 0}</p>
             </div>
             <i className="fas fa-chevron-right"></i>
           </div>
 
-          <div className="action-card-item" onClick={() => navigate('/seller/analytics')}>
-            <div className="action-card-icon orange">
-              <i className="fas fa-chart-line"></i>
-            </div>
-            <div className="action-card-content">
-              <h3>Analytics</h3>
-              <p>View performance insights</p>
-            </div>
-            <i className="fas fa-chevron-right"></i>
-          </div>
-        </div>
-      </div>
-
-      {/* Settings */}
-      <div className="profile-section">
-        <h2>Settings</h2>
-        <div className="settings-list">
-          <div className="setting-item" onClick={() => setActiveTab('personal')}>
+          {/* VERIFICATION */}
+          <div className="setting-item" onClick={() => navigate('/seller/verification')}>
             <div className="setting-icon">
-              <i className="fas fa-user-circle"></i>
+              <i className="fas fa-shield-check"></i>
             </div>
             <div className="setting-content">
-              <h3>Personal Information</h3>
-              <p>Update your personal details</p>
+              <h3>Verification</h3>
+              <p>BVN, ID, and account verification</p>
             </div>
             <i className="fas fa-chevron-right"></i>
           </div>
 
-          <div className="setting-item" onClick={() => setActiveTab('business')}>
-            <div className="setting-icon">
-              <i className="fas fa-briefcase"></i>
-            </div>
-            <div className="setting-content">
-              <h3>Business Information</h3>
-              <p>Update your store details</p>
-            </div>
-            <i className="fas fa-chevron-right"></i>
-          </div>
-
-          <div className="setting-item" onClick={() => setActiveTab('communication')}>
+          {/* MESSAGES */}
+          <div className="setting-item" onClick={() => navigate('/seller/messages')}>
             <div className="setting-icon">
               <i className="fas fa-comments"></i>
             </div>
             <div className="setting-content">
-              <h3>Communication Preferences</h3>
-              <p>Email and notification settings</p>
+              <h3>Messages</h3>
+              <p>Customer inquiries & support</p>
             </div>
             <i className="fas fa-chevron-right"></i>
           </div>
 
-          <div className="setting-item" onClick={() => setActiveTab('security')}>
-            <div className="setting-icon">
-              <i className="fas fa-shield-alt"></i>
-            </div>
-            <div className="setting-content">
-              <h3>Security & Privacy</h3>
-              <p>Password and authentication</p>
-            </div>
-            <i className="fas fa-chevron-right"></i>
-          </div>
-
-          <div className="setting-item" onClick={() => setActiveTab('payment')}>
-            <div className="setting-icon">
-              <i className="fas fa-wallet"></i>
-            </div>
-            <div className="setting-content">
-              <h3>Payment Information</h3>
-              <p>Bank accounts and payout settings</p>
-            </div>
-            <i className="fas fa-chevron-right"></i>
-          </div>
-
-          <div className="setting-item" onClick={() => setActiveTab('preferences')}>
+          {/* SETTINGS */}
+          <div className="setting-item" onClick={() => navigate('/seller/settings')}>
             <div className="setting-icon">
               <i className="fas fa-sliders-h"></i>
             </div>
             <div className="setting-content">
-              <h3>Preferences</h3>
-              <p>Language, timezone, and more</p>
+              <h3>Settings</h3>
+              <p>Profile, business, and preferences</p>
             </div>
             <i className="fas fa-chevron-right"></i>
           </div>
 
-          <div className="setting-item" onClick={() => navigate('/help')}>
+          {/* HELP & SUPPORT */}
+          <div className="setting-item" onClick={() => navigate('/seller/help')}>
             <div className="setting-icon">
               <i className="fas fa-question-circle"></i>
             </div>
             <div className="setting-content">
               <h3>Help & Support</h3>
-              <p>Get help and contact support</p>
+              <p>FAQs and contact support</p>
             </div>
             <i className="fas fa-chevron-right"></i>
           </div>
         </div>
       </div>
 
-      {/* Account Section */}
+      {/* ACCOUNT SETTINGS (Dark Mode & Logout) */}
       <div className="profile-section">
         <h2>Account</h2>
         <div className="settings-list">
@@ -427,7 +337,7 @@ const SellerProfile = () => {
         </div>
       </div>
 
-      {/* Verification Banner */}
+      {/* VERIFICATION BANNER */}
       {!profileData.documents?.idVerified && (
         <div className="verification-banner">
           <div className="verification-content">
@@ -439,61 +349,10 @@ const SellerProfile = () => {
               <p>Get verified to unlock all features and build trust with buyers</p>
             </div>
           </div>
-          <button className="btn-verify" onClick={() => setActiveTab('documents')}>
+          <button className="btn-verify" onClick={() => navigate('/seller/verification')}>
             Verify Now
             <i className="fas fa-arrow-right"></i>
           </button>
-        </div>
-      )}
-
-      {/* Detail Modal for Tabs */}
-      {activeTab && (
-        <div className="modal-overlay" onClick={() => setActiveTab(null)}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <h2>{tabs.find(t => t.id === activeTab)?.label}</h2>
-              <button className="btn-close" onClick={() => setActiveTab(null)}>
-                <i className="fas fa-times"></i>
-              </button>
-            </div>
-            <div className="modal-body">
-              <p>This section will contain detailed settings for {activeTab}.</p>
-              <p>All your original form fields and functionality will be here.</p>
-              
-              {/* Add your original form sections here based on activeTab */}
-              {activeTab === 'personal' && (
-                <div className="form-section">
-                  <div className="form-group">
-                    <label>Full Name</label>
-                    <input 
-                      type="text" 
-                      value={profileData.personalInfo.fullName || ''}
-                      onChange={(e) => handleInputChange('personalInfo', 'fullName', e.target.value)}
-                      placeholder="Your full name"
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label>Email</label>
-                    <input 
-                      type="email" 
-                      value={profileData.personalInfo.contactEmail || ''}
-                      onChange={(e) => handleInputChange('personalInfo', 'contactEmail', e.target.value)}
-                      placeholder="your@email.com"
-                    />
-                  </div>
-                  <button 
-                    className="btn-save"
-                    onClick={() => saveSection('personalInfo')}
-                    disabled={saving}
-                  >
-                    {saving ? 'Saving...' : 'Save Changes'}
-                  </button>
-                </div>
-              )}
-
-              {/* Add all other tab sections here... */}
-            </div>
-          </div>
         </div>
       )}
     </div>
