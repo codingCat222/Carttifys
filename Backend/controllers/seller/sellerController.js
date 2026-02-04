@@ -6,7 +6,399 @@ const Wallet = require('../../models/Wallet');
 const fs = require('fs');
 const path = require('path');
 
-// ... KEEP ALL YOUR EXISTING FUNCTIONS ABOVE ...
+// ========== EXISTING FUNCTIONS (PREVIOUSLY MISSING) ==========
+
+const getDashboard = async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    // Get seller's statistics
+    const totalProducts = await Product.countDocuments({ seller: userId });
+    const totalOrders = await Order.countDocuments({ seller: userId });
+    const pendingOrders = await Order.countDocuments({ seller: userId, status: 'pending' });
+    
+    // Get revenue data
+    const revenueData = await Order.aggregate([
+      { $match: { seller: userId, status: 'delivered' } },
+      {
+        $group: {
+          _id: null,
+          totalRevenue: { $sum: '$totalAmount' }
+        }
+      }
+    ]);
+
+    const totalRevenue = revenueData[0]?.totalRevenue || 0;
+
+    // Get wallet balance
+    const wallet = await Wallet.findOne({ user: userId });
+    const availableBalance = wallet?.balance || 0;
+
+    // Get recent orders
+    const recentOrders = await Order.find({ seller: userId })
+      .populate('buyer', 'name email')
+      .populate('items.product', 'name images')
+      .sort({ createdAt: -1 })
+      .limit(5);
+
+    res.status(200).json({
+      success: true,
+      data: {
+        stats: {
+          totalProducts,
+          totalOrders,
+          pendingOrders,
+          totalRevenue,
+          availableBalance
+        },
+        recentOrders: recentOrders.map(order => ({
+          id: order._id,
+          orderId: order.orderId || `ORD-${order._id.toString().slice(-6).toUpperCase()}`,
+          customerName: order.buyer?.name || 'Customer',
+          status: order.status,
+          total: order.totalAmount,
+          createdAt: order.createdAt
+        }))
+      }
+    });
+  } catch (error) {
+    console.error('Get dashboard error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching dashboard data',
+      error: error.message
+    });
+  }
+};
+
+const getProducts = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { status, page = 1, limit = 10 } = req.query;
+
+    const query = { seller: userId };
+    if (status) {
+      query.status = status;
+    }
+
+    const products = await Product.find(query)
+      .sort({ createdAt: -1 })
+      .limit(parseInt(limit))
+      .skip((page - 1) * limit);
+
+    const total = await Product.countDocuments(query);
+
+    res.status(200).json({
+      success: true,
+      data: {
+        products,
+        pagination: {
+          currentPage: parseInt(page),
+          totalPages: Math.ceil(total / limit),
+          totalProducts: total
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Get products error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching products',
+      error: error.message
+    });
+  }
+};
+
+const createProduct = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const productData = req.body;
+
+    // Process uploaded files
+    const images = [];
+    const videos = [];
+
+    if (req.files) {
+      if (req.files.images) {
+        req.files.images.forEach(file => {
+          images.push({
+            url: `/uploads/${file.filename}`,
+            filename: file.filename,
+            contentType: file.mimetype,
+            size: file.size
+          });
+        });
+      }
+
+      if (req.files.videos) {
+        req.files.videos.forEach(file => {
+          videos.push({
+            url: `/uploads/${file.filename}`,
+            filename: file.filename,
+            contentType: file.mimetype,
+            size: file.size
+          });
+        });
+      }
+    }
+
+    const product = await Product.create({
+      ...productData,
+      seller: userId,
+      images,
+      videos,
+      status: 'pending'
+    });
+
+    res.status(201).json({
+      success: true,
+      message: 'Product created successfully',
+      data: product
+    });
+  } catch (error) {
+    console.error('Create product error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error creating product',
+      error: error.message
+    });
+  }
+};
+
+const createProductWithMedia = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const productData = req.body;
+
+    // Similar to createProduct but with additional media handling
+    const product = await Product.create({
+      ...productData,
+      seller: userId,
+      status: 'pending'
+    });
+
+    res.status(201).json({
+      success: true,
+      message: 'Product created successfully',
+      data: product
+    });
+  } catch (error) {
+    console.error('Create product with media error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error creating product',
+      error: error.message
+    });
+  }
+};
+
+const updateProductStatus = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { id } = req.params;
+    const { status } = req.body;
+
+    const product = await Product.findOne({ _id: id, seller: userId });
+
+    if (!product) {
+      return res.status(404).json({
+        success: false,
+        message: 'Product not found'
+      });
+    }
+
+    product.status = status;
+    await product.save();
+
+    res.status(200).json({
+      success: true,
+      message: 'Product status updated',
+      data: product
+    });
+  } catch (error) {
+    console.error('Update product status error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error updating product status',
+      error: error.message
+    });
+  }
+};
+
+const getProfile = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const seller = await User.findById(userId).select('-password');
+
+    if (!seller) {
+      return res.status(404).json({
+        success: false,
+        message: 'Seller not found'
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      data: seller
+    });
+  } catch (error) {
+    console.error('Get profile error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching profile',
+      error: error.message
+    });
+  }
+};
+
+const updateProfile = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const updates = req.body;
+
+    // Remove sensitive fields that shouldn't be updated directly
+    delete updates.password;
+    delete updates.email;
+    delete updates.role;
+
+    const seller = await User.findByIdAndUpdate(
+      userId,
+      { $set: updates },
+      { new: true, runValidators: true }
+    ).select('-password');
+
+    if (!seller) {
+      return res.status(404).json({
+        success: false,
+        message: 'Seller not found'
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: 'Profile updated successfully',
+      data: seller
+    });
+  } catch (error) {
+    console.error('Update profile error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error updating profile',
+      error: error.message
+    });
+  }
+};
+
+const updateProfilePicture = async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        message: 'Profile image is required'
+      });
+    }
+
+    const seller = await User.findById(userId);
+    if (!seller) {
+      return res.status(404).json({
+        success: false,
+        message: 'Seller not found'
+      });
+    }
+
+    // Delete old profile picture if exists
+    if (seller.profileImage && seller.profileImage.filename) {
+      const oldImagePath = path.join(__dirname, '../../uploads/profile', seller.profileImage.filename);
+      if (fs.existsSync(oldImagePath)) {
+        fs.unlinkSync(oldImagePath);
+      }
+    }
+
+    seller.profileImage = {
+      url: `/uploads/profile/${req.file.filename}`,
+      filename: req.file.filename,
+      contentType: req.file.mimetype,
+      size: req.file.size
+    };
+
+    await seller.save();
+
+    res.status(200).json({
+      success: true,
+      message: 'Profile picture updated successfully',
+      data: {
+        profileImage: seller.profileImage
+      }
+    });
+  } catch (error) {
+    console.error('Update profile picture error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error updating profile picture',
+      error: error.message
+    });
+  }
+};
+
+const confirmOrderDelivery = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { orderId } = req.params;
+
+    const order = await Order.findOne({ _id: orderId, seller: userId });
+
+    if (!order) {
+      return res.status(404).json({
+        success: false,
+        message: 'Order not found'
+      });
+    }
+
+    if (order.status !== 'shipped') {
+      return res.status(400).json({
+        success: false,
+        message: 'Order must be shipped before confirming delivery'
+      });
+    }
+
+    order.status = 'delivered';
+    order.deliveredAt = new Date();
+    order.paymentStatus = 'completed';
+
+    await order.save();
+
+    // Update wallet
+    let wallet = await Wallet.findOne({ user: userId });
+    if (!wallet) {
+      wallet = await Wallet.create({ user: userId });
+    }
+
+    // Move from pending to available balance
+    const sellerAmount = order.totalAmount * 0.9; // 90% after 10% commission
+    wallet.pendingBalance -= sellerAmount;
+    wallet.balance += sellerAmount;
+
+    await wallet.save();
+
+    res.status(200).json({
+      success: true,
+      message: 'Order delivery confirmed',
+      data: {
+        order,
+        newBalance: wallet.balance
+      }
+    });
+  } catch (error) {
+    console.error('Confirm order delivery error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error confirming order delivery',
+      error: error.message
+    });
+  }
+};
 
 // ========== NEW METHODS FOR SELLER COMPONENTS ==========
 
@@ -1105,7 +1497,7 @@ const getFAQs = async (req, res) => {
 };
 
 module.exports = {
-  // Existing functions
+  // Existing functions (now actually defined)
   getDashboard,
   getProducts,
   createProduct,
