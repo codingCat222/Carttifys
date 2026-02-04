@@ -206,7 +206,6 @@ export const buyerAPI = {
     return apiCall(`/api/buyer/products/search${queryString ? `?${queryString}` : ''}`);
   },
   
-  
   getCart: () => apiCall('/api/buyer/cart'),
   
   addToCart: (cartData) => apiCall('/api/buyer/cart/add', {
@@ -223,7 +222,6 @@ export const buyerAPI = {
     method: 'DELETE'
   }),
   
-  
   getSavedItems: () => apiCall('/api/buyer/saved-items'),
   
   saveItem: (data) => apiCall('/api/buyer/saved-items/save', {
@@ -235,7 +233,6 @@ export const buyerAPI = {
     method: 'POST',
     body: { productId }
   }),
-  
   
   getReels: (params = {}) => {
     const queryString = new URLSearchParams(params).toString();
@@ -317,7 +314,109 @@ export const sellerAPI = {
   
   deleteProduct: (productId) => apiCall(`/api/seller/products/${productId}`, {
     method: 'DELETE'
-  })
+  }),
+
+  // ========== NEW METHODS FOR SELLER COMPONENTS ==========
+
+  // 1. ORDERS
+  getOrders: (filter = 'all') => {
+    const queryString = new URLSearchParams({ filter }).toString();
+    return apiCall(`/api/seller/orders${queryString ? `?${queryString}` : ''}`);
+  },
+  
+  updateOrderStatus: (orderId, status) => apiCall(`/api/seller/orders/${orderId}/status`, {
+    method: 'PUT',
+    body: { status }
+  }),
+
+  // 2. PAYOUTS
+  getPayouts: () => apiCall('/api/seller/payouts'),
+  
+  connectPaystack: () => apiCall('/api/seller/paystack/connect', {
+    method: 'POST'
+  }),
+  
+  requestWithdrawal: (withdrawalData) => apiCall('/api/seller/payouts/withdraw', {
+    method: 'POST',
+    body: withdrawalData
+  }),
+
+  // 3. WALLET
+  getWalletData: (params = {}) => {
+    const queryString = new URLSearchParams(params).toString();
+    return apiCall(`/api/seller/wallet${queryString ? `?${queryString}` : ''}`);
+  },
+
+  // 4. VERIFICATION
+  getVerificationStatus: () => apiCall('/api/seller/verification'),
+  
+  submitBVN: (bvn) => apiCall('/api/seller/verification/bvn', {
+    method: 'POST',
+    body: { bvn }
+  }),
+  
+  submitID: (idData) => apiCall('/api/seller/verification/id', {
+    method: 'POST',
+    body: idData
+  }),
+  
+  submitBankDetails: (bankData) => apiCall('/api/seller/verification/bank', {
+    method: 'POST',
+    body: bankData
+  }),
+  
+  uploadVerificationDocument: async (file, documentType) => {
+    const formData = new FormData();
+    formData.append('document', file);
+    formData.append('type', documentType);
+    
+    const response = await fetch(`${API_BASE}/api/seller/verification/upload`, {
+      method: 'POST',
+      body: formData,
+      headers: {
+        'Authorization': `Bearer ${getAuthToken()}`
+      }
+    });
+    
+    if (!response.ok) {
+      throw new Error('Failed to upload verification document');
+    }
+    
+    return response.json();
+  },
+
+  // 5. MESSAGES
+  getConversations: (params = {}) => {
+    const queryString = new URLSearchParams(params).toString();
+    return apiCall(`/api/seller/messages/conversations${queryString ? `?${queryString}` : ''}`);
+  },
+  
+  getMessages: (conversationId) => apiCall(`/api/seller/messages/conversations/${conversationId}`),
+  
+  sendMessage: (messageData) => apiCall('/api/seller/messages/send', {
+    method: 'POST',
+    body: messageData
+  }),
+  
+  markConversationAsRead: (conversationId) => apiCall(`/api/seller/messages/conversations/${conversationId}/read`, {
+    method: 'PUT'
+  }),
+
+  // 6. SETTINGS
+  getSettings: () => apiCall('/api/seller/settings'),
+  
+  updateSettingsSection: (sectionData) => apiCall('/api/seller/settings', {
+    method: 'PUT',
+    body: sectionData
+  }),
+
+  // 7. HELP & SUPPORT
+  submitSupportTicket: (ticketData) => apiCall('/api/seller/support/ticket', {
+    method: 'POST',
+    body: ticketData
+  }),
+  
+  getFAQs: () => apiCall('/api/seller/support/faqs')
 };
 
 export const userAPI = {
