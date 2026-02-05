@@ -79,6 +79,7 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads'), {
   }
 }));
 
+// Import routes
 const authRoutes = require('./routes/authRoutes');
 const uploadRoutes = require('./routes/uploadRoutes');
 const productRoutes = require('./routes/productRoutes');
@@ -86,7 +87,9 @@ const buyerRoutes = require('./routes/buyerRoutes');
 const sellerRoutes = require('./routes/sellerRoutes');
 const userRoutes = require('./routes/userRoutes');
 const helpRoutes = require('./routes/helpRoutes');
+const adminRoutes = require('./routes/adminRoutes'); // ← NEW: Admin routes
 
+// Use routes
 app.use('/api/auth', authRoutes);
 app.use('/api/uploads', uploadRoutes);
 app.use('/api/images', uploadRoutes);
@@ -95,6 +98,7 @@ app.use('/api/buyer', buyerRoutes);
 app.use('/api/seller', sellerRoutes);
 app.use('/api/user', userRoutes);
 app.use('/api/help', helpRoutes);
+app.use('/api/admin', adminRoutes); // ← NEW: Mount admin routes
 
 app.get('/api/health', (req, res) => {
   const mongoose = require('mongoose');
@@ -133,6 +137,7 @@ const server = app.listen(PORT, () => {
   console.log(`\n📍 Health Check: http://localhost:${PORT}/api/health`);
   console.log(`📍 Register: POST http://localhost:${PORT}/api/auth/register`);
   console.log(`📍 Login: POST http://localhost:${PORT}/api/auth/login`);
+  console.log(`📍 Admin Dashboard: GET http://localhost:${PORT}/api/admin/dashboard`); // ← NEW
   console.log(`\n✅ Server is ready to accept connections!\n`);
 });
 

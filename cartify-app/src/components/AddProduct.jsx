@@ -499,7 +499,7 @@ const AddProduct = () => {
                     maxLength="500"
                   ></textarea>
                   <div className="form-hint">
-                    {formData.description.length}/500 characters
+                    {formData.description.length}/1500 characters
                   </div>
                 </div>
               </div>

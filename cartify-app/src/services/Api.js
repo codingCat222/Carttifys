@@ -116,6 +116,7 @@ export const setAuthInterceptor = (interceptor) => {
   authInterceptor = interceptor;
 };
 
+// ========== AUTH API ==========
 export const authAPI = {
   register: async (userData) => {
     const response = await apiCall('/api/auth/register', {
@@ -173,6 +174,7 @@ export const authAPI = {
   }
 };
 
+// ========== BUYER API ==========
 export const buyerAPI = {
   getDashboard: () => apiCall('/api/buyer/dashboard'),
   
@@ -249,6 +251,7 @@ export const buyerAPI = {
   })
 };
 
+// ========== SELLER API ==========
 export const sellerAPI = {
   getDashboard: () => apiCall('/api/seller/dashboard'),
   
@@ -316,24 +319,28 @@ export const sellerAPI = {
     method: 'DELETE'
   }),
 
-  // ========== NEW METHODS FOR SELLER COMPONENTS ==========
-
-  // 1. ORDERS
+  // ORDERS
   getOrders: (filter = 'all') => {
     const queryString = new URLSearchParams({ filter }).toString();
     return apiCall(`/api/seller/orders${queryString ? `?${queryString}` : ''}`);
   },
   
-  updateOrderStatus: (orderId, status) => apiCall(`/api/seller/orders/${orderId}/status`, {
+  getSellerOrders: (params = {}) => {
+    const queryString = new URLSearchParams(params).toString();
+    return apiCall(`/api/seller/orders${queryString ? `?${queryString}` : ''}`);
+  },
+  
+  updateOrderStatus: (orderId, statusData) => apiCall(`/api/seller/orders/${orderId}/status`, {
     method: 'PUT',
-    body: { status }
+    body: statusData
   }),
 
-  // 2. PAYOUTS
+  // PAYOUTS
   getPayouts: () => apiCall('/api/seller/payouts'),
   
-  connectPaystack: () => apiCall('/api/seller/paystack/connect', {
-    method: 'POST'
+  connectPaystack: (paystackData) => apiCall('/api/seller/paystack/connect', {
+    method: 'POST',
+    body: paystackData
   }),
   
   requestWithdrawal: (withdrawalData) => apiCall('/api/seller/payouts/withdraw', {
@@ -341,13 +348,13 @@ export const sellerAPI = {
     body: withdrawalData
   }),
 
-  // 3. WALLET
+  // WALLET
   getWalletData: (params = {}) => {
     const queryString = new URLSearchParams(params).toString();
     return apiCall(`/api/seller/wallet${queryString ? `?${queryString}` : ''}`);
   },
 
-  // 4. VERIFICATION
+  // VERIFICATION
   getVerificationStatus: () => apiCall('/api/seller/verification'),
   
   submitBVN: (bvn) => apiCall('/api/seller/verification/bvn', {
@@ -385,7 +392,7 @@ export const sellerAPI = {
     return response.json();
   },
 
-  // 5. MESSAGES
+  // MESSAGES
   getConversations: (params = {}) => {
     const queryString = new URLSearchParams(params).toString();
     return apiCall(`/api/seller/messages/conversations${queryString ? `?${queryString}` : ''}`);
@@ -402,7 +409,7 @@ export const sellerAPI = {
     method: 'PUT'
   }),
 
-  // 6. SETTINGS
+  // SETTINGS
   getSettings: () => apiCall('/api/seller/settings'),
   
   updateSettingsSection: (sectionData) => apiCall('/api/seller/settings', {
@@ -410,7 +417,7 @@ export const sellerAPI = {
     body: sectionData
   }),
 
-  // 7. HELP & SUPPORT
+  // HELP & SUPPORT
   submitSupportTicket: (ticketData) => apiCall('/api/seller/support/ticket', {
     method: 'POST',
     body: ticketData
@@ -419,6 +426,172 @@ export const sellerAPI = {
   getFAQs: () => apiCall('/api/seller/support/faqs')
 };
 
+// ========== ADMIN API ==========
+export const adminAPI = {
+  // Dashboard Stats
+  getDashboard: () => apiCall('/api/admin/dashboard'),
+  
+  getStats: () => apiCall('/api/admin/stats'),
+  
+  getRecentActivities: (params = {}) => {
+    const queryString = new URLSearchParams(params).toString();
+    return apiCall(`/api/admin/activities${queryString ? `?${queryString}` : ''}`);
+  },
+  
+  getEarningsData: (params = {}) => {
+    const queryString = new URLSearchParams(params).toString();
+    return apiCall(`/api/admin/earnings${queryString ? `?${queryString}` : ''}`);
+  },
+
+  // User Management
+  getUsers: (params = {}) => {
+    const queryString = new URLSearchParams(params).toString();
+    return apiCall(`/api/admin/users${queryString ? `?${queryString}` : ''}`);
+  },
+  
+  getUserDetails: (userId) => apiCall(`/api/admin/users/${userId}`),
+  
+  updateUserStatus: (userId, statusData) => apiCall(`/api/admin/users/${userId}/status`, {
+    method: 'PUT',
+    body: statusData
+  }),
+  
+  deleteUser: (userId) => apiCall(`/api/admin/users/${userId}`, {
+    method: 'DELETE'
+  }),
+  
+  suspendUser: (userId, reason) => apiCall(`/api/admin/users/${userId}/suspend`, {
+    method: 'PUT',
+    body: { reason }
+  }),
+
+  // Seller Management
+  getSellers: (params = {}) => {
+    const queryString = new URLSearchParams(params).toString();
+    return apiCall(`/api/admin/sellers${queryString ? `?${queryString}` : ''}`);
+  },
+  
+  getSellerDetails: (sellerId) => apiCall(`/api/admin/sellers/${sellerId}`),
+  
+  approveSeller: (sellerId) => apiCall(`/api/admin/sellers/${sellerId}/approve`, {
+    method: 'PUT'
+  }),
+  
+  rejectSeller: (sellerId, reason) => apiCall(`/api/admin/sellers/${sellerId}/reject`, {
+    method: 'PUT',
+    body: { reason }
+  }),
+  
+  getPendingVerifications: () => apiCall('/api/admin/verifications/pending'),
+  
+  approveVerification: (verificationId, verificationType) => apiCall(`/api/admin/verifications/${verificationId}/approve`, {
+    method: 'PUT',
+    body: { verificationType }
+  }),
+  
+  rejectVerification: (verificationId, reason) => apiCall(`/api/admin/verifications/${verificationId}/reject`, {
+    method: 'PUT',
+    body: { reason }
+  }),
+
+  // Product Management
+  getAllProducts: (params = {}) => {
+    const queryString = new URLSearchParams(params).toString();
+    return apiCall(`/api/admin/products${queryString ? `?${queryString}` : ''}`);
+  },
+  
+  approveProduct: (productId) => apiCall(`/api/admin/products/${productId}/approve`, {
+    method: 'PUT'
+  }),
+  
+  rejectProduct: (productId, reason) => apiCall(`/api/admin/products/${productId}/reject`, {
+    method: 'PUT',
+    body: { reason }
+  }),
+  
+  deleteProduct: (productId) => apiCall(`/api/admin/products/${productId}`, {
+    method: 'DELETE'
+  }),
+
+  // Order Management
+  getAllOrders: (params = {}) => {
+    const queryString = new URLSearchParams(params).toString();
+    return apiCall(`/api/admin/orders${queryString ? `?${queryString}` : ''}`);
+  },
+  
+  getOrderDetails: (orderId) => apiCall(`/api/admin/orders/${orderId}`),
+  
+  updateOrderStatus: (orderId, statusData) => apiCall(`/api/admin/orders/${orderId}/status`, {
+    method: 'PUT',
+    body: statusData
+  }),
+
+  // Earnings & Payouts
+  getTotalEarnings: (params = {}) => {
+    const queryString = new URLSearchParams(params).toString();
+    return apiCall(`/api/admin/earnings/total${queryString ? `?${queryString}` : ''}`);
+  },
+  
+  getEarningsBreakdown: () => apiCall('/api/admin/earnings/breakdown'),
+  
+  getPayoutRequests: (status = 'pending') => {
+    const queryString = new URLSearchParams({ status }).toString();
+    return apiCall(`/api/admin/payouts${queryString ? `?${queryString}` : ''}`);
+  },
+  
+  approvePayoutRequest: (payoutId) => apiCall(`/api/admin/payouts/${payoutId}/approve`, {
+    method: 'PUT'
+  }),
+  
+  rejectPayoutRequest: (payoutId, reason) => apiCall(`/api/admin/payouts/${payoutId}/reject`, {
+    method: 'PUT',
+    body: { reason }
+  }),
+
+  // System Settings
+  getSettings: () => apiCall('/api/admin/settings'),
+  
+  updateSettings: (settingsData) => apiCall('/api/admin/settings', {
+    method: 'PUT',
+    body: settingsData
+  }),
+  
+  getCommissionRates: () => apiCall('/api/admin/settings/commission'),
+  
+  updateCommissionRates: (ratesData) => apiCall('/api/admin/settings/commission', {
+    method: 'PUT',
+    body: ratesData
+  }),
+
+  // Reports
+  generateReport: (reportType, params = {}) => {
+    const queryString = new URLSearchParams(params).toString();
+    return apiCall(`/api/admin/reports/${reportType}${queryString ? `?${queryString}` : ''}`);
+  },
+  
+  exportData: (dataType, format = 'csv') => {
+    const queryString = new URLSearchParams({ format }).toString();
+    return apiCall(`/api/admin/export/${dataType}${queryString ? `?${queryString}` : ''}`);
+  },
+
+  // Analytics
+  getAnalytics: (params = {}) => {
+    const queryString = new URLSearchParams(params).toString();
+    return apiCall(`/api/admin/analytics${queryString ? `?${queryString}` : ''}`);
+  },
+  
+  getUserGrowth: (period = '30days') => {
+    const queryString = new URLSearchParams({ period }).toString();
+    return apiCall(`/api/admin/analytics/user-growth${queryString ? `?${queryString}` : ''}`);
+  },
+  
+  getRevenueAnalytics: (period = '30days') => {
+    const queryString = new URLSearchParams({ period }).toString();
+    return apiCall(`/api/admin/analytics/revenue${queryString ? `?${queryString}` : ''}`);
+  }
+};
+
+// ========== USER API ==========
 export const userAPI = {
   getProfile: () => apiCall('/api/user/profile'),
   
@@ -458,6 +631,7 @@ export const userAPI = {
   })
 };
 
+// ========== HELP API ==========
 export const helpAPI = {
   getSections: () => apiCall('/api/help/sections'),
   
@@ -471,6 +645,7 @@ export const helpAPI = {
   })
 };
 
+// ========== ORDER API ==========
 export const orderAPI = {
   getOrders: (params = {}) => buyerAPI.getOrders(params),
   
@@ -481,6 +656,7 @@ export const orderAPI = {
   getOrderDetails: (orderId) => buyerAPI.getOrderDetails(orderId)
 };
 
+// ========== PRODUCT API ==========
 export const productAPI = {
   getFeatured: () => buyerAPI.getProducts({ limit: 6, sortBy: 'createdAt', sortOrder: 'desc' }),
   
@@ -491,10 +667,12 @@ export const productAPI = {
   searchProducts: (searchParams) => buyerAPI.searchProducts(searchParams)
 };
 
+// ========== HEALTH API ==========
 export const healthAPI = {
   check: () => apiCall('/api/health')
 };
 
+// ========== UTILITY FUNCTIONS ==========
 export const getUserRole = () => {
   const user = getCurrentUser();
   return user ? user.role : null;
@@ -506,6 +684,10 @@ export const isSeller = () => {
 
 export const isBuyer = () => {
   return getUserRole() === 'buyer';
+};
+
+export const isAdmin = () => {
+  return getUserRole() === 'admin';
 };
 
 export { API_BASE };
