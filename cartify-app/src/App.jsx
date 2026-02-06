@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
 import { CartProvider } from './contexts/CartContext';
 import Navbar from './components/Navbar';
@@ -22,6 +22,7 @@ import AdminDashboard from './components/AdminDashboard';
 import UserManagement from './components/UserManagement';
 import AdminEarnings from './components/AdminEarnings';
 import SellerLayout from './components/SellerLayout';
+import AdminLayout from './components/AdminLayout';
 
 import Orders from './components/Orders';
 import Payouts from './components/Payouts';
@@ -90,6 +91,7 @@ function App() {
                   <SellerLayout />
                 </ProtectedRoute>
               }>
+                <Route index element={<Navigate to="dashboard" replace />} />
                 <Route path="dashboard" element={<SellerDashboard />} />
                 <Route path="products/add" element={<AddProduct />} />
                 <Route path="products" element={<ManageProducts />} />
@@ -109,23 +111,17 @@ function App() {
                 </ProtectedRoute>
               } />
 
-              <Route path="/admin/dashboard" element={
+              {/* Option 1: Admin Routes with Layout (if you want sidebar navigation) */}
+              <Route path="/admin" element={
                 <ProtectedRoute role="admin">
-                  <AdminDashboard />
+                  <AdminLayout />
                 </ProtectedRoute>
-              } />
-              
-              <Route path="/admin/users" element={
-                <ProtectedRoute role="admin">
-                  <UserManagement />
-                </ProtectedRoute>
-              } />
-              
-              <Route path="/admin/earnings" element={
-                <ProtectedRoute role="admin">
-                  <AdminEarnings />
-                </ProtectedRoute>
-              } />
+              }>
+                <Route index element={<Navigate to="dashboard" replace />} />
+                <Route path="dashboard" element={<AdminDashboard />} />
+                <Route path="users" element={<UserManagement />} />
+                <Route path="earnings" element={<AdminEarnings />} />
+              </Route>
 
             </Routes>
           </div>

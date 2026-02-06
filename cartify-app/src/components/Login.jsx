@@ -3,7 +3,7 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { authAPI } from '../services/Api';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faArrowLeft, faUser, faStore } from '@fortawesome/free-solid-svg-icons';
+import { faArrowLeft, faUser, faStore, faUserShield } from '@fortawesome/free-solid-svg-icons';
 import ReCAPTCHA from 'react-google-recaptcha';
 import './Login.css';
 
@@ -23,8 +23,13 @@ const Login = () => {
   
   const from = location.state?.from?.pathname || '/';
 
-  // Your actual Google reCAPTCHA site key
   const RECAPTCHA_SITE_KEY = '6LdvsFksAAAAAM0RrfXyJpUW-oagElOQqVAukB_z';
+
+  // MOCK ADMIN CREDENTIALS
+  const ADMIN_CREDENTIALS = {
+    email: "admin@example.com",
+    password: "Admin123!@#"
+  };
 
   const handleChange = (e) => {
     setFormData({
@@ -35,14 +40,13 @@ const Login = () => {
 
   const handleCaptchaChange = (value) => {
     setCaptchaValue(value);
-    setError(''); // Clear any captcha error
+    setError('');
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
 
-    // Validate CAPTCHA
     if (!captchaValue) {
       setError('Please complete the CAPTCHA verification');
       return;
@@ -56,17 +60,59 @@ const Login = () => {
         selectedRole: loginType,
         hasCaptcha: !!captchaValue
       });
-      
-      // Call the API - this already stores token and user in localStorage
+
+      // ADMIN LOGIN - USE MOCK CREDENTIALS
+      if (loginType === 'admin') {
+        // Check admin credentials
+        if (formData.email === ADMIN_CREDENTIALS.email && 
+            formData.password === ADMIN_CREDENTIALS.password) {
+          
+          console.log('Admin credentials verified');
+          
+          // Create mock admin user
+          const adminUser = {
+            id: 1,
+            email: ADMIN_CREDENTIALS.email,
+            role: 'admin',
+            name: 'System Administrator',
+            permissions: ['all']
+          };
+
+          // Create mock token
+          const mockToken = 'admin-mock-token-12345';
+
+          // Store in localStorage
+          localStorage.setItem('token', mockToken);
+          localStorage.setItem('user', JSON.stringify(adminUser));
+
+          // Update AuthContext
+          login(adminUser, mockToken);
+          
+          console.log('Admin login successful, redirecting to admin dashboard');
+          
+          setTimeout(() => {
+            navigate('/admin/dashboard', { replace: true });
+            setLoading(false);
+          }, 100);
+          
+          return; // Exit early for admin login
+        } else {
+          setError('Invalid admin credentials. Use: Email: admin@example.com, Password: Admin123!@#');
+          setLoading(false);
+          setCaptchaValue(null);
+          return;
+        }
+      }
+
+      // REGULAR USER LOGIN (Buyer/Seller) - Use your existing API
       const response = await authAPI.login({
         email: formData.email,
         password: formData.password,
-        captcha: captchaValue // Send captcha token to backend
+        captcha: captchaValue
       });
 
       console.log('Login API response:', response);
 
-      // Check response structure
       const user = response.user || response.data?.user;
       const token = response.token || response.data?.token;
 
@@ -75,43 +121,40 @@ const Login = () => {
       }
 
       console.log('User data:', user);
-      console.log('Token received:', !!token);
+      console.log('User role:', user.role);
+      console.log('Selected login type:', loginType);
 
-      // Verify role matches selected login type
+      // For regular users, check role matches
       if (user.role !== loginType) {
         setError(`This account is registered as a ${user.role}. Please select "Login as ${user.role === 'buyer' ? 'Buyer' : 'Seller'}" instead.`);
         setLoading(false);
-        // Reset captcha on error
         setCaptchaValue(null);
         return;
       }
 
-      // The API already stored the token and user in localStorage
-      // Just verify it's there
-      const storedToken = localStorage.getItem('token');
-      const storedUser = localStorage.getItem('user');
-
-      console.log('Stored token exists:', !!storedToken);
-      console.log('Stored user exists:', !!storedUser);
-
-      if (!storedToken || !storedUser) {
-        console.error('API did not store auth data properly');
-        // Manually store it
-        if (token) {
-          localStorage.setItem('token', token);
-        }
-        localStorage.setItem('user', JSON.stringify(user));
-        console.log('Manually stored auth data');
+      // Store auth data
+      if (token) {
+        localStorage.setItem('token', token);
       }
+      localStorage.setItem('user', JSON.stringify(user));
 
       // Update AuthContext state
-      login(user, storedToken || token);
+      login(user, token);
       
-      // Determine redirect path
-      const redirectPath = user.role === 'seller' ? '/seller/dashboard' : '/buyer/dashboard';
-      console.log('Redirecting to:', redirectPath);
+      // Determine redirect path based on actual role
+      let redirectPath;
+      switch (user.role) {
+        case 'seller':
+          redirectPath = '/seller/dashboard';
+          break;
+        case 'buyer':
+        default:
+          redirectPath = '/buyer/dashboard';
+          break;
+      }
       
-      // Navigate
+      console.log(`User role: ${user.role}, Redirecting to: ${redirectPath}`);
+      
       setTimeout(() => {
         navigate(redirectPath, { replace: true });
         setLoading(false);
@@ -120,7 +163,6 @@ const Login = () => {
     } catch (err) {
       console.error('Login error:', err);
       
-      // Reset captcha on error
       setCaptchaValue(null);
       
       if (err.message.includes('Network error') || err.message.includes('Failed to fetch')) {
@@ -140,6 +182,12 @@ const Login = () => {
 
   const handleBackToLanding = () => {
     navigate('/');
+  };
+
+  // Function to handle login type selection
+  const selectLoginType = (type) => {
+    setLoginType(type);
+    setError(''); // Clear any previous errors
   };
 
   return (
@@ -168,12 +216,13 @@ const Login = () => {
           </div>
         )}
 
+        {/* Login Type Selector with Admin Option */}
         <div className="login-type-selector">
           <div className="login-type-options">
             <button
               type="button"
               className={`login-type-btn ${loginType === 'buyer' ? 'active' : ''}`}
-              onClick={() => setLoginType('buyer')}
+              onClick={() => selectLoginType('buyer')}
               disabled={loading}
             >
               <FontAwesomeIcon icon={faUser} />
@@ -183,17 +232,30 @@ const Login = () => {
             <button
               type="button"
               className={`login-type-btn ${loginType === 'seller' ? 'active' : ''}`}
-              onClick={() => setLoginType('seller')}
+              onClick={() => selectLoginType('seller')}
               disabled={loading}
             >
               <FontAwesomeIcon icon={faStore} />
               <span>Login as Seller</span>
             </button>
+            
+            {/* Admin Option */}
+            <button
+              type="button"
+              className={`login-type-btn ${loginType === 'admin' ? 'active' : ''}`}
+              onClick={() => selectLoginType('admin')}
+              disabled={loading}
+            >
+              <FontAwesomeIcon icon={faUserShield} />
+              <span>Login as Admin</span>
+            </button>
           </div>
           
           <div className="login-type-indicator">
             <span className="login-type-badge">
-              {loginType === 'buyer' ? 'Buyer Account' : 'Seller Account'}
+              {loginType === 'buyer' ? 'Buyer Account' : 
+               loginType === 'seller' ? 'Seller Account' : 
+               'Admin Account'}
             </span>
           </div>
         </div>
@@ -246,6 +308,17 @@ const Login = () => {
             </div>
           </div>
 
+          {/* Admin Note */}
+          {loginType === 'admin' && (
+            <div className="admin-credentials-note alert alert-info">
+              <small>
+                <strong>Admin Test Credentials:</strong><br/>
+                Email: <code>admin@example.com</code><br/>
+                Password: <code>Admin123!@#</code>
+              </small>
+            </div>
+          )}
+
           {/* reCAPTCHA */}
           <div className="form-group captcha-container">
             <ReCAPTCHA
@@ -272,7 +345,9 @@ const Login = () => {
                 <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
                   <path fillRule="evenodd" d="M10 1a4.5 4.5 0 00-4.5 4.5V9H5a2 2 0 00-2 2v6a2 2 0 002 2h10a2 2 0 002-2v-6a2 2 0 00-2-2h-.5V5.5A4.5 4.5 0 0010 1zm3 8V5.5a3 3 0 10-6 0V9h6z" clipRule="evenodd" />
                 </svg>
-                {loginType === 'buyer' ? 'Login as Buyer' : 'Login as Seller'}
+                {loginType === 'buyer' ? 'Login as Buyer' : 
+                 loginType === 'seller' ? 'Login as Seller' : 
+                 'Login as Admin'}
               </>
             )}
           </button>
@@ -292,9 +367,13 @@ const Login = () => {
           <div className="demo-note">
             <small>
               <i className="fas fa-info-circle"></i>
-              <strong> Make sure to select the correct account type that matches your registration.</strong>
+              <strong> Make sure to select the correct account type:</strong>
               <br />
-              If you registered as a Buyer, click "Login as Buyer". If you registered as a Seller, click "Login as Seller".
+              • <strong>Buyer:</strong> For shopping and purchasing products
+              <br />
+              • <strong>Seller:</strong> For selling products and managing your store
+              <br />
+              • <strong>Admin:</strong> For platform management and administration
             </small>
           </div>
         </div>
