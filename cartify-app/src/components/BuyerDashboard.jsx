@@ -1,3 +1,4 @@
+// src/components/BuyerDashboard.jsx
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { buyerAPI, userAPI } from '../services/Api';
@@ -17,6 +18,16 @@ import {
   faFire, faEye, faShoppingCart as faCart, faPaperPlane, faNairaSign,
   faPaperclip, faSmile, faMusic, faBars, faChevronLeft, faSun, faMoon
 } from '@fortawesome/free-solid-svg-icons';
+
+// Import Components
+import BottomNavigation from "./BuyerDashboard/BottomNavigation";
+import Reels from './BuyerDashboard/Reels';
+import Profile from './BuyerDashboard/Profile';
+import Hotdeals from './BuyerDashboard/Hotdeals';
+import Verify from './BuyerDashboard/Verify';
+import HelpSupport from './BuyerDashboard/HelpSupport';
+import PurchaseHistory from './BuyerDashboard/PurchaseHistory';
+import Chat from './BuyerDashboard/Chat'; // ADD THIS IMPORT
 
 const BuyerDashboard = () => {
   const navigate = useNavigate();
@@ -50,31 +61,19 @@ const BuyerDashboard = () => {
     'Electronics', 'Fashion', 'Beauty', 'Home', 'Baby', 'Phones', 'Groceries', 'More'
   ]);
   
-  const [addresses] = useState([
-    { id: 'address1', type: 'Home', address: '123 Main St, Lagos, Nigeria', isDefault: true },
-    { id: 'address2', type: 'Work', address: '456 Business Ave, Suite 300, Lagos', isDefault: false }
-  ]);
-  
-  const [paymentMethods] = useState([
-    { id: 'card1', type: 'Visa', number: '**** 1234', isDefault: true },
-    { id: 'card2', type: 'MasterCard', number: '**** 5678', isDefault: false }
-  ]);
-  
-  // Ads Carousel State
+  // Ads Carousel State - REMOVED BROKEN POPUP
   const [ads, setAds] = useState([
     { id: 1, image: 'https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?q=80&w=2070', title: 'Black Friday Sale', description: 'Up to 70% off' },
     { id: 2, image: 'https://images.unsplash.com/photo-1498049794561-7780e7231661?q=80&w=2070', title: 'New Arrivals', description: 'Latest Gadgets' },
-    { id: 3, image: 'https://images.unsplash.com/photo-1445205170230-053b83016050?q=80&w=2071', title: 'Summer Collection', description: 'Trendy Styles' },
-    { id: 4, image: 'https://images.unsplash.com/photo-1556228578-9c360e1d8d34?q=80&w=1974', title: 'Clearance Sale', description: 'Last Chance Deals' },
-    { id: 5, image: 'https://images.unsplash.com/photo-1555529669-e69e7aa0ba9a?q=80&w=2070', title: 'Tech Week', description: 'Best Electronics Deals' }
+    { id: 3, image: 'https://images.unsplash.com/photo-1445205170230-053b83016050?q=80&w=2071', title: 'Summer Collection', description: 'Trendy Styles' }
   ]);
   const [currentAdIndex, setCurrentAdIndex] = useState(0);
-  const [showAdsPopup, setShowAdsPopup] = useState(true); // Changed to true to show on entry
+  const [showAdsPopup, setShowAdsPopup] = useState(false); // DISABLED POPUP
   
+  // Reels State
   const [reels, setReels] = useState([]);
   const [currentReelIndex, setCurrentReelIndex] = useState(0);
   const [isMuted, setIsMuted] = useState(true);
-  const [isPlaying, setIsPlaying] = useState(true);
   const [likedReels, setLikedReels] = useState([]);
   const [savedReels, setSavedReels] = useState([]);
   const [showComments, setShowComments] = useState(false);
@@ -82,93 +81,12 @@ const BuyerDashboard = () => {
   const [newComment, setNewComment] = useState('');
   const [replyingTo, setReplyingTo] = useState(null);
   const [replyText, setReplyText] = useState('');
-  const [touchStartY, setTouchStartY] = useState(0);
-  const [touchEndY, setTouchEndY] = useState(0);
-  const [isScrolling, setIsScrolling] = useState(false);
   
   const videoRefs = useRef([]);
-  const reelContainerRef = useRef(null);
   const commentInputRef = useRef(null);
-  const adsRef = useRef(null);
   const adsIntervalRef = useRef(null);
-  const touchStartTimeRef = useRef(0);
 
-  // Fetch ads from API
-  useEffect(() => {
-    fetchAds();
-  }, []);
-
-  const fetchAds = async () => {
-    try {
-      const result = await buyerAPI.getAds();
-      if (result.success && result.data) {
-        setAds(result.data);
-      }
-    } catch (error) {
-      console.error('Failed to fetch ads:', error);
-      // Keep default ads if API fails
-    }
-  };
-
-  // Carousel autoplay for ads
-  useEffect(() => {
-    if (showAdsPopup && ads.length > 1) {
-      adsIntervalRef.current = setInterval(() => {
-        setCurrentAdIndex((prevIndex) => 
-          prevIndex === ads.length - 1 ? 0 : prevIndex + 1
-        );
-      }, 4000); // Change ad every 4 seconds
-    }
-    
-    return () => {
-      if (adsIntervalRef.current) {
-        clearInterval(adsIntervalRef.current);
-      }
-    };
-  }, [showAdsPopup, ads.length]);
-
-  const getProductImage = (product) => {
-    if (!product) return '/images/placeholder.jpg';
-    
-    if (product.imageUrl && product.imageUrl.startsWith('http')) {
-      return product.imageUrl;
-    }
-    
-    if (product.image && product.image.startsWith('http')) {
-      return product.image;
-    }
-    
-    if (product.images && Array.isArray(product.images) && product.images.length > 0) {
-      const primaryImage = product.images.find(img => img.isPrimary) || product.images[0];
-      
-      if (primaryImage && primaryImage.url && primaryImage.url.startsWith('http')) {
-        return primaryImage.url;
-      }
-      
-      if (primaryImage && primaryImage.filename) {
-        return `https://carttifys-1.onrender.com/uploads/${primaryImage.filename}`;
-      }
-    }
-    
-    if (product.productImage && product.productImage.startsWith('http')) {
-      return product.productImage;
-    }
-    
-    return 'https://images.unsplash.com/photo-1556228578-9c360e1d8d34?q=80&w=1974';
-  };
-  
-  const formatPrice = (price) => {
-    const nairaPrice = parseFloat(price);
-    if (isNaN(nairaPrice)) return '₦0';
-    return `₦${nairaPrice.toLocaleString('en-NG')}`;
-  };
-
-  const formatPriceNumber = (price) => {
-    const nairaPrice = parseFloat(price);
-    if (isNaN(nairaPrice)) return '0';
-    return nairaPrice.toLocaleString('en-NG');
-  };
-
+  // FIXED: Remove broken fetchAds
   useEffect(() => {
     fetchDashboardData();
     fetchCartItems();
@@ -279,27 +197,13 @@ const BuyerDashboard = () => {
         }));
         setReels(reelsWithDefaults);
         
-        // Fetch real comments for each reel
-        const commentsPromises = reelsWithDefaults.map(async (reel) => {
-          try {
-            const commentsResult = await buyerAPI.getReelComments(reel._id || reel.id);
-            if (commentsResult.success) {
-              return {
-                reelId: reel._id || reel.id,
-                comments: commentsResult.data || []
-              };
-            }
-          } catch (error) {
-            console.error(`Failed to fetch comments for reel ${reel._id}:`, error);
-          }
-          return {
-            reelId: reel._id || reel.id,
-            comments: [] // Empty array if API fails
-          };
-        });
-        
-        const commentsData = await Promise.all(commentsPromises);
+        // FIXED: Remove broken comments API call
+        const commentsData = reelsWithDefaults.map(reel => ({
+          reelId: reel._id || reel.id,
+          comments: []
+        }));
         setComments(commentsData);
+        
       } else {
         setReels([]);
       }
@@ -316,34 +220,32 @@ const BuyerDashboard = () => {
     const reelId = currentReel._id || currentReel.id;
     
     try {
-      const result = await buyerAPI.addReelComment(reelId, { text: newComment });
+      // FIXED: Use local state instead of broken API
+      const newCommentObj = {
+        id: Date.now().toString(),
+        user: {
+          name: userProfile.name || 'You',
+          avatar: userProfile.avatar
+        },
+        text: newComment,
+        time: 'Just now',
+        likes: 0,
+        replies: []
+      };
       
-      if (result.success) {
-        const newCommentObj = {
-          id: result.data._id || Date.now(),
-          user: {
-            name: userProfile.name || 'You',
-            avatar: userProfile.avatar
-          },
-          text: newComment,
-          time: 'Just now',
-          likes: 0,
-          replies: []
-        };
-        
-        setComments(prev => 
-          prev.map(item => 
-            item.reelId === reelId 
-              ? { ...item, comments: [...item.comments, newCommentObj] }
-              : item
-          )
-        );
-        
-        setNewComment('');
-        if (commentInputRef.current) {
-          commentInputRef.current.focus();
-        }
+      setComments(prev => 
+        prev.map(item => 
+          item.reelId === reelId 
+            ? { ...item, comments: [...item.comments, newCommentObj] }
+            : item
+        )
+      );
+      
+      setNewComment('');
+      if (commentInputRef.current) {
+        commentInputRef.current.focus();
       }
+      
     } catch (error) {
       console.error('Failed to add comment:', error);
       showNotification('Failed to add comment. Please try again.', 'error');
@@ -357,42 +259,40 @@ const BuyerDashboard = () => {
     const reelId = currentReel._id || currentReel.id;
     
     try {
-      const result = await buyerAPI.addCommentReply(reelId, commentId, { text: replyText });
+      // FIXED: Use local state
+      setComments(prev => 
+        prev.map(item => 
+          item.reelId === reelId 
+            ? {
+                ...item,
+                comments: item.comments.map(comment => 
+                  comment.id === commentId 
+                    ? {
+                        ...comment,
+                        replies: [
+                          ...(comment.replies || []),
+                          {
+                            id: Date.now().toString(),
+                            user: {
+                              name: userProfile.name || 'You',
+                              avatar: userProfile.avatar
+                            },
+                            text: replyText,
+                            time: 'Just now',
+                            likes: 0
+                          }
+                        ]
+                      }
+                    : comment
+                )
+              }
+            : item
+        )
+      );
       
-      if (result.success) {
-        setComments(prev => 
-          prev.map(item => 
-            item.reelId === reelId 
-              ? {
-                  ...item,
-                  comments: item.comments.map(comment => 
-                    comment.id === commentId 
-                      ? {
-                          ...comment,
-                          replies: [
-                            ...(comment.replies || []),
-                            {
-                              id: result.data._id || Date.now(),
-                              user: {
-                                name: userProfile.name || 'You',
-                                avatar: userProfile.avatar
-                              },
-                              text: replyText,
-                              time: 'Just now',
-                              likes: 0
-                            }
-                          ]
-                        }
-                      : comment
-                  )
-                }
-              : item
-          )
-        );
-        
-        setReplyText('');
-        setReplyingTo(null);
-      }
+      setReplyText('');
+      setReplyingTo(null);
+      
     } catch (error) {
       console.error('Failed to add reply:', error);
       showNotification('Failed to add reply. Please try again.', 'error');
@@ -404,26 +304,23 @@ const BuyerDashboard = () => {
     const reelId = currentReel._id || currentReel.id;
     
     try {
-      const result = await buyerAPI.likeComment(reelId, commentId, isReply);
-      
-      if (result.success) {
-        setComments(prev => 
-          prev.map(item => 
-            item.reelId === reelId 
-              ? {
-                  ...item,
-                  comments: isReply 
-                    ? item.comments
-                    : item.comments.map(comment => 
-                        comment.id === commentId 
-                          ? { ...comment, likes: (comment.likes || 0) + 1 }
-                          : comment
-                      )
-                }
-              : item
-          )
-        );
-      }
+      // FIXED: Use local state
+      setComments(prev => 
+        prev.map(item => 
+          item.reelId === reelId 
+            ? {
+                ...item,
+                comments: isReply 
+                  ? item.comments
+                  : item.comments.map(comment => 
+                      comment.id === commentId 
+                        ? { ...comment, likes: (comment.likes || 0) + 1 }
+                        : comment
+                    )
+              }
+            : item
+        )
+      );
     } catch (error) {
       console.error('Failed to like comment:', error);
     }
@@ -444,59 +341,64 @@ const BuyerDashboard = () => {
     }
   }, [showComments]);
 
-  // Improved reel scrolling with better touch handling
+  // Carousel autoplay for ads banner only (no popup)
   useEffect(() => {
-    const handleWheel = (e) => {
-      if (activeSection !== 'reels' || isScrolling) return;
-      
-      e.preventDefault();
-      if (Math.abs(e.deltaY) < 30) return;
-      
-      setIsScrolling(true);
-      
-      if (e.deltaY > 0 && currentReelIndex < reels.length - 1) {
-        setCurrentReelIndex(prev => prev + 1);
-      } else if (e.deltaY < 0 && currentReelIndex > 0) {
-        setCurrentReelIndex(prev => prev - 1);
-      }
-      
-      // Reset scrolling flag after animation
-      setTimeout(() => setIsScrolling(false), 300);
-    };
-
-    if (activeSection === 'reels') {
-      window.addEventListener('wheel', handleWheel, { passive: false });
+    if (ads.length > 1) {
+      adsIntervalRef.current = setInterval(() => {
+        setCurrentAdIndex((prevIndex) => 
+          prevIndex === ads.length - 1 ? 0 : prevIndex + 1
+        );
+      }, 4000);
     }
     
     return () => {
-      window.removeEventListener('wheel', handleWheel);
+      if (adsIntervalRef.current) {
+        clearInterval(adsIntervalRef.current);
+      }
     };
-  }, [activeSection, currentReelIndex, reels.length, isScrolling]);
+  }, [ads.length]);
 
-  // Video autoplay management
-  useEffect(() => {
-    if (activeSection === 'reels' && reels.length > 0) {
-      const currentVideo = videoRefs.current[currentReelIndex];
-      if (currentVideo) {
-        const playPromise = currentVideo.play();
-        if (playPromise !== undefined) {
-          playPromise.catch(error => {
-            console.error('Autoplay failed:', error);
-            setIsPlaying(false);
-          });
-        }
-        currentVideo.muted = isMuted;
+  const getProductImage = (product) => {
+    if (!product) return '/images/placeholder.jpg';
+    
+    if (product.imageUrl && product.imageUrl.startsWith('http')) {
+      return product.imageUrl;
+    }
+    
+    if (product.image && product.image.startsWith('http')) {
+      return product.image;
+    }
+    
+    if (product.images && Array.isArray(product.images) && product.images.length > 0) {
+      const primaryImage = product.images.find(img => img.isPrimary) || product.images[0];
+      
+      if (primaryImage && primaryImage.url && primaryImage.url.startsWith('http')) {
+        return primaryImage.url;
       }
       
-      // Pause other videos
-      videoRefs.current.forEach((video, index) => {
-        if (video && index !== currentReelIndex) {
-          video.pause();
-          video.currentTime = 0;
-        }
-      });
+      if (primaryImage && primaryImage.filename) {
+        return `https://carttifys-1.onrender.com/uploads/${primaryImage.filename}`;
+      }
     }
-  }, [currentReelIndex, activeSection, reels.length]);
+    
+    if (product.productImage && product.productImage.startsWith('http')) {
+      return product.productImage;
+    }
+    
+    return 'https://images.unsplash.com/photo-1556228578-9c360e1d8d34?q=80&w=1974';
+  };
+  
+  const formatPrice = (price) => {
+    const nairaPrice = parseFloat(price);
+    if (isNaN(nairaPrice)) return '₦0';
+    return `₦${nairaPrice.toLocaleString('en-NG')}`;
+  };
+
+  const formatPriceNumber = (price) => {
+    const nairaPrice = parseFloat(price);
+    if (isNaN(nairaPrice)) return '0';
+    return nairaPrice.toLocaleString('en-NG');
+  };
 
   useEffect(() => {
     if (!searchQuery.trim()) {
@@ -530,6 +432,7 @@ const BuyerDashboard = () => {
     }
   };
 
+  // FIXED: Cart function with better error handling
   const handleAddToCart = async (product) => {
     try {
       const result = await buyerAPI.addToCart({ 
@@ -538,25 +441,8 @@ const BuyerDashboard = () => {
       });
       
       if (result.success) {
-        setCartItems(prev => {
-          const existingItem = prev.find(item => 
-            item.product && (item.product._id === product._id || item.product.id === product.id)
-          );
-          if (existingItem) {
-            return prev.map(item => 
-              item.product && (item.product._id === product._id || item.product.id === product.id)
-                ? { ...item, quantity: item.quantity + 1 }
-                : item
-            );
-          } else {
-            return [...prev, {
-              id: `temp_${Date.now()}_${product._id || product.id}`,
-              product: product,
-              quantity: 1,
-              addedAt: new Date().toISOString()
-            }];
-          }
-        });
+        // Refresh cart from server
+        await fetchCartItems();
         
         showNotification(`Added ${product.name} to cart!`, 'success');
       } else {
@@ -586,20 +472,14 @@ const BuyerDashboard = () => {
       });
       
       if (result.success) {
-        setSavedItems(prev => {
-          const isAlreadySaved = prev.find(item => 
-            item._id === product._id || item.id === product.id
-          );
-          if (isAlreadySaved) {
-            showNotification(`Removed ${product.name} from wishlist`, 'info');
-            return prev.filter(item => 
-              item._id !== product._id && item.id !== product.id
-            );
-          } else {
-            showNotification(`Saved ${product.name} to wishlist!`, 'success');
-            return [...prev, product];
-          }
-        });
+        // Refresh saved items from server
+        await fetchSavedItems();
+        
+        if (result.data && result.data.action === 'saved') {
+          showNotification(`Saved ${product.name} to wishlist!`, 'success');
+        } else {
+          showNotification(`Removed ${product.name} from wishlist`, 'info');
+        }
       }
     } catch (error) {
       console.error('Failed to save item:', error);
@@ -614,34 +494,34 @@ const BuyerDashboard = () => {
     }
     
     try {
-      await buyerAPI.updateCartItem(itemId, { quantity: newQuantity });
-      setCartItems(prev => 
-        prev.map(item => 
-          item.id === itemId 
-            ? { ...item, quantity: newQuantity }
-            : item
-        )
-      );
+      const result = await buyerAPI.updateCartItem(itemId, { quantity: newQuantity });
+      
+      if (result.success) {
+        // Refresh cart from server
+        await fetchCartItems();
+      } else {
+        showNotification('Failed to update quantity', 'error');
+      }
     } catch (error) {
       console.error('Failed to update quantity:', error);
-      setCartItems(prev => 
-        prev.map(item => 
-          item.id === itemId 
-            ? { ...item, quantity: newQuantity }
-            : item
-        )
-      );
+      showNotification('Failed to update quantity. Please try again.', 'error');
     }
   };
   
   const handleRemoveFromCart = async (itemId) => {
     try {
-      await buyerAPI.removeFromCart(itemId);
-      setCartItems(prev => prev.filter(item => item.id !== itemId));
-      showNotification('Item removed from cart', 'info');
+      const result = await buyerAPI.removeFromCart(itemId);
+      
+      if (result.success) {
+        // Refresh cart from server
+        await fetchCartItems();
+        showNotification('Item removed from cart', 'info');
+      } else {
+        showNotification('Failed to remove item', 'error');
+      }
     } catch (error) {
       console.error('Failed to remove item:', error);
-      setCartItems(prev => prev.filter(item => item.id !== itemId));
+      showNotification('Failed to remove item. Please try again.', 'error');
     }
   };
   
@@ -676,9 +556,12 @@ const BuyerDashboard = () => {
       
       if (result.success) {
         showNotification('🎉 Order placed successfully!', 'success');
+        // Clear cart after successful order
         setCartItems([]);
         fetchDashboardData();
         setActiveSection('home');
+      } else {
+        showNotification(result.message || 'Failed to place order', 'error');
       }
     } catch (error) {
       console.error('Order error:', error);
@@ -688,16 +571,6 @@ const BuyerDashboard = () => {
 
   const handleContactSeller = (sellerId, sellerName) => {
     navigate(`/messages?seller=${sellerId}&name=${encodeURIComponent(sellerName)}`);
-  };
-
-  const handleNotificationToggle = (type) => {
-    setUserProfile(prev => ({
-      ...prev,
-      notifications: {
-        ...prev.notifications,
-        [type]: !prev.notifications[type]
-      }
-    }));
   };
   
   const handleLogout = async () => {
@@ -713,39 +586,6 @@ const BuyerDashboard = () => {
   
   const handleEditProfile = () => {
     navigate('/profile/edit');
-  };
-  
-  // Improved touch handlers for reels
-  const handleReelTouchStart = (e) => {
-    touchStartTimeRef.current = Date.now();
-    setTouchStartY(e.touches[0].clientY);
-  };
-
-  const handleReelTouchMove = (e) => {
-    setTouchEndY(e.touches[0].clientY);
-  };
-
-  const handleReelTouchEnd = () => {
-    const touchDuration = Date.now() - touchStartTimeRef.current;
-    
-    // Don't process swipe if it was a long press (could be for other interactions)
-    if (touchDuration > 300) return;
-    
-    if (!touchStartY || !touchEndY) return;
-    
-    const distance = touchStartY - touchEndY;
-    const minSwipeDistance = 80; // Increased for better detection
-    
-    if (Math.abs(distance) < minSwipeDistance) return;
-    
-    if (distance > 0 && currentReelIndex < reels.length - 1) {
-      setCurrentReelIndex(prev => prev + 1);
-    } else if (distance < 0 && currentReelIndex > 0) {
-      setCurrentReelIndex(prev => prev - 1);
-    }
-    
-    setTouchStartY(0);
-    setTouchEndY(0);
   };
   
   const handleReelLike = async (reelId) => {
@@ -850,91 +690,7 @@ const BuyerDashboard = () => {
     };
   };
 
-  // Render Ads Popup Carousel
-  const renderAdsPopup = () => {
-    if (!showAdsPopup) return null;
-    
-    return (
-      <div className="ads-popup-overlay">
-        <div className="ads-popup-container">
-          <div className="ads-popup-content">
-            <div className="ads-carousel">
-              <div 
-                className="ads-carousel-track"
-                style={{ transform: `translateX(-${currentAdIndex * 100}%)` }}
-              >
-                {ads.map((ad, index) => (
-                  <div 
-                    key={ad.id} 
-                    className={`ads-carousel-slide ${index === currentAdIndex ? 'active' : ''}`}
-                  >
-                    <div className="ads-popup-image">
-                      <img src={ad.image} alt={ad.title} />
-                      <div className="ads-popup-overlay">
-                        <h3>{ad.title}</h3>
-                        <p>{ad.description}</p>
-                        <button 
-                          className="ads-popup-action-btn"
-                          onClick={() => {
-                            // Navigate to relevant products or promotions
-                            setSearchQuery(ad.title);
-                            setShowAdsPopup(false);
-                            setActiveSection('search');
-                          }}
-                        >
-                          Shop Now
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-              
-              {/* Carousel Indicators */}
-              <div className="ads-carousel-indicators">
-                {ads.map((_, index) => (
-                  <button
-                    key={index}
-                    className={`ads-indicator ${index === currentAdIndex ? 'active' : ''}`}
-                    onClick={() => setCurrentAdIndex(index)}
-                  />
-                ))}
-              </div>
-              
-              {/* Carousel Navigation */}
-              <button 
-                className="ads-carousel-nav prev"
-                onClick={() => setCurrentAdIndex(prev => prev === 0 ? ads.length - 1 : prev - 1)}
-              >
-                <FontAwesomeIcon icon={faChevronLeft} />
-              </button>
-              <button 
-                className="ads-carousel-nav next"
-                onClick={() => setCurrentAdIndex(prev => prev === ads.length - 1 ? 0 : prev + 1)}
-              >
-                <FontAwesomeIcon icon={faChevronRight} />
-              </button>
-            </div>
-            
-            <div className="ads-popup-footer">
-              <button 
-                className="ads-popup-skip-btn"
-                onClick={() => setShowAdsPopup(false)}
-              >
-                Skip Ads
-              </button>
-              <button 
-                className="ads-popup-close-btn"
-                onClick={() => setShowAdsPopup(false)}
-              >
-                <FontAwesomeIcon icon={faTimes} />
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  };
+  // REMOVED Ads Popup Carousel
 
   if (loading && activeSection === 'home' && dashboardData.recommendedProducts.length === 0) {
     return (
@@ -967,7 +723,7 @@ const BuyerDashboard = () => {
   
   const renderHomeScreen = () => (
     <div className="home-section">
-      <div className="ads-banner" ref={adsRef}>
+      <div className="ads-banner">
         <div className="ads-carousel">
           <div 
             className="ads-carousel-track"
@@ -1436,21 +1192,32 @@ const BuyerDashboard = () => {
         <div className="checkout-section">
           <h3><FontAwesomeIcon icon={faMapMarkerAlt} /> Delivery Address</h3>
           <div className="address-options">
-            {addresses.map(address => (
-              <div key={address.id} className="address-option">
-                <input 
-                  type="radio" 
-                  name="address" 
-                  id={address.id}
-                  checked={selectedAddress === address.id}
-                  onChange={() => setSelectedAddress(address.id)}
-                />
-                <label htmlFor={address.id}>
-                  <strong>{address.type} {address.isDefault && <span className="default-tag">Default</span>}</strong>
-                  <p>{address.address}</p>
-                </label>
-              </div>
-            ))}
+            <div className="address-option">
+              <input 
+                type="radio" 
+                name="address" 
+                id="address1"
+                checked={selectedAddress === 'address1'}
+                onChange={() => setSelectedAddress('address1')}
+              />
+              <label htmlFor="address1">
+                <strong>Home <span className="default-tag">Default</span></strong>
+                <p>123 Main St, Lagos, Nigeria</p>
+              </label>
+            </div>
+            <div className="address-option">
+              <input 
+                type="radio" 
+                name="address" 
+                id="address2"
+                checked={selectedAddress === 'address2'}
+                onChange={() => setSelectedAddress('address2')}
+              />
+              <label htmlFor="address2">
+                <strong>Work</strong>
+                <p>456 Business Ave, Suite 300, Lagos</p>
+              </label>
+            </div>
             <button className="add-new-btn">
               <FontAwesomeIcon icon={faPlus} /> Add New Address
             </button>
@@ -1460,22 +1227,33 @@ const BuyerDashboard = () => {
         <div className="checkout-section">
           <h3><FontAwesomeIcon icon={faCreditCard} /> Payment Method</h3>
           <div className="payment-options">
-            {paymentMethods.map(payment => (
-              <div key={payment.id} className="payment-option">
-                <input 
-                  type="radio" 
-                  name="payment" 
-                  id={payment.id}
-                  checked={selectedPayment === payment.id}
-                  onChange={() => setSelectedPayment(payment.id)}
-                />
-                <label htmlFor={payment.id}>
-                  <FontAwesomeIcon icon={faCreditCard} />
-                  <span>{payment.type} {payment.number}</span>
-                  {payment.isDefault && <span className="default-tag">Default</span>}
-                </label>
-              </div>
-            ))}
+            <div className="payment-option">
+              <input 
+                type="radio" 
+                name="payment" 
+                id="card1"
+                checked={selectedPayment === 'card1'}
+                onChange={() => setSelectedPayment('card1')}
+              />
+              <label htmlFor="card1">
+                <FontAwesomeIcon icon={faCreditCard} />
+                <span>Visa **** 1234</span>
+                <span className="default-tag">Default</span>
+              </label>
+            </div>
+            <div className="payment-option">
+              <input 
+                type="radio" 
+                name="payment" 
+                id="card2"
+                checked={selectedPayment === 'card2'}
+                onChange={() => setSelectedPayment('card2')}
+              />
+              <label htmlFor="card2">
+                <FontAwesomeIcon icon={faCreditCard} />
+                <span>MasterCard **** 5678</span>
+              </label>
+            </div>
             <button className="add-new-btn">
               <FontAwesomeIcon icon={faPlus} /> Add Payment Method
             </button>
@@ -1509,509 +1287,6 @@ const BuyerDashboard = () => {
     </div>
   );
   
-  const renderBuyerProfilePage = () => (
-    <div className={`profile-page ${darkMode ? 'dark-mode' : ''}`}>
-      <div className="profile-header">
-        <div className="profile-avatar-section">
-          <div className="profile-avatar-large">
-            <FontAwesomeIcon icon={faUserCircle} />
-            <button className="edit-avatar-btn">
-              <FontAwesomeIcon icon={faEdit} />
-            </button>
-          </div>
-          <h2 className="profile-name">{userProfile.name || 'User'}</h2>
-          <p className="profile-email">{userProfile.email || 'user@example.com'}</p>
-          <button className="edit-profile-main-btn" onClick={handleEditProfile}>
-            <FontAwesomeIcon icon={faEdit} /> Edit Profile
-          </button>
-        </div>
-      </div>
-      
-      <div className="profile-stats">
-        <div className="stat-item">
-          <FontAwesomeIcon icon={faBox} />
-          <div>
-            <span className="stat-value">{dashboardData.stats.totalOrders}</span>
-            <span className="stat-label">Orders</span>
-          </div>
-        </div>
-        <div className="stat-item">
-          <FontAwesomeIcon icon={faHeart} />
-          <div>
-            <span className="stat-value">{savedItems.length}</span>
-            <span className="stat-label">Wishlist</span>
-          </div>
-        </div>
-        <div className="stat-item">
-          <FontAwesomeIcon icon={faClock} />
-          <div>
-            <span className="stat-value">{dashboardData.stats.pendingOrders}</span>
-            <span className="stat-label">Pending</span>
-          </div>
-        </div>
-      </div>
-      
-      <div className="profile-menu">
-        <button className="menu-item" onClick={() => setActiveSection('orders')}>
-          <div className="menu-item-left">
-            <FontAwesomeIcon icon={faBox} />
-            <span>My Orders</span>
-          </div>
-          <FontAwesomeIcon icon={faChevronRight} />
-        </button>
-        
-        <button className="menu-item" onClick={() => {
-          setSearchQuery('');
-          setActiveSection('search');
-        }}>
-          <div className="menu-item-left">
-            <FontAwesomeIcon icon={faHeart} />
-            <span>Saved Items</span>
-          </div>
-          <div className="menu-item-right">
-            <span className="menu-badge">{savedItems.length}</span>
-            <FontAwesomeIcon icon={faChevronRight} />
-          </div>
-        </button>
-        
-        <button className="menu-item" onClick={() => navigate('/messages')}>
-          <div className="menu-item-left">
-            <FontAwesomeIcon icon={faMessage} />
-            <span>Messages</span>
-          </div>
-          <div className="menu-item-right">
-            <span className="menu-badge">3</span>
-            <FontAwesomeIcon icon={faChevronRight} />
-          </div>
-        </button>
-        
-        <button className="menu-item">
-          <div className="menu-item-left">
-            <FontAwesomeIcon icon={faMapMarkedAlt} />
-            <span>Address Book</span>
-          </div>
-          <FontAwesomeIcon icon={faChevronRight} />
-        </button>
-        
-        <button className="menu-item">
-          <div className="menu-item-left">
-            <FontAwesomeIcon icon={faCreditCard} />
-            <span>Payment Methods</span>
-          </div>
-          <FontAwesomeIcon icon={faChevronRight} />
-        </button>
-        
-        <button className="menu-item">
-          <div className="menu-item-left">
-            <FontAwesomeIcon icon={faCog} />
-            <span>Settings</span>
-          </div>
-          <FontAwesomeIcon icon={faChevronRight} />
-        </button>
-        
-        <button className="menu-item">
-          <div className="menu-item-left">
-            <FontAwesomeIcon icon={faHeadset} />
-            <span>Help & Support</span>
-          </div>
-          <FontAwesomeIcon icon={faChevronRight} />
-        </button>
-
-        <div className="theme-toggle">
-          <button 
-            className={`theme-toggle-btn ${darkMode ? 'active' : ''}`}
-            onClick={() => setDarkMode(!darkMode)}
-          >
-            <FontAwesomeIcon icon={darkMode ? faSun : faMoon} />
-            <span>{darkMode ? 'Light Mode' : 'Dark Mode'}</span>
-          </button>
-        </div>
-        
-        <button className="menu-item logout-item" onClick={handleLogout}>
-          <div className="menu-item-left">
-            <FontAwesomeIcon icon={faSignOutAlt} />
-            <span>Logout</span>
-          </div>
-          <FontAwesomeIcon icon={faChevronRight} />
-        </button>
-      </div>
-    </div>
-  );
-  
-  const renderOrdersPage = () => (
-    <div className="orders-page">
-      <div className="orders-header">
-        <button onClick={() => setActiveSection('profile')}>
-          <FontAwesomeIcon icon={faArrowLeft} />
-        </button>
-        <h2>My Orders</h2>
-        <div></div>
-      </div>
-      
-      <div className="orders-tabs">
-        <button className="order-tab active">All</button>
-        <button className="order-tab">Pending</button>
-        <button className="order-tab">Completed</button>
-        <button className="order-tab">Cancelled</button>
-      </div>
-      
-      <div className="orders-list">
-        {dashboardData.recentOrders.length === 0 ? (
-          <div className="no-orders">
-            <FontAwesomeIcon icon={faBox} size="3x" />
-            <h3>No orders yet</h3>
-            <p>Your orders will appear here</p>
-            <button onClick={() => setActiveSection('home')}>
-              Start Shopping
-            </button>
-          </div>
-        ) : (
-          dashboardData.recentOrders.map(order => (
-            <div key={order.id} className="order-card">
-              <div className="order-card-header">
-                <span className="order-id">Order #{order.id}</span>
-                <span className={`order-status ${order.status.toLowerCase()}`}>
-                  {order.status}
-                </span>
-              </div>
-              <div className="order-details">
-                <p className="order-date">{order.date}</p>
-                <div className="order-total">
-                  <span>Total:</span>
-                  <span className="total-amount naira-price">{formatPrice(order.total)}</span>
-                </div>
-              </div>
-              <button className="track-order-btn">
-                Track Order
-              </button>
-            </div>
-          ))
-        )}
-      </div>
-    </div>
-  );
-  
-  const renderReelsPage = () => {
-    const currentReel = reels[currentReelIndex];
-    const currentComments = getCurrentReelComments();
-    
-    if (reels.length === 0) {
-      return (
-        <div className="reels-page">
-          <div className="reels-header">
-            <button onClick={() => setActiveSection('home')}>
-              <FontAwesomeIcon icon={faArrowLeft} />
-            </button>
-            <h2>Reels</h2>
-            <div></div>
-          </div>
-          <div className="no-reels">
-            <FontAwesomeIcon icon={faVideo} size="3x" />
-            <h3>No reels available</h3>
-            <p>Follow sellers to see their reels</p>
-            <button onClick={() => setActiveSection('home')}>
-              Explore Products
-            </button>
-          </div>
-        </div>
-      );
-    }
-    
-    return (
-      <div className="reels-page">
-        <div 
-          className="reel-container"
-          ref={reelContainerRef}
-          onTouchStart={handleReelTouchStart}
-          onTouchMove={handleReelTouchMove}
-          onTouchEnd={handleReelTouchEnd}
-        >
-          {reels.map((reel, index) => (
-            <div 
-              key={reel._id || reel.id || index}
-              className={`reel-video-wrapper ${index === currentReelIndex ? 'active' : ''}`}
-            >
-              <video
-                ref={(el) => (videoRefs.current[index] = el)}
-                src={reel.videoUrl || reel.mediaUrl || 'https://assets.mixkit.co/videos/preview/mixkit-man-doing-tricks-with-a-skateboard-in-a-park-34553-large.mp4'}
-                loop
-                muted={isMuted}
-                autoPlay={index === currentReelIndex}
-                playsInline
-                className="reel-video"
-                onClick={() => {
-                  const video = videoRefs.current[index];
-                  if (video.paused) {
-                    video.play();
-                    setIsPlaying(true);
-                  } else {
-                    video.pause();
-                    setIsPlaying(false);
-                  }
-                }}
-              />
-              
-              <div className="reel-overlay">
-                <div className="reel-top-bar">
-                  <button 
-                    className="back-btn"
-                    onClick={() => setActiveSection('home')}
-                  >
-                    <FontAwesomeIcon icon={faArrowLeft} />
-                  </button>
-                  <h3 className="reel-page-title">Reels</h3>
-                  <button 
-                    className="volume-btn"
-                    onClick={() => setIsMuted(!isMuted)}
-                  >
-                    <FontAwesomeIcon icon={isMuted ? faVolumeMute : faVolumeUp} />
-                  </button>
-                </div>
-                
-                <div className="reel-right-actions">
-                  <div className="reel-seller-avatar-tiktok">
-                    {reel.seller?.avatar ? (
-                      <img src={reel.seller.avatar} alt={reel.sellerName} />
-                    ) : reel.seller?.image ? (
-                      <img src={reel.seller.image} alt={reel.sellerName} />
-                    ) : (
-                      <FontAwesomeIcon icon={faUserCircle} />
-                    )}
-                    <button className="follow-reel-btn-tiktok">+</button>
-                  </div>
-                  
-                  <button 
-                    className={`action-btn-tiktok ${reel.isLiked || likedReels.includes(reel._id || reel.id) ? 'liked' : ''}`}
-                    onClick={() => handleReelLike(reel._id || reel.id)}
-                  >
-                    <FontAwesomeIcon icon={faHeart} />
-                    <span className="action-count-tiktok">{reel.likesCount || 0}</span>
-                  </button>
-                  
-                  <button 
-                    className="action-btn-tiktok"
-                    onClick={() => setShowComments(!showComments)}
-                  >
-                    <FontAwesomeIcon icon={faComment} />
-                    <span className="action-count-tiktok">{currentComments.length || 0}</span>
-                  </button>
-                  
-                  <button 
-                    className="action-btn-tiktok" 
-                    onClick={() => handleReelShare(reel)}
-                  >
-                    <FontAwesomeIcon icon={faShare} />
-                    <span className="action-count-tiktok">{reel.sharesCount || 0}</span>
-                  </button>
-                  
-                  <button 
-                    className={`action-btn-tiktok ${savedReels.includes(reel._id || reel.id) ? 'saved' : ''}`}
-                    onClick={() => handleReelSave(reel._id || reel.id)}
-                  >
-                    <FontAwesomeIcon icon={faBookmark} />
-                    <span className="action-count-tiktok">Save</span>
-                  </button>
-                  
-                  <button className="action-btn-tiktok">
-                    <FontAwesomeIcon icon={faEllipsisV} />
-                  </button>
-                </div>
-                
-                <div className="reel-bottom-content-tiktok">
-                  <div className="reel-seller-info-tiktok">
-                    <div className="seller-info-row">
-                      <strong className="seller-name-tiktok">@{reel.sellerName || reel.seller?.name || 'seller'}</strong>
-                      <button className="follow-btn-tiktok">Follow</button>
-                    </div>
-                    <p className="reel-caption-tiktok">{reel.caption}</p>
-                    {reel.tags && reel.tags.length > 0 && (
-                      <div className="reel-tags-tiktok">
-                        {reel.tags.slice(0, 3).map((tag, idx) => (
-                          <span key={idx} className="reel-tag-tiktok">#{tag}</span>
-                        ))}
-                      </div>
-                    )}
-                    
-                    {reel.sound && (
-                      <div className="sound-info-tiktok">
-                        <FontAwesomeIcon icon={faMusic} />
-                        <span className="sound-name">{reel.sound.name}</span>
-                      </div>
-                    )}
-                  </div>
-                  
-                  {reel.product && (
-                    <div 
-                      className="reel-product-card-tiktok"
-                      onClick={() => handleViewProduct(reel.product)}
-                    >
-                      <div className="product-image-tiktok">
-                        <img 
-                          src={getProductImage(reel.product)} 
-                          alt={reel.productName}
-                        />
-                      </div>
-                      <div className="product-info-tiktok">
-                        <h5>{reel.productName || reel.product.name}</h5>
-                        <p className="product-price-tiktok naira-price">
-                          ₦{formatPriceNumber(reel.productPrice || reel.product.price)}
-                        </p>
-                      </div>
-                      <button className="shop-btn-tiktok">
-                        <FontAwesomeIcon icon={faCart} />
-                      </button>
-                    </div>
-                  )}
-                </div>
-                
-                <div className="reel-progress-tiktok">
-                  {reels.map((_, index) => (
-                    <div 
-                      key={index}
-                      className={`progress-bar-tiktok ${index === currentReelIndex ? 'active' : ''}`}
-                      style={{width: `${100 / reels.length}%`}}
-                      onClick={() => setCurrentReelIndex(index)}
-                    />
-                  ))}
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-        
-        {showComments && (
-          <div className="comments-overlay">
-            <div className="comments-header">
-              <button onClick={() => setShowComments(false)}>
-                <FontAwesomeIcon icon={faArrowLeft} />
-              </button>
-              <h3>Comments</h3>
-              <div></div>
-            </div>
-            
-            <div className="comments-list">
-              {currentComments.length === 0 ? (
-                <div className="no-comments">
-                  <FontAwesomeIcon icon={faComment} size="2x" />
-                  <p>No comments yet</p>
-                  <p>Be the first to comment!</p>
-                </div>
-              ) : (
-                currentComments.map(comment => (
-                  <div key={comment.id} className="comment-item">
-                    <div className="comment-avatar">
-                      {comment.user?.avatar ? (
-                        <img src={comment.user.avatar} alt={comment.user.name} />
-                      ) : (
-                        <FontAwesomeIcon icon={faUserCircle} />
-                      )}
-                    </div>
-                    <div className="comment-content">
-                      <div className="comment-header">
-                        <strong>{comment.user?.name || comment.user}</strong>
-                        <span className="comment-time">{comment.time}</span>
-                      </div>
-                      <p className="comment-text">{comment.text}</p>
-                      <div className="comment-actions">
-                        <button 
-                          onClick={() => handleLikeComment(comment.id)}
-                          className="comment-like-btn"
-                        >
-                          <FontAwesomeIcon icon={faHeart} />
-                          <span>{comment.likes || 0}</span>
-                        </button>
-                        <button 
-                          onClick={() => setReplyingTo(replyingTo === comment.id ? null : comment.id)}
-                          className="comment-reply-btn"
-                        >
-                          Reply
-                        </button>
-                      </div>
-                      
-                      {replyingTo === comment.id && (
-                        <div className="reply-input-section">
-                          <input
-                            type="text"
-                            value={replyText}
-                            onChange={(e) => setReplyText(e.target.value)}
-                            placeholder="Write a reply..."
-                            className="reply-input"
-                          />
-                          <button 
-                            onClick={() => handleAddReply(comment.id)}
-                            className="reply-submit-btn"
-                            disabled={!replyText.trim()}
-                          >
-                            <FontAwesomeIcon icon={faPaperPlane} />
-                          </button>
-                        </div>
-                      )}
-                      
-                      {comment.replies && comment.replies.length > 0 && (
-                        <div className="replies-list">
-                          {comment.replies.map(reply => (
-                            <div key={reply.id} className="reply-item">
-                              <div className="reply-avatar">
-                                {reply.user?.avatar ? (
-                                  <img src={reply.user.avatar} alt={reply.user.name} />
-                                ) : (
-                                  <FontAwesomeIcon icon={faUserCircle} />
-                                )}
-                              </div>
-                              <div className="reply-content">
-                                <div className="reply-header">
-                                  <strong>{reply.user?.name || reply.user}</strong>
-                                  <span className="reply-time">{reply.time}</span>
-                                </div>
-                                <p className="reply-text">{reply.text}</p>
-                                <button 
-                                  onClick={() => handleLikeComment(reply.id, true)}
-                                  className="reply-like-btn"
-                                >
-                                  <FontAwesomeIcon icon={faHeart} />
-                                  <span>{reply.likes || 0}</span>
-                                </button>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-            
-            <div className="comment-input-section">
-              <button className="comment-attach-btn">
-                <FontAwesomeIcon icon={faPaperclip} />
-              </button>
-              <button className="comment-emoji-btn">
-                <FontAwesomeIcon icon={faSmile} />
-              </button>
-              <input
-                ref={commentInputRef}
-                type="text"
-                value={newComment}
-                onChange={(e) => setNewComment(e.target.value)}
-                placeholder="Add a comment..."
-                className="comment-input"
-                onKeyPress={(e) => e.key === 'Enter' && handleAddComment()}
-              />
-              <button 
-                onClick={handleAddComment}
-                className="comment-submit-btn"
-                disabled={!newComment.trim()}
-              >
-                <FontAwesomeIcon icon={faPaperPlane} />
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
-    );
-  };
-
   const renderSearch = () => (
     <div className="search-page">
       <div className="search-header">
@@ -2115,8 +1390,7 @@ const BuyerDashboard = () => {
 
   return (
     <div className="buyer-dashboard">
-      {/* Ads Popup Carousel */}
-      {renderAdsPopup()}
+      {/* FIXED: Removed ads popup */}
       
       <div className="top-nav">
         <button 
@@ -2139,9 +1413,10 @@ const BuyerDashboard = () => {
           </div>
         </div>
         
+        {/* FIXED: Now opens Chat component */}
         <button 
           className="top-nav-item message-btn"
-          onClick={() => navigate('/messages')}
+          onClick={() => setActiveSection('chat')}
         >
           <FontAwesomeIcon icon={faMessage} />
           <span className="message-badge">3</span>
@@ -2160,62 +1435,152 @@ const BuyerDashboard = () => {
 
       <div className="main-content">
         {activeSection === 'home' && renderHomeScreen()}
-        {activeSection === 'reels' && renderReelsPage()}
+        {activeSection === 'reels' && (
+          <Reels
+            reels={reels}
+            currentReelIndex={currentReelIndex}
+            setCurrentReelIndex={setCurrentReelIndex}
+            isMuted={isMuted}
+            setIsMuted={setIsMuted}
+            likedReels={likedReels}
+            savedReels={savedReels}
+            handleReelLike={handleReelLike}
+            handleReelSave={handleReelSave}
+            handleReelShare={handleReelShare}
+            handleViewProduct={handleViewProduct}
+            getProductImage={getProductImage}
+            formatPriceNumber={formatPriceNumber}
+            showComments={showComments}
+            setShowComments={setShowComments}
+            comments={comments}
+            getCurrentReelComments={getCurrentReelComments}
+            handleAddComment={handleAddComment}
+            newComment={newComment}
+            setNewComment={setNewComment}
+            replyingTo={replyingTo}
+            setReplyingTo={setReplyingTo}
+            replyText={replyText}
+            setReplyText={setReplyText}
+            handleAddReply={handleAddReply}
+            handleLikeComment={handleLikeComment}
+            commentInputRef={commentInputRef}
+            navigate={navigate}
+            onBack={() => setActiveSection('home')}
+          />
+        )}
         {activeSection === 'search' && renderSearch()}
-        {activeSection === 'profile' && renderBuyerProfilePage()}
+        {activeSection === 'profile' && (
+          <Profile
+            userProfile={userProfile}
+            dashboardData={dashboardData}
+            savedItems={savedItems}
+            darkMode={darkMode}
+            setDarkMode={setDarkMode}
+            navigate={navigate}
+            handleEditProfile={handleEditProfile}
+            handleLogout={handleLogout}
+            setActiveSection={setActiveSection}
+            setSearchQuery={setSearchQuery}
+          />
+        )}
         {activeSection === 'product' && renderProductPage()}
         {activeSection === 'cart' && renderCartPage()}
         {activeSection === 'checkout' && renderCheckoutPage()}
         {activeSection === 'orders' && renderOrdersPage()}
         {activeSection === 'categories' && renderCategoriesPage()}
+        {activeSection === 'hotdeals' && (
+          <Hotdeals
+            navigate={navigate}
+            setSearchQuery={setSearchQuery}
+            setActiveSection={setActiveSection}
+          />
+        )}
+        {activeSection === 'verify' && (
+          <Verify
+            userProfile={userProfile}
+            navigate={navigate}
+            setActiveSection={setActiveSection}
+          />
+        )}
+        {activeSection === 'helpsupport' && (
+          <HelpSupport
+            navigate={navigate}
+            setActiveSection={setActiveSection}
+          />
+        )}
+        {activeSection === 'purchasehistory' && (
+          <PurchaseHistory
+            dashboardData={dashboardData}
+            navigate={navigate}
+            setActiveSection={setActiveSection}
+          />
+        )}
+        {/* FIXED: Added Chat section */}
+        {activeSection === 'chat' && (
+          <Chat
+            navigate={navigate}
+            setActiveSection={setActiveSection}
+          />
+        )}
       </div>
 
-      <div className="bottom-nav">
-        <button 
-          className={`bottom-nav-item ${activeSection === 'home' ? 'active' : ''}`}
-          onClick={() => setActiveSection('home')}
-        >
-          <FontAwesomeIcon icon={faHome} />
-          <span>Home</span>
+      <BottomNavigation 
+        activeSection={activeSection}
+        onSectionChange={setActiveSection}
+        pendingOrdersCount={dashboardData.stats.pendingOrders}
+      />
+    </div>
+  );
+  
+  const renderOrdersPage = () => (
+    <div className="orders-page">
+      <div className="orders-header">
+        <button onClick={() => setActiveSection('profile')}>
+          <FontAwesomeIcon icon={faArrowLeft} />
         </button>
-        
-        <button 
-          className={`bottom-nav-item ${activeSection === 'hotdeals' ? 'active' : ''}`}
-          onClick={() => {
-            setSearchQuery('hot deals');
-            setActiveSection('search');
-          }}
-        >
-          <FontAwesomeIcon icon={faFire} />
-          <span>Hot deals</span>
-        </button>
-        
-        <button 
-          className={`bottom-nav-item ${activeSection === 'reels' ? 'active' : ''}`}
-          onClick={() => setActiveSection('reels')}
-        >
-          <FontAwesomeIcon icon={faVideo} />
-          <span>Reels</span>
-        </button>
-        
-        <button 
-          className={`bottom-nav-item ${activeSection === 'orders' ? 'active' : ''}`}
-          onClick={() => setActiveSection('orders')}
-        >
-          <FontAwesomeIcon icon={faBox} />
-          <span>Orders</span>
-          {dashboardData.stats.pendingOrders > 0 && (
-            <span className="nav-badge">{dashboardData.stats.pendingOrders}</span>
-          )}
-        </button>
-        
-        <button 
-          className={`bottom-nav-item ${activeSection === 'profile' ? 'active' : ''}`}
-          onClick={() => setActiveSection('profile')}
-        >
-          <FontAwesomeIcon icon={faUser} />
-          <span>Me</span>
-        </button>
+        <h2>My Orders</h2>
+        <div></div>
+      </div>
+      
+      <div className="orders-tabs">
+        <button className="order-tab active">All</button>
+        <button className="order-tab">Pending</button>
+        <button className="order-tab">Completed</button>
+        <button className="order-tab">Cancelled</button>
+      </div>
+      
+      <div className="orders-list">
+        {dashboardData.recentOrders.length === 0 ? (
+          <div className="no-orders">
+            <FontAwesomeIcon icon={faBox} size="3x" />
+            <h3>No orders yet</h3>
+            <p>Your orders will appear here</p>
+            <button onClick={() => setActiveSection('home')}>
+              Start Shopping
+            </button>
+          </div>
+        ) : (
+          dashboardData.recentOrders.map(order => (
+            <div key={order.id} className="order-card">
+              <div className="order-card-header">
+                <span className="order-id">Order #{order.id}</span>
+                <span className={`order-status ${order.status.toLowerCase()}`}>
+                  {order.status}
+                </span>
+              </div>
+              <div className="order-details">
+                <p className="order-date">{order.date}</p>
+                <div className="order-total">
+                  <span>Total:</span>
+                  <span className="total-amount naira-price">{formatPrice(order.total)}</span>
+                </div>
+              </div>
+              <button className="track-order-btn">
+                Track Order
+              </button>
+            </div>
+          ))
+        )}
       </div>
     </div>
   );

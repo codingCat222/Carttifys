@@ -1,0 +1,516 @@
+/* src/components/BuyerDashboard/PurchaseHistory.css */
+.purchasehistory-page {
+  background: linear-gradient(180deg, #f8fafc 0%, #ffffff 100%);
+  min-height: 100vh;
+  padding: 20px;
+  padding-bottom: 100px;
+}
+
+.purchasehistory-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 25px;
+}
+
+.purchasehistory-header button {
+  background: white;
+  border: none;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  color: #2563eb;
+}
+
+.purchasehistory-header h2 {
+  margin: 0;
+  color: #1f2937;
+  font-size: 22px;
+  font-weight: 700;
+}
+
+.history-controls {
+  margin-bottom: 25px;
+}
+
+.search-section {
+  margin-bottom: 15px;
+}
+
+.search-bar {
+  background: white;
+  border-radius: 15px;
+  padding: 15px 20px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+}
+
+.search-bar svg {
+  color: #9ca3af;
+  font-size: 18px;
+}
+
+.search-bar input {
+  flex: 1;
+  border: none;
+  font-size: 16px;
+  color: #1f2937;
+}
+
+.search-bar input:focus {
+  outline: none;
+}
+
+.search-bar input::placeholder {
+  color: #9ca3af;
+}
+
+.filters-section {
+  overflow-x: auto;
+  padding-bottom: 10px;
+}
+
+.filter-buttons {
+  display: flex;
+  gap: 10px;
+  min-width: max-content;
+}
+
+.filter-btn {
+  background: white;
+  border: 1px solid #e5e7eb;
+  padding: 10px 20px;
+  border-radius: 25px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #6b7280;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.3s ease;
+}
+
+.filter-btn:hover {
+  border-color: #2563eb;
+  color: #2563eb;
+}
+
+.filter-btn.active {
+  background: #2563eb;
+  color: white;
+  border-color: #2563eb;
+}
+
+.no-orders {
+  background: white;
+  border-radius: 20px;
+  padding: 60px 20px;
+  text-align: center;
+  margin-bottom: 25px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+}
+
+.no-orders svg {
+  color: #d1d5db;
+  margin-bottom: 20px;
+}
+
+.no-orders h3 {
+  margin: 0 0 10px 0;
+  color: #1f2937;
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.no-orders p {
+  color: #6b7280;
+  margin: 0 0 25px 0;
+}
+
+.no-orders button {
+  background: #2563eb;
+  color: white;
+  border: none;
+  padding: 12px 30px;
+  border-radius: 25px;
+  font-size: 16px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.3s ease;
+}
+
+.no-orders button:hover {
+  background: #1d4ed8;
+}
+
+.orders-list {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  margin-bottom: 25px;
+}
+
+.order-card {
+  background: white;
+  border-radius: 20px;
+  padding: 20px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+}
+
+.order-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 20px;
+}
+
+.order-id-section {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.order-id-section svg {
+  color: #2563eb;
+  font-size: 20px;
+  margin-top: 5px;
+}
+
+.order-id-section h4 {
+  margin: 0 0 5px 0;
+  color: #1f2937;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.order-date {
+  margin: 0;
+  color: #6b7280;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.order-date svg {
+  font-size: 12px;
+}
+
+.order-status {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.order-status svg {
+  font-size: 16px;
+}
+
+.order-summary {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 15px;
+  margin-bottom: 20px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.summary-item {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.summary-item span:first-child {
+  color: #6b7280;
+  font-size: 13px;
+}
+
+.summary-item span:last-child {
+  color: #1f2937;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.total-amount {
+  color: #2563eb !important;
+  font-weight: 600 !important;
+}
+
+.order-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.action-btn {
+  flex: 1;
+  padding: 10px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  transition: all 0.3s ease;
+}
+
+.view-btn {
+  background: #e0f2fe;
+  color: #0369a1;
+  border: none;
+}
+
+.view-btn:hover {
+  background: #bae6fd;
+}
+
+.track-btn {
+  background: #f0f9ff;
+  color: #2563eb;
+  border: 1px solid #bae6fd;
+}
+
+.track-btn:hover {
+  background: #e0f2fe;
+}
+
+.more-btn {
+  background: #f8fafc;
+  color: #6b7280;
+  border: 1px solid #e5e7eb;
+}
+
+.more-btn:hover {
+  background: #f1f5f9;
+}
+
+.order-details-expanded {
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px solid #e5e7eb;
+  animation: slideDown 0.3s ease;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.order-items {
+  margin-bottom: 20px;
+}
+
+.order-items h5 {
+  margin: 0 0 15px 0;
+  color: #1f2937;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.order-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 0;
+  border-bottom: 1px solid #f3f4f6;
+}
+
+.order-item:last-child {
+  border-bottom: none;
+}
+
+.item-name {
+  flex: 2;
+  color: #1f2937;
+  font-size: 14px;
+}
+
+.item-quantity {
+  flex: 1;
+  color: #6b7280;
+  font-size: 13px;
+  text-align: center;
+}
+
+.item-price {
+  flex: 1;
+  color: #1f2937;
+  font-size: 14px;
+  font-weight: 500;
+  text-align: right;
+}
+
+.expanded-actions {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+}
+
+.expanded-btn {
+  padding: 10px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  border: none;
+  transition: all 0.3s ease;
+}
+
+.rate-btn {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.rate-btn:hover {
+  background: #fde68a;
+}
+
+.reorder-btn {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+.reorder-btn:hover {
+  background: #bfdbfe;
+}
+
+.invoice-btn {
+  background: #e0e7ff;
+  color: #3730a3;
+}
+
+.invoice-btn:hover {
+  background: #c7d2fe;
+}
+
+.support-btn {
+  background: #f3e8ff;
+  color: #6b21a8;
+}
+
+.support-btn:hover {
+  background: #e9d5ff;
+}
+
+.history-stats {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 15px;
+  margin-bottom: 25px;
+}
+
+.stats-card {
+  background: white;
+  border-radius: 15px;
+  padding: 20px;
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+}
+
+.stat-icon {
+  width: 50px;
+  height: 50px;
+  border-radius: 15px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.total-orders {
+  background: linear-gradient(135deg, #2563eb 0%, #3b82f6 100%);
+}
+
+.total-spent {
+  background: linear-gradient(135deg, #16a34a 0%, #22c55e 100%);
+}
+
+.stat-icon svg {
+  color: white;
+  font-size: 20px;
+}
+
+.stat-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.stat-value {
+  color: #1f2937;
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.stat-label {
+  color: #6b7280;
+  font-size: 13px;
+}
+
+.help-section {
+  margin-bottom: 25px;
+}
+
+.help-card {
+  background: linear-gradient(135deg, #2563eb 0%, #3b82f6 100%);
+  border-radius: 20px;
+  padding: 25px;
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  color: white;
+}
+
+.help-card svg {
+  font-size: 32px;
+}
+
+.help-card h4 {
+  margin: 0 0 5px 0;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.help-card p {
+  margin: 0;
+  font-size: 14px;
+  opacity: 0.9;
+}
+
+.contact-support-btn {
+  margin-left: auto;
+  background: white;
+  color: #2563eb;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 25px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: transform 0.3s ease;
+}
+
+.contact-support-btn:hover {
+  transform: translateY(-2px);
+}

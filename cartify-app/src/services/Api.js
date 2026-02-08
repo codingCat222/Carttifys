@@ -224,6 +224,10 @@ export const buyerAPI = {
     method: 'DELETE'
   }),
   
+  clearCart: () => apiCall('/api/buyer/cart/clear', {
+    method: 'DELETE'
+  }),
+  
   getSavedItems: () => apiCall('/api/buyer/saved-items'),
   
   saveItem: (data) => apiCall('/api/buyer/saved-items/save', {
@@ -245,9 +249,52 @@ export const buyerAPI = {
     method: 'POST'
   }),
   
+  // NEW: ADD THESE MISSING FUNCTIONS
+  getAds: () => apiCall('/api/buyer/ads'),
+  
+  getReelComments: (reelId) => apiCall(`/api/buyer/reels/${reelId}/comments`),
+  
+  addReelComment: (reelId, commentData) => apiCall(`/api/buyer/reels/${reelId}/comments`, {
+    method: 'POST',
+    body: commentData
+  }),
+  
+  addCommentReply: (reelId, commentId, replyData) => apiCall(`/api/buyer/reels/${reelId}/comments/${commentId}/reply`, {
+    method: 'POST',
+    body: replyData
+  }),
+  
+  likeComment: (reelId, commentId, isReply = false) => apiCall(`/api/buyer/reels/${reelId}/comments/${commentId}/like`, {
+    method: 'POST',
+    body: { isReply }
+  }),
+  
+  saveReel: (reelId) => apiCall(`/api/buyer/reels/${reelId}/save`, {
+    method: 'POST'
+  }),
+  
   placeOrder: (orderData) => apiCall('/api/buyer/orders', {
     method: 'POST',
     body: orderData
+  }),
+  
+  // NEW: CHAT FUNCTIONS
+  getConversations: () => apiCall('/api/buyer/messages/conversations'),
+  
+  getMessages: (conversationId) => apiCall(`/api/buyer/messages/conversations/${conversationId}`),
+  
+  sendMessage: (messageData) => apiCall('/api/buyer/messages/send', {
+    method: 'POST',
+    body: messageData
+  }),
+  
+  markConversationAsRead: (conversationId) => apiCall(`/api/buyer/messages/conversations/${conversationId}/read`, {
+    method: 'PUT'
+  }),
+  
+  createConversation: (conversationData) => apiCall('/api/buyer/messages/conversations', {
+    method: 'POST',
+    body: conversationData
   })
 };
 

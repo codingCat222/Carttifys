@@ -8,21 +8,20 @@ import Landing from './pages/Landing';
 import Login from './components/Login';
 import Signup from './components/Signup';
 import ProtectedRoute from './components/ProtectedRoute';
+
+// Only import the main BuyerDashboard
 import BuyerDashboard from './components/BuyerDashboard';
-import ProductList from './components/ProductList';
-import ProductDetail from './components/ProductDetail';
-import Cart from './components/Cart';
-import Checkout from './components/Checkout';
-import BuyerOrders from './components/BuyerOrders';
+
 import SellerDashboard from './components/SellerDashboard';
-import AddProduct from './components/AddProduct';  
+import SellerLayout from './components/SellerLayout';
+import AddProduct from './components/AddProduct';
 import ManageProducts from './components/ManageProducts';
 import SellerProfile from './components/SellerProfile';
+
 import AdminDashboard from './components/AdminDashboard';
+import AdminLayout from './components/AdminLayout';
 import UserManagement from './components/UserManagement';
 import AdminEarnings from './components/AdminEarnings';
-import SellerLayout from './components/SellerLayout';
-import AdminLayout from './components/AdminLayout';
 
 import Orders from './components/Orders';
 import Payouts from './components/Payouts';
@@ -39,50 +38,14 @@ function App() {
         <CartProvider>
           <div className="App">
             <Routes>
-              <Route path="/" element={
-                <>
-                  <Navbar />
-                  <Landing />
-                  <Footer />
-                </>
-              } />
+              <Route path="/" element={<><Navbar /><Landing /><Footer /></>} />
 
               <Route path="/login" element={<Login />} />
               <Route path="/signup" element={<Signup />} />
 
-              <Route path="/buyer/dashboard" element={
+              <Route path="/buyer/*" element={
                 <ProtectedRoute role="buyer">
                   <BuyerDashboard />
-                </ProtectedRoute>
-              } />
-              
-              <Route path="/buyer/products" element={
-                <ProtectedRoute role="buyer">
-                  <ProductList />
-                </ProtectedRoute>
-              } />
-              
-              <Route path="/buyer/products/:id" element={
-                <ProtectedRoute role="buyer">
-                  <ProductDetail />
-                </ProtectedRoute>
-              } />
-
-              <Route path="/buyer/cart" element={
-                <ProtectedRoute role="buyer">
-                  <Cart />
-                </ProtectedRoute>
-              } />
-
-              <Route path="/buyer/checkout" element={
-                <ProtectedRoute role="buyer">
-                  <Checkout />
-                </ProtectedRoute>
-              } />
-
-              <Route path="/buyer/orders" element={
-                <ProtectedRoute role="buyer">
-                  <BuyerOrders />
                 </ProtectedRoute>
               } />
 
@@ -105,13 +68,6 @@ function App() {
                 <Route path="help" element={<Help />} />
               </Route>
 
-              <Route path="/seller/add-product" element={
-                <ProtectedRoute role="seller">
-                  <AddProduct />
-                </ProtectedRoute>
-              } />
-
-              {/* Option 1: Admin Routes with Layout (if you want sidebar navigation) */}
               <Route path="/admin" element={
                 <ProtectedRoute role="admin">
                   <AdminLayout />
@@ -123,6 +79,7 @@ function App() {
                 <Route path="earnings" element={<AdminEarnings />} />
               </Route>
 
+              <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </div>
         </CartProvider>

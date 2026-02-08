@@ -4,7 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { authAPI } from '../services/Api';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faArrowLeft, faUser, faStore, faUserShield } from '@fortawesome/free-solid-svg-icons';
-import ReCAPTCHA from 'react-google-recaptcha';
+// import ReCAPTCHA from 'react-google-recaptcha'; // COMMENTED OUT - CAPTCHA DISABLED
 import './Login.css';
 
 const Login = () => {
@@ -15,7 +15,7 @@ const Login = () => {
   const [loginType, setLoginType] = useState('buyer');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [captchaValue, setCaptchaValue] = useState(null);
+  // const [captchaValue, setCaptchaValue] = useState(null); // COMMENTED OUT - CAPTCHA DISABLED
   
   const { login } = useAuth();
   const navigate = useNavigate();
@@ -23,7 +23,8 @@ const Login = () => {
   
   const from = location.state?.from?.pathname || '/';
 
-  const RECAPTCHA_SITE_KEY = '6LdvsFksAAAAAM0RrfXyJpUW-oagElOQqVAukB_z';
+  // CAPTCHA SITE KEY - COMMENTED OUT SINCE CAPTCHA IS DISABLED
+  // const RECAPTCHA_SITE_KEY = '6LdvsFksAAAAAM0RrfXyJpUW-oagElOQqVAukB_z';
 
   // MOCK ADMIN CREDENTIALS
   const ADMIN_CREDENTIALS = {
@@ -38,19 +39,21 @@ const Login = () => {
     });
   };
 
-  const handleCaptchaChange = (value) => {
-    setCaptchaValue(value);
-    setError('');
-  };
+  // CAPTCHA HANDLER - COMMENTED OUT SINCE CAPTCHA IS DISABLED
+  // const handleCaptchaChange = (value) => {
+  //   setCaptchaValue(value);
+  //   setError('');
+  // };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
 
-    if (!captchaValue) {
-      setError('Please complete the CAPTCHA verification');
-      return;
-    }
+    // CAPTCHA VALIDATION - COMMENTED OUT SINCE CAPTCHA IS DISABLED
+    // if (!captchaValue) {
+    //   setError('Please complete the CAPTCHA verification');
+    //   return;
+    // }
 
     setLoading(true);
 
@@ -58,7 +61,7 @@ const Login = () => {
       console.log('Attempting login with:', { 
         email: formData.email, 
         selectedRole: loginType,
-        hasCaptcha: !!captchaValue
+        // hasCaptcha: !!captchaValue // COMMENTED OUT
       });
 
       // ADMIN LOGIN - USE MOCK CREDENTIALS
@@ -99,7 +102,7 @@ const Login = () => {
         } else {
           setError('Invalid admin credentials. Use: Email: admin@example.com, Password: Admin123!@#');
           setLoading(false);
-          setCaptchaValue(null);
+          // setCaptchaValue(null); // COMMENTED OUT
           return;
         }
       }
@@ -108,7 +111,7 @@ const Login = () => {
       const response = await authAPI.login({
         email: formData.email,
         password: formData.password,
-        captcha: captchaValue
+        // captcha: captchaValue // COMMENTED OUT - REMOVE CAPTCHA FROM PAYLOAD
       });
 
       console.log('Login API response:', response);
@@ -128,7 +131,7 @@ const Login = () => {
       if (user.role !== loginType) {
         setError(`This account is registered as a ${user.role}. Please select "Login as ${user.role === 'buyer' ? 'Buyer' : 'Seller'}" instead.`);
         setLoading(false);
-        setCaptchaValue(null);
+        // setCaptchaValue(null); // COMMENTED OUT
         return;
       }
 
@@ -163,7 +166,7 @@ const Login = () => {
     } catch (err) {
       console.error('Login error:', err);
       
-      setCaptchaValue(null);
+      // setCaptchaValue(null); // COMMENTED OUT
       
       if (err.message.includes('Network error') || err.message.includes('Failed to fetch')) {
         setError('Cannot connect to server. Please check your internet connection and try again.');
@@ -308,18 +311,8 @@ const Login = () => {
             </div>
           </div>
 
-          {/* Admin Note */}
-          {loginType === 'admin' && (
-            <div className="admin-credentials-note alert alert-info">
-              <small>
-                <strong>Admin Test Credentials:</strong><br/>
-                Email: <code>admin@example.com</code><br/>
-                Password: <code>Admin123!@#</code>
-              </small>
-            </div>
-          )}
-
-          {/* reCAPTCHA */}
+          {/* CAPTCHA COMPONENT - COMMENTED OUT SINCE CAPTCHA IS DISABLED */}
+          {/* 
           <div className="form-group captcha-container">
             <ReCAPTCHA
               sitekey={RECAPTCHA_SITE_KEY}
@@ -332,11 +325,13 @@ const Login = () => {
               theme="light"
             />
           </div>
+          */}
 
           <button 
             type="submit" 
             className="login-btn"
-            disabled={loading || !captchaValue}
+            // REMOVED CAPTCHA VALIDATION: disabled={loading || !captchaValue}
+            disabled={loading}
           >
             {loading ? (
               <span className="loading-dots">Logging in</span>
