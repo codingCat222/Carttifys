@@ -27,7 +27,7 @@ import Hotdeals from './BuyerDashboard/Hotdeals';
 import Verify from './BuyerDashboard/Verify';
 import HelpSupport from './BuyerDashboard/HelpSupport';
 import PurchaseHistory from './BuyerDashboard/PurchaseHistory';
-import Chat from './BuyerDashboard/Chat'; // ADD THIS IMPORT
+import Chat from './BuyerDashboard/Chat';
 
 const BuyerDashboard = () => {
   const navigate = useNavigate();
@@ -61,14 +61,13 @@ const BuyerDashboard = () => {
     'Electronics', 'Fashion', 'Beauty', 'Home', 'Baby', 'Phones', 'Groceries', 'More'
   ]);
   
-  // Ads Carousel State - REMOVED BROKEN POPUP
+  // Ads Carousel State - NO POPUP, just banner
   const [ads, setAds] = useState([
     { id: 1, image: 'https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?q=80&w=2070', title: 'Black Friday Sale', description: 'Up to 70% off' },
     { id: 2, image: 'https://images.unsplash.com/photo-1498049794561-7780e7231661?q=80&w=2070', title: 'New Arrivals', description: 'Latest Gadgets' },
     { id: 3, image: 'https://images.unsplash.com/photo-1445205170230-053b83016050?q=80&w=2071', title: 'Summer Collection', description: 'Trendy Styles' }
   ]);
   const [currentAdIndex, setCurrentAdIndex] = useState(0);
-  const [showAdsPopup, setShowAdsPopup] = useState(false); // DISABLED POPUP
   
   // Reels State
   const [reels, setReels] = useState([]);
@@ -85,8 +84,48 @@ const BuyerDashboard = () => {
   const videoRefs = useRef([]);
   const commentInputRef = useRef(null);
   const adsIntervalRef = useRef(null);
+  const activityTimeoutRef = useRef(null);
 
-  // FIXED: Remove broken fetchAds
+  // PREVENT AUTO-LOGOUT: Setup activity tracking
+  const resetActivityTimer = () => {
+    if (activityTimeoutRef.current) {
+      clearTimeout(activityTimeoutRef.current);
+    }
+    
+    // Set a very long timeout (24 hours) or remove auto-logout completely
+    activityTimeoutRef.current = setTimeout(() => {
+      // Optionally show a warning instead of auto-logout
+      showNotification('You have been inactive for a while. Would you like to stay logged in?', 'info');
+    }, 24 * 60 * 60 * 1000); // 24 hours
+  };
+
+  const setupActivityListeners = () => {
+    const activityEvents = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart'];
+    
+    activityEvents.forEach(event => {
+      document.addEventListener(event, resetActivityTimer, { passive: true });
+    });
+    
+    return () => {
+      activityEvents.forEach(event => {
+        document.removeEventListener(event, resetActivityTimer);
+      });
+    };
+  };
+
+  useEffect(() => {
+    resetActivityTimer();
+    const cleanup = setupActivityListeners();
+    
+    return () => {
+      if (activityTimeoutRef.current) {
+        clearTimeout(activityTimeoutRef.current);
+      }
+      cleanup();
+    };
+  }, []);
+
+  // Initial data fetching
   useEffect(() => {
     fetchDashboardData();
     fetchCartItems();
@@ -103,6 +142,23 @@ const BuyerDashboard = () => {
     
     return () => clearTimeout(timer);
   }, [loading]);
+
+  // Carousel autoplay for ads banner only
+  useEffect(() => {
+    if (ads.length > 1) {
+      adsIntervalRef.current = setInterval(() => {
+        setCurrentAdIndex((prevIndex) => 
+          prevIndex === ads.length - 1 ? 0 : prevIndex + 1
+        );
+      }, 4000);
+    }
+    
+    return () => {
+      if (adsIntervalRef.current) {
+        clearInterval(adsIntervalRef.current);
+      }
+    };
+  }, [ads.length]);
 
   const forceRefreshDashboard = async () => {
     setLoading(true);
@@ -197,7 +253,7 @@ const BuyerDashboard = () => {
         }));
         setReels(reelsWithDefaults);
         
-        // FIXED: Remove broken comments API call
+        // Initialize comments
         const commentsData = reelsWithDefaults.map(reel => ({
           reelId: reel._id || reel.id,
           comments: []
@@ -220,7 +276,6 @@ const BuyerDashboard = () => {
     const reelId = currentReel._id || currentReel.id;
     
     try {
-      // FIXED: Use local state instead of broken API
       const newCommentObj = {
         id: Date.now().toString(),
         user: {
@@ -259,7 +314,6 @@ const BuyerDashboard = () => {
     const reelId = currentReel._id || currentReel.id;
     
     try {
-      // FIXED: Use local state
       setComments(prev => 
         prev.map(item => 
           item.reelId === reelId 
@@ -304,7 +358,6 @@ const BuyerDashboard = () => {
     const reelId = currentReel._id || currentReel.id;
     
     try {
-      // FIXED: Use local state
       setComments(prev => 
         prev.map(item => 
           item.reelId === reelId 
@@ -340,23 +393,6 @@ const BuyerDashboard = () => {
       commentInputRef.current.focus();
     }
   }, [showComments]);
-
-  // Carousel autoplay for ads banner only (no popup)
-  useEffect(() => {
-    if (ads.length > 1) {
-      adsIntervalRef.current = setInterval(() => {
-        setCurrentAdIndex((prevIndex) => 
-          prevIndex === ads.length - 1 ? 0 : prevIndex + 1
-        );
-      }, 4000);
-    }
-    
-    return () => {
-      if (adsIntervalRef.current) {
-        clearInterval(adsIntervalRef.current);
-      }
-    };
-  }, [ads.length]);
 
   const getProductImage = (product) => {
     if (!product) return '/images/placeholder.jpg';
@@ -432,7 +468,6 @@ const BuyerDashboard = () => {
     }
   };
 
-  // FIXED: Cart function with better error handling
   const handleAddToCart = async (product) => {
     try {
       const result = await buyerAPI.addToCart({ 
@@ -441,9 +476,7 @@ const BuyerDashboard = () => {
       });
       
       if (result.success) {
-        // Refresh cart from server
         await fetchCartItems();
-        
         showNotification(`Added ${product.name} to cart!`, 'success');
       } else {
         showNotification(result.message || 'Failed to add to cart', 'error');
@@ -472,7 +505,6 @@ const BuyerDashboard = () => {
       });
       
       if (result.success) {
-        // Refresh saved items from server
         await fetchSavedItems();
         
         if (result.data && result.data.action === 'saved') {
@@ -497,7 +529,6 @@ const BuyerDashboard = () => {
       const result = await buyerAPI.updateCartItem(itemId, { quantity: newQuantity });
       
       if (result.success) {
-        // Refresh cart from server
         await fetchCartItems();
       } else {
         showNotification('Failed to update quantity', 'error');
@@ -513,7 +544,6 @@ const BuyerDashboard = () => {
       const result = await buyerAPI.removeFromCart(itemId);
       
       if (result.success) {
-        // Refresh cart from server
         await fetchCartItems();
         showNotification('Item removed from cart', 'info');
       } else {
@@ -556,7 +586,6 @@ const BuyerDashboard = () => {
       
       if (result.success) {
         showNotification('🎉 Order placed successfully!', 'success');
-        // Clear cart after successful order
         setCartItems([]);
         fetchDashboardData();
         setActiveSection('home');
@@ -575,6 +604,11 @@ const BuyerDashboard = () => {
   
   const handleLogout = async () => {
     try {
+      // Clear activity timer
+      if (activityTimeoutRef.current) {
+        clearTimeout(activityTimeoutRef.current);
+      }
+      
       localStorage.clear();
       sessionStorage.clear();
       navigate('/login');
@@ -660,6 +694,12 @@ const BuyerDashboard = () => {
   };
 
   const showNotification = (message, type = 'info') => {
+    // Check if notification already exists
+    const existingNotification = document.querySelector('.notification');
+    if (existingNotification) {
+      existingNotification.remove();
+    }
+    
     const notification = document.createElement('div');
     notification.className = `notification notification-${type}`;
     notification.innerHTML = `
@@ -690,39 +730,64 @@ const BuyerDashboard = () => {
     };
   };
 
-  // REMOVED Ads Popup Carousel
-
-  if (loading && activeSection === 'home' && dashboardData.recommendedProducts.length === 0) {
-    return (
-      <div className="buyer-dashboard">
-        <div className="loading-screen">
-          <div className="loading-spinner">
-            <FontAwesomeIcon icon={faSpinner} spin size="3x" />
-          </div>
-          <h3>Loading Products...</h3>
-          <p>Fetching latest products from sellers</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (error && dashboardData.recommendedProducts.length === 0 && activeSection === 'home') {
-    return (
-      <div className="buyer-dashboard">
-        <div className="error-screen">
-          <FontAwesomeIcon icon={faExclamationTriangle} size="3x" />
-          <h3>Unable to Load Products</h3>
-          <p>{error}</p>
-          <button onClick={forceRefreshDashboard} className="refresh-btn">
-            <FontAwesomeIcon icon={faRedo} /> Refresh
-          </button>
-        </div>
-      </div>
-    );
-  }
+  // ==================== RENDER FUNCTIONS ====================
   
+  const renderOrdersPage = () => (
+    <div className="orders-page">
+      <div className="orders-header">
+        <button onClick={() => setActiveSection('profile')}>
+          <FontAwesomeIcon icon={faArrowLeft} />
+        </button>
+        <h2>My Orders</h2>
+        <div></div>
+      </div>
+      
+      <div className="orders-tabs">
+        <button className="order-tab active">All</button>
+        <button className="order-tab">Pending</button>
+        <button className="order-tab">Completed</button>
+        <button className="order-tab">Cancelled</button>
+      </div>
+      
+      <div className="orders-list">
+        {dashboardData.recentOrders.length === 0 ? (
+          <div className="no-orders">
+            <FontAwesomeIcon icon={faBox} size="3x" />
+            <h3>No orders yet</h3>
+            <p>Your orders will appear here</p>
+            <button onClick={() => setActiveSection('home')}>
+              Start Shopping
+            </button>
+          </div>
+        ) : (
+          dashboardData.recentOrders.map(order => (
+            <div key={order.id} className="order-card">
+              <div className="order-card-header">
+                <span className="order-id">Order #{order.id}</span>
+                <span className={`order-status ${order.status.toLowerCase()}`}>
+                  {order.status}
+                </span>
+              </div>
+              <div className="order-details">
+                <p className="order-date">{order.date}</p>
+                <div className="order-total">
+                  <span>Total:</span>
+                  <span className="total-amount naira-price">{formatPrice(order.total)}</span>
+                </div>
+              </div>
+              <button className="track-order-btn">
+                Track Order
+              </button>
+            </div>
+          ))
+        )}
+      </div>
+    </div>
+  );
+
   const renderHomeScreen = () => (
     <div className="home-section">
+      {/* SIMPLE ADS BANNER - NO POPUP */}
       <div className="ads-banner">
         <div className="ads-carousel">
           <div 
@@ -1388,10 +1453,39 @@ const BuyerDashboard = () => {
     </div>
   );
 
+  // ==================== MAIN RENDER ====================
+
+  if (loading && activeSection === 'home' && dashboardData.recommendedProducts.length === 0) {
+    return (
+      <div className="buyer-dashboard">
+        <div className="loading-screen">
+          <div className="loading-spinner">
+            <FontAwesomeIcon icon={faSpinner} spin size="3x" />
+          </div>
+          <h3>Loading Products...</h3>
+          <p>Fetching latest products from sellers</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error && dashboardData.recommendedProducts.length === 0 && activeSection === 'home') {
+    return (
+      <div className="buyer-dashboard">
+        <div className="error-screen">
+          <FontAwesomeIcon icon={faExclamationTriangle} size="3x" />
+          <h3>Unable to Load Products</h3>
+          <p>{error}</p>
+          <button onClick={forceRefreshDashboard} className="refresh-btn">
+            <FontAwesomeIcon icon={faRedo} /> Refresh
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="buyer-dashboard">
-      {/* FIXED: Removed ads popup */}
-      
       <div className="top-nav">
         <button 
           className="top-nav-item categories-btn"
@@ -1413,7 +1507,6 @@ const BuyerDashboard = () => {
           </div>
         </div>
         
-        {/* FIXED: Now opens Chat component */}
         <button 
           className="top-nav-item message-btn"
           onClick={() => setActiveSection('chat')}
@@ -1515,7 +1608,6 @@ const BuyerDashboard = () => {
             setActiveSection={setActiveSection}
           />
         )}
-        {/* FIXED: Added Chat section */}
         {activeSection === 'chat' && (
           <Chat
             navigate={navigate}
@@ -1529,59 +1621,6 @@ const BuyerDashboard = () => {
         onSectionChange={setActiveSection}
         pendingOrdersCount={dashboardData.stats.pendingOrders}
       />
-    </div>
-  );
-  
-  const renderOrdersPage = () => (
-    <div className="orders-page">
-      <div className="orders-header">
-        <button onClick={() => setActiveSection('profile')}>
-          <FontAwesomeIcon icon={faArrowLeft} />
-        </button>
-        <h2>My Orders</h2>
-        <div></div>
-      </div>
-      
-      <div className="orders-tabs">
-        <button className="order-tab active">All</button>
-        <button className="order-tab">Pending</button>
-        <button className="order-tab">Completed</button>
-        <button className="order-tab">Cancelled</button>
-      </div>
-      
-      <div className="orders-list">
-        {dashboardData.recentOrders.length === 0 ? (
-          <div className="no-orders">
-            <FontAwesomeIcon icon={faBox} size="3x" />
-            <h3>No orders yet</h3>
-            <p>Your orders will appear here</p>
-            <button onClick={() => setActiveSection('home')}>
-              Start Shopping
-            </button>
-          </div>
-        ) : (
-          dashboardData.recentOrders.map(order => (
-            <div key={order.id} className="order-card">
-              <div className="order-card-header">
-                <span className="order-id">Order #{order.id}</span>
-                <span className={`order-status ${order.status.toLowerCase()}`}>
-                  {order.status}
-                </span>
-              </div>
-              <div className="order-details">
-                <p className="order-date">{order.date}</p>
-                <div className="order-total">
-                  <span>Total:</span>
-                  <span className="total-amount naira-price">{formatPrice(order.total)}</span>
-                </div>
-              </div>
-              <button className="track-order-btn">
-                Track Order
-              </button>
-            </div>
-          ))
-        )}
-      </div>
     </div>
   );
 };
