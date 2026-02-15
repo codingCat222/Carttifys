@@ -56,16 +56,42 @@ const BuyerDashboard = () => {
   const [selectedAddress, setSelectedAddress] = useState('address1');
   const [selectedPayment, setSelectedPayment] = useState('card1');
   const [darkMode, setDarkMode] = useState(false);
+  const [selectedSeller, setSelectedSeller] = useState(null);
   
   const [categories] = useState([
     'Electronics', 'Fashion', 'Beauty', 'Home', 'Baby', 'Phones', 'Groceries', 'More'
   ]);
   
-  // Ads Carousel State - NO POPUP, just banner
-  const [ads, setAds] = useState([
-    { id: 1, image: 'https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?q=80&w=2070', title: 'Black Friday Sale', description: 'Up to 70% off' },
-    { id: 2, image: 'https://images.unsplash.com/photo-1498049794561-7780e7231661?q=80&w=2070', title: 'New Arrivals', description: 'Latest Gadgets' },
-    { id: 3, image: 'https://images.unsplash.com/photo-1445205170230-053b83016050?q=80&w=2071', title: 'Summer Collection', description: 'Trendy Styles' }
+  // ✅ FIXED: Improved Ads Carousel
+  const [ads] = useState([
+    { 
+      id: 1, 
+      image: 'https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?q=80&w=2070', 
+      title: 'Black Friday Sale', 
+      description: 'Up to 70% off on all items',
+      color: '#FF6B6B'
+    },
+    { 
+      id: 2, 
+      image: 'https://images.unsplash.com/photo-1498049794561-7780e7231661?q=80&w=2070', 
+      title: 'New Arrivals', 
+      description: 'Latest Gadgets & Electronics',
+      color: '#4ECDC4'
+    },
+    { 
+      id: 3, 
+      image: 'https://images.unsplash.com/photo-1445205170230-053b83016050?q=80&w=2071', 
+      title: 'Summer Collection', 
+      description: 'Trendy Fashion Styles',
+      color: '#FFE66D'
+    },
+    { 
+      id: 4, 
+      image: 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?q=80&w=2070', 
+      title: 'Flash Deals', 
+      description: 'Limited time offers',
+      color: '#A8E6CF'
+    }
   ]);
   const [currentAdIndex, setCurrentAdIndex] = useState(0);
   
@@ -92,9 +118,7 @@ const BuyerDashboard = () => {
       clearTimeout(activityTimeoutRef.current);
     }
     
-    // Set a very long timeout (24 hours) or remove auto-logout completely
     activityTimeoutRef.current = setTimeout(() => {
-      // Optionally show a warning instead of auto-logout
       showNotification('You have been inactive for a while. Would you like to stay logged in?', 'info');
     }, 24 * 60 * 60 * 1000); // 24 hours
   };
@@ -143,14 +167,14 @@ const BuyerDashboard = () => {
     return () => clearTimeout(timer);
   }, [loading]);
 
-  // Carousel autoplay for ads banner only
+  // ✅ FIXED: Improved Carousel autoplay
   useEffect(() => {
-    if (ads.length > 1) {
+    if (ads.length > 1 && activeSection === 'home') {
       adsIntervalRef.current = setInterval(() => {
         setCurrentAdIndex((prevIndex) => 
           prevIndex === ads.length - 1 ? 0 : prevIndex + 1
         );
-      }, 4000);
+      }, 5000); // Changed to 5 seconds for better viewing
     }
     
     return () => {
@@ -158,7 +182,7 @@ const BuyerDashboard = () => {
         clearInterval(adsIntervalRef.current);
       }
     };
-  }, [ads.length]);
+  }, [ads.length, activeSection]);
 
   const forceRefreshDashboard = async () => {
     setLoading(true);
@@ -212,11 +236,20 @@ const BuyerDashboard = () => {
     }
   };
   
+  // ✅ FIXED: Cart items fetching
   const fetchCartItems = async () => {
     try {
       const result = await buyerAPI.getCart();
-      if (result.success && result.data && result.data.items) {
-        setCartItems(result.data.items);
+      console.log('Cart result:', result); // Debug log
+      
+      if (result.success) {
+        if (result.data && Array.isArray(result.data.items)) {
+          setCartItems(result.data.items);
+        } else if (result.data && Array.isArray(result.data)) {
+          setCartItems(result.data);
+        } else {
+          setCartItems([]);
+        }
       } else {
         setCartItems([]);
       }
@@ -423,6 +456,52 @@ const BuyerDashboard = () => {
     
     return 'https://images.unsplash.com/photo-1556228578-9c360e1d8d34?q=80&w=1974';
   };
+
+  // ✅ FIXED: Get seller name helper function
+  const getSellerName = (product) => {
+    if (!product) return 'Unknown Seller';
+    
+    // Check different possible seller field structures
+    if (product.seller) {
+      if (typeof product.seller === 'string') {
+        return product.seller;
+      }
+      if (product.seller.name) {
+        return product.seller.name;
+      }
+      if (product.seller.businessName) {
+        return product.seller.businessName;
+      }
+      if (product.seller.storeName) {
+        return product.seller.storeName;
+      }
+    }
+    
+    if (product.sellerName) {
+      return product.sellerName;
+    }
+    
+    if (product.storeName) {
+      return product.storeName;
+    }
+    
+    if (product.businessName) {
+      return product.businessName;
+    }
+    
+    return 'Unknown Seller';
+  };
+
+  // ✅ FIXED: Get seller avatar helper function
+  const getSellerAvatar = (product) => {
+    if (!product || !product.seller) return null;
+    
+    if (typeof product.seller === 'object') {
+      return product.seller.avatar || product.seller.image || product.seller.logo || null;
+    }
+    
+    return null;
+  };
   
   const formatPrice = (price) => {
     const nairaPrice = parseFloat(price);
@@ -468,10 +547,17 @@ const BuyerDashboard = () => {
     }
   };
 
+  // ✅ FIXED: Add to cart with better error handling
   const handleAddToCart = async (product) => {
     try {
+      const productId = product._id || product.id;
+      if (!productId) {
+        showNotification('Invalid product', 'error');
+        return;
+      }
+
       const result = await buyerAPI.addToCart({ 
-        productId: product._id || product.id, 
+        productId: productId, 
         quantity: 1 
       });
       
@@ -519,6 +605,7 @@ const BuyerDashboard = () => {
     }
   };
   
+  // ✅ FIXED: Update quantity with better validation
   const handleUpdateQuantity = async (itemId, newQuantity) => {
     if (newQuantity < 1) {
       handleRemoveFromCart(itemId);
@@ -599,12 +686,13 @@ const BuyerDashboard = () => {
   };
 
   const handleContactSeller = (sellerId, sellerName) => {
-    navigate(`/messages?seller=${sellerId}&name=${encodeURIComponent(sellerName)}`);
+    setSelectedSeller({ id: sellerId, name: sellerName });
+    setActiveSection('chat');
+    showNotification(`Opening chat with ${sellerName}`, 'info');
   };
   
   const handleLogout = async () => {
     try {
-      // Clear activity timer
       if (activityTimeoutRef.current) {
         clearTimeout(activityTimeoutRef.current);
       }
@@ -619,7 +707,8 @@ const BuyerDashboard = () => {
   };
   
   const handleEditProfile = () => {
-    navigate('/profile/edit');
+    setActiveSection('profile');
+    showNotification('Edit profile feature coming soon', 'info');
   };
   
   const handleReelLike = async (reelId) => {
@@ -694,7 +783,6 @@ const BuyerDashboard = () => {
   };
 
   const showNotification = (message, type = 'info') => {
-    // Check if notification already exists
     const existingNotification = document.querySelector('.notification');
     if (existingNotification) {
       existingNotification.remove();
@@ -787,31 +875,35 @@ const BuyerDashboard = () => {
 
   const renderHomeScreen = () => (
     <div className="home-section">
-      {/* SIMPLE ADS BANNER - NO POPUP */}
-      <div className="ads-banner">
-        <div className="ads-carousel">
+      {/* ✅ FIXED: Improved Ads Carousel Banner */}
+      <div className="ads-banner-wrapper">
+        <div className="ads-carousel-container">
           <div 
             className="ads-carousel-track"
-            style={{ transform: `translateX(-${currentAdIndex * 100}%)` }}
+            style={{ 
+              transform: `translateX(-${currentAdIndex * 100}%)`,
+              transition: 'transform 0.5s ease-in-out'
+            }}
           >
-            {ads.slice(0, 3).map((ad, index) => (
+            {ads.map((ad, index) => (
               <div 
                 key={ad.id} 
-                className={`ads-carousel-slide ${index === currentAdIndex ? 'active' : ''}`}
+                className="ads-carousel-slide"
               >
-                <div className="ad-image">
-                  <img src={ad.image} alt={ad.title} />
-                  <div className="ad-overlay">
-                    <h3>{ad.title}</h3>
-                    <p>{ad.description}</p>
+                <div className="ad-content" style={{ backgroundColor: ad.color }}>
+                  <img src={ad.image} alt={ad.title} className="ad-bg-image" />
+                  <div className="ad-overlay-gradient"></div>
+                  <div className="ad-text-content">
+                    <h2 className="ad-title">{ad.title}</h2>
+                    <p className="ad-description">{ad.description}</p>
                     <button 
-                      className="ad-action-btn"
+                      className="ad-shop-btn"
                       onClick={() => {
                         setSearchQuery(ad.title);
                         setActiveSection('search');
                       }}
                     >
-                      View Offer
+                      Shop Now <FontAwesomeIcon icon={faChevronRight} />
                     </button>
                   </div>
                 </div>
@@ -819,15 +911,33 @@ const BuyerDashboard = () => {
             ))}
           </div>
           
-          <div className="ads-carousel-indicators">
-            {ads.slice(0, 3).map((_, index) => (
+          {/* Carousel Navigation Dots */}
+          <div className="ads-carousel-dots">
+            {ads.map((_, index) => (
               <button
                 key={index}
-                className={`ads-indicator ${index === currentAdIndex ? 'active' : ''}`}
+                className={`carousel-dot ${index === currentAdIndex ? 'active' : ''}`}
                 onClick={() => setCurrentAdIndex(index)}
+                aria-label={`Go to slide ${index + 1}`}
               />
             ))}
           </div>
+
+          {/* Carousel Navigation Arrows */}
+          <button 
+            className="carousel-arrow carousel-arrow-left"
+            onClick={() => setCurrentAdIndex(prev => prev === 0 ? ads.length - 1 : prev - 1)}
+            aria-label="Previous slide"
+          >
+            <FontAwesomeIcon icon={faChevronLeft} />
+          </button>
+          <button 
+            className="carousel-arrow carousel-arrow-right"
+            onClick={() => setCurrentAdIndex(prev => prev === ads.length - 1 ? 0 : prev + 1)}
+            aria-label="Next slide"
+          >
+            <FontAwesomeIcon icon={faChevronRight} />
+          </button>
         </div>
       </div>
 
@@ -970,16 +1080,17 @@ const BuyerDashboard = () => {
                     </div>
                   </div>
                   
+                  {/* ✅ FIXED: Seller Info Display */}
                   <div className="seller-info">
                     <div className="seller-avatar">
-                      {product.seller?.avatar ? (
-                        <img src={product.seller.avatar} alt={product.seller.name} />
+                      {getSellerAvatar(product) ? (
+                        <img src={getSellerAvatar(product)} alt={getSellerName(product)} />
                       ) : (
                         <FontAwesomeIcon icon={faStore} />
                       )}
                     </div>
                     <span className="seller-name">
-                      {product.seller?.name || 'Unknown Seller'}
+                      {getSellerName(product)}
                     </span>
                   </div>
                   
@@ -1117,23 +1228,24 @@ const BuyerDashboard = () => {
             <p>{selectedProduct.description || 'No description available'}</p>
           </div>
           
+          {/* ✅ FIXED: Seller Information Display */}
           <div className="seller-details">
             <h3><FontAwesomeIcon icon={faStore} /> Seller Information</h3>
             <div className="seller-card">
               <div className="seller-avatar-large">
-                {selectedProduct.seller?.avatar ? (
-                  <img src={selectedProduct.seller.avatar} alt={selectedProduct.seller.name} />
+                {getSellerAvatar(selectedProduct) ? (
+                  <img src={getSellerAvatar(selectedProduct)} alt={getSellerName(selectedProduct)} />
                 ) : (
                   <FontAwesomeIcon icon={faUserCircle} />
                 )}
               </div>
               <div className="seller-info-large">
-                <h4>{selectedProduct.seller?.name || 'Unknown Seller'}</h4>
+                <h4>{getSellerName(selectedProduct)}</h4>
                 <p>⭐ 4.8 Seller Rating</p>
                 <button 
                   onClick={() => handleContactSeller(
                     selectedProduct.seller?._id || selectedProduct.seller?.id,
-                    selectedProduct.seller?.name
+                    getSellerName(selectedProduct)
                   )}
                 >
                   Message Seller
@@ -1161,87 +1273,110 @@ const BuyerDashboard = () => {
     );
   };
   
-  const renderCartPage = () => (
-    <div className="cart-page">
-      <div className="cart-header">
-        <button onClick={() => setActiveSection('home')}>
-          <FontAwesomeIcon icon={faArrowLeft} />
-        </button>
-        <h2>Your Cart</h2>
-        <div></div>
-      </div>
-      
-      {cartItems.length === 0 ? (
-        <div className="empty-cart">
-          <FontAwesomeIcon icon={faShoppingBasket} size="3x" />
-          <h3>Your cart is empty</h3>
-          <p>Add items to get started</p>
+  // ✅ FIXED: Cart Page Rendering
+  const renderCartPage = () => {
+    console.log('Cart Items:', cartItems); // Debug log
+
+    return (
+      <div className="cart-page">
+        <div className="cart-header">
           <button onClick={() => setActiveSection('home')}>
-            Continue Shopping
+            <FontAwesomeIcon icon={faArrowLeft} />
           </button>
+          <h2>Your Cart ({cartItems.length})</h2>
+          <div></div>
         </div>
-      ) : (
-        <>
-          <div className="cart-items-container">
-            {cartItems.map(item => (
-              <div key={item.id} className="cart-item-card">
-                <img 
-                  src={getProductImage(item.product)} 
-                  alt={item.product.name}
-                  className="cart-item-image"
-                />
-                <div className="cart-item-details">
-                  <h4>{item.product.name}</h4>
-                  <p className="cart-item-price">
-                    <span className="naira-price">₦{formatPriceNumber(item.product.price)}</span>
-                  </p>
-                  <div className="quantity-selector">
-                    <button onClick={() => handleUpdateQuantity(item.id, item.quantity - 1)}>
-                      <FontAwesomeIcon icon={faMinus} />
-                    </button>
-                    <span>{item.quantity}</span>
-                    <button onClick={() => handleUpdateQuantity(item.id, item.quantity + 1)}>
-                      <FontAwesomeIcon icon={faPlus} />
-                    </button>
-                  </div>
-                </div>
-                <div className="cart-item-actions">
-                  <p className="item-total-price">
-                    <span className="naira-price">₦{formatPriceNumber(item.product.price * item.quantity)}</span>
-                  </p>
-                  <button 
-                    onClick={() => handleRemoveFromCart(item.id)}
-                    className="remove-item-btn"
-                  >
-                    <FontAwesomeIcon icon={faTrash} />
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-          
-          <div className="cart-summary">
-            <div className="summary-row">
-              <span>Subtotal</span>
-              <span className="naira-price">₦{formatPriceNumber(cartItems.reduce((sum, item) => sum + (parseFloat(item.product.price) * item.quantity), 0))}</span>
-            </div>
-            <div className="summary-row">
-              <span>Shipping</span>
-              <span className="naira-price">₦500</span>
-            </div>
-            <div className="summary-row total-row">
-              <span>Total</span>
-              <span className="naira-price">₦{formatPriceNumber(cartItems.reduce((sum, item) => sum + (parseFloat(item.product.price) * item.quantity), 0) + 500)}</span>
-            </div>
-            
-            <button className="checkout-button" onClick={handleCheckout}>
-              Proceed to Checkout
+        
+        {cartItems.length === 0 ? (
+          <div className="empty-cart">
+            <FontAwesomeIcon icon={faShoppingBasket} size="3x" />
+            <h3>Your cart is empty</h3>
+            <p>Add items to get started</p>
+            <button onClick={() => setActiveSection('home')}>
+              Continue Shopping
             </button>
           </div>
-        </>
-      )}
-    </div>
-  );
+        ) : (
+          <>
+            <div className="cart-items-container">
+              {cartItems.map((item, index) => {
+                const product = item.product || item;
+                const itemId = item._id || item.id || index;
+                const quantity = item.quantity || 1;
+
+                return (
+                  <div key={itemId} className="cart-item-card">
+                    <img 
+                      src={getProductImage(product)} 
+                      alt={product.name}
+                      className="cart-item-image"
+                    />
+                    <div className="cart-item-details">
+                      <h4>{product.name}</h4>
+                      <p className="cart-item-price">
+                        <span className="naira-price">₦{formatPriceNumber(product.price)}</span>
+                      </p>
+                      <div className="quantity-selector">
+                        <button onClick={() => handleUpdateQuantity(itemId, quantity - 1)}>
+                          <FontAwesomeIcon icon={faMinus} />
+                        </button>
+                        <span>{quantity}</span>
+                        <button onClick={() => handleUpdateQuantity(itemId, quantity + 1)}>
+                          <FontAwesomeIcon icon={faPlus} />
+                        </button>
+                      </div>
+                    </div>
+                    <div className="cart-item-actions">
+                      <p className="item-total-price">
+                        <span className="naira-price">₦{formatPriceNumber(product.price * quantity)}</span>
+                      </p>
+                      <button 
+                        onClick={() => handleRemoveFromCart(itemId)}
+                        className="remove-item-btn"
+                      >
+                        <FontAwesomeIcon icon={faTrash} />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            
+            <div className="cart-summary">
+              <div className="summary-row">
+                <span>Subtotal</span>
+                <span className="naira-price">
+                  ₦{formatPriceNumber(cartItems.reduce((sum, item) => {
+                    const product = item.product || item;
+                    const quantity = item.quantity || 1;
+                    return sum + (parseFloat(product.price) * quantity);
+                  }, 0))}
+                </span>
+              </div>
+              <div className="summary-row">
+                <span>Shipping</span>
+                <span className="naira-price">₦500</span>
+              </div>
+              <div className="summary-row total-row">
+                <span>Total</span>
+                <span className="naira-price">
+                  ₦{formatPriceNumber(cartItems.reduce((sum, item) => {
+                    const product = item.product || item;
+                    const quantity = item.quantity || 1;
+                    return sum + (parseFloat(product.price) * quantity);
+                  }, 0) + 500)}
+                </span>
+              </div>
+              
+              <button className="checkout-button" onClick={handleCheckout}>
+                Proceed to Checkout
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+    );
+  };
   
   const renderCheckoutPage = () => (
     <div className="checkout-page">
@@ -1328,15 +1463,25 @@ const BuyerDashboard = () => {
         <div className="checkout-section">
           <h3>Order Summary</h3>
           <div className="order-summary-list">
-            {cartItems.map(item => (
-              <div key={item.id} className="order-item">
-                <span>{item.product.name} x {item.quantity}</span>
-                <span className="naira-price">₦{formatPriceNumber(item.product.price * item.quantity)}</span>
-              </div>
-            ))}
+            {cartItems.map((item, index) => {
+              const product = item.product || item;
+              const quantity = item.quantity || 1;
+              return (
+                <div key={item.id || index} className="order-item">
+                  <span>{product.name} x {quantity}</span>
+                  <span className="naira-price">₦{formatPriceNumber(product.price * quantity)}</span>
+                </div>
+              );
+            })}
             <div className="order-total-row">
               <span>Total</span>
-              <span className="naira-price">₦{formatPriceNumber(cartItems.reduce((sum, item) => sum + (parseFloat(item.product.price) * item.quantity), 0) + 500)}</span>
+              <span className="naira-price">
+                ₦{formatPriceNumber(cartItems.reduce((sum, item) => {
+                  const product = item.product || item;
+                  const quantity = item.quantity || 1;
+                  return sum + (parseFloat(product.price) * quantity);
+                }, 0) + 500)}
+              </span>
             </div>
           </div>
         </div>
@@ -1347,7 +1492,13 @@ const BuyerDashboard = () => {
         onClick={handlePlaceOrder}
         disabled={!selectedAddress || !selectedPayment}
       >
-        Place Order - <span className="naira-price">₦{formatPriceNumber(cartItems.reduce((sum, item) => sum + (parseFloat(item.product.price) * item.quantity), 0) + 500)}</span>
+        Place Order - <span className="naira-price">
+          ₦{formatPriceNumber(cartItems.reduce((sum, item) => {
+            const product = item.product || item;
+            const quantity = item.quantity || 1;
+            return sum + (parseFloat(product.price) * quantity);
+          }, 0) + 500)}
+        </span>
       </button>
     </div>
   );
@@ -1574,6 +1725,7 @@ const BuyerDashboard = () => {
             handleLogout={handleLogout}
             setActiveSection={setActiveSection}
             setSearchQuery={setSearchQuery}
+            selectedSeller={selectedSeller}
           />
         )}
         {activeSection === 'product' && renderProductPage()}
@@ -1612,6 +1764,7 @@ const BuyerDashboard = () => {
           <Chat
             navigate={navigate}
             setActiveSection={setActiveSection}
+            selectedSeller={selectedSeller}
           />
         )}
       </div>

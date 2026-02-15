@@ -180,7 +180,8 @@ const Profile = ({
           </div>
         </button>
         
-        <button className="menu-item" onClick={() => navigate('/settings')}>
+        <button className="menu-item" onClick={() => setActiveSection('settings')}>
+          {/* ✅ FIXED: Changed from navigate('/settings') to setActiveSection('settings') */}
           <div className="menu-item-left">
             <FontAwesomeIcon icon={faCog} />
             <span>Settings</span>

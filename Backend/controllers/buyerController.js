@@ -2256,25 +2256,34 @@ const getSellerFromProducts = async (items) => {
 // Aliases
 const getProducts = getMarketplaceProducts;
 const getOrders = getBuyerOrders;
-
 module.exports = {
+    // Dashboard & Products
     getDashboard,
     getMarketplaceProducts,
     getProducts,
     getProductDetails,
     searchProducts,
+    getCategories,
+    
+    // Orders
     getBuyerOrders,
     getOrders,
     getOrderDetails,
     createOrder,
     cancelOrder,
+    
+    // Cart
     getCart,
     addToCart,
     removeFromCart,
     updateCartItem,
+    
+    // Saved Items
     getSavedItems,
     saveItem,
     toggleSaveItem,
+    
+    // Reels
     getReels,
     likeReel,
     saveReel,
@@ -2282,23 +2291,24 @@ module.exports = {
     addReelComment,
     likeReelComment,
     addCommentReply,
-    getAds,
-    getCategories,
     
-    // Chat/Messages functions
+    // Ads
+    getAds,
+    
+    // Chat/Messages
     getConversations,
     getMessages,
     sendMessage,
     markConversationAsRead,
     createConversation,
     
-    // Address functions
+    // Addresses
     getAddresses,
     addAddress,
     updateAddress,
     deleteAddress,
     
-    // Payment methods
+    // Payment Methods
     getPaymentMethods,
     addPaymentMethod,
     removePaymentMethod,
@@ -2312,8 +2322,11 @@ module.exports = {
     getWishlist,
     addToWishlist,
     removeFromWishlist,
+
+     saveReel,
+  getConversations,
     
-    // Order tracking and reviews
+    // Order Tracking & Reviews
     getOrderTracking,
     addOrderReview,
     

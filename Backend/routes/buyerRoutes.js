@@ -3,6 +3,15 @@ const router = express.Router();
 const { auth, authorize } = require('../middleware/auth');
 const buyerController = require('../controllers/buyer/buyerController');
 
+
+// ✅ ADD THIS DEBUG CODE
+console.log('=== BUYER CONTROLLER CHECK ===');
+console.log('saveReel exists?', typeof buyerController.saveReel);
+console.log('getConversations exists?', typeof buyerController.getConversations);
+console.log('All exported functions:', Object.keys(buyerController));
+console.log('==============================');
+
+// Dashboard and products
 router.get('/dashboard', auth, authorize('buyer'), buyerController.getDashboard);
 router.get('/categories', auth, authorize('buyer'), buyerController.getCategories);
 router.get('/products/search', auth, authorize('buyer'), buyerController.searchProducts);
@@ -23,6 +32,8 @@ router.post('/saved-items/toggle', auth, authorize('buyer'), buyerController.tog
 // Reels routes
 router.get('/reels', auth, authorize('buyer'), buyerController.getReels);
 router.post('/reels/:reelId/like', auth, authorize('buyer'), buyerController.likeReel);
+router.post('/reels/:reelId/save', auth, authorize('buyer'), buyerController.saveReel);
+
 // Ads routes
 router.get('/ads', auth, authorize('buyer'), buyerController.getAds);
 
@@ -31,8 +42,8 @@ router.get('/reels/:reelId/comments', auth, authorize('buyer'), buyerController.
 router.post('/reels/:reelId/comments', auth, authorize('buyer'), buyerController.addReelComment);
 router.post('/reels/:reelId/comments/:commentId/like', auth, authorize('buyer'), buyerController.likeReelComment);
 router.post('/reels/:reelId/comments/:commentId/reply', auth, authorize('buyer'), buyerController.addCommentReply);
-router.post('/reels/:reelId/save', auth, authorize('buyer'), buyerController.saveReel);
 
+// ✅ FIXED: Moved this line AFTER the reels/:reelId/save route (line 27 was here before)
 // Chat/Messages routes
 router.get('/messages/conversations', auth, authorize('buyer'), buyerController.getConversations);
 router.get('/messages/conversations/:conversationId', auth, authorize('buyer'), buyerController.getMessages);
@@ -64,6 +75,7 @@ router.delete('/wishlist/:productId', auth, authorize('buyer'), buyerController.
 // Order tracking
 router.get('/orders/:orderId/tracking', auth, authorize('buyer'), buyerController.getOrderTracking);
 router.post('/orders/:orderId/review', auth, authorize('buyer'), buyerController.addOrderReview);
+
 // Orders
 router.get('/orders', auth, authorize('buyer'), buyerController.getBuyerOrders);
 router.get('/orders/:id', auth, authorize('buyer'), buyerController.getOrderDetails);

@@ -1,4 +1,4 @@
-// src/components/Messages/Chat.jsx
+// src/components/BuyerDashboard/Chat.jsx
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { buyerAPI, sellerAPI, getCurrentUser } from '../../services/Api';
@@ -8,11 +8,10 @@ import {
   faArrowLeft, faPaperPlane, faImage, faSmile, faPaperclip,
   faEllipsisV, faCheckDouble, faCheck, faClock, faUserCircle,
   faSearch, faVideo, faPhone, faInfoCircle, faTrash, faBan,
-  faVolumeMute, faBell, faArchive, faTimes
+  faVolumeMute, faBell, faArchive, faTimes, faEdit, faComment
 } from '@fortawesome/free-solid-svg-icons';
 
-const Chat = () => {
-  const navigate = useNavigate();
+const Chat = ({ navigate, setActiveSection, selectedSeller }) => {
   const location = useLocation();
   const messagesEndRef = useRef(null);
   const fileInputRef = useRef(null);
@@ -57,7 +56,21 @@ const Chat = () => {
         createNewConversation(sellerId, sellerName);
       }
     }
-  }, [location.search]);
+    
+    // Handle selectedSeller from props (when coming from product page via dashboard)
+    if (selectedSeller && selectedSeller.id && selectedSeller.name) {
+      const existingConv = conversations.find(conv => 
+        conv.participants.some(p => p._id === selectedSeller.id || p.id === selectedSeller.id)
+      );
+      
+      if (existingConv) {
+        setActiveConversation(existingConv);
+        loadMessages(existingConv._id);
+      } else {
+        createNewConversation(selectedSeller.id, selectedSeller.name);
+      }
+    }
+  }, [location.search, selectedSeller]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -72,6 +85,8 @@ const Chat = () => {
       setLoading(true);
       const api = isSeller ? sellerAPI : buyerAPI;
       const result = await api.getConversations();
+      
+      console.log('Conversations loaded:', result); // Debug log
       
       if (result.success) {
         setConversations(result.data || []);
@@ -177,11 +192,57 @@ const Chat = () => {
     }
   };
 
+  // ✅ FIXED: Better function to get other participant with proper name handling
   const getOtherParticipant = (conversation) => {
-    if (!conversation || !conversation.participants) return null;
+    if (!conversation) return null;
     
-    return conversation.participants.find(p => p._id !== userId) || 
-           (isSeller ? conversation.buyer : conversation.seller);
+    console.log('Getting participant from conversation:', conversation); // Debug log
+    
+    // Handle different conversation structures
+    if (conversation.participants && Array.isArray(conversation.participants)) {
+      const otherParticipant = conversation.participants.find(p => p._id !== userId && p.id !== userId);
+      if (otherParticipant) {
+        return {
+          _id: otherParticipant._id || otherParticipant.id,
+          name: otherParticipant.name || otherParticipant.businessName || otherParticipant.storeName || 'Unknown User',
+          avatar: otherParticipant.avatar || otherParticipant.image || otherParticipant.logo || null
+        };
+      }
+    }
+    
+    // Handle buyer/seller structure
+    if (isSeller && conversation.buyer) {
+      return {
+        _id: conversation.buyer._id || conversation.buyer.id,
+        name: conversation.buyer.name || conversation.buyer.businessName || 'Buyer',
+        avatar: conversation.buyer.avatar || conversation.buyer.image || null
+      };
+    }
+    
+    if (!isSeller && conversation.seller) {
+      return {
+        _id: conversation.seller._id || conversation.seller.id,
+        name: conversation.seller.name || conversation.seller.businessName || conversation.seller.storeName || 'Seller',
+        avatar: conversation.seller.avatar || conversation.seller.image || conversation.seller.logo || null
+      };
+    }
+    
+    // Fallback - try to get name from any available field
+    const fallbackName = conversation.otherUserName 
+      || conversation.sellerName 
+      || conversation.buyerName 
+      || 'Unknown User';
+    
+    const fallbackAvatar = conversation.otherUserAvatar 
+      || conversation.sellerAvatar 
+      || conversation.buyerAvatar 
+      || null;
+    
+    return {
+      _id: conversation.otherUserId || 'unknown',
+      name: fallbackName,
+      avatar: fallbackAvatar
+    };
   };
 
   const formatTime = (dateString) => {
@@ -246,8 +307,8 @@ const Chat = () => {
             <button className="icon-btn">
               <FontAwesomeIcon icon={faVideo} />
             </button>
-            <button className="icon-btn">
-              <FontAwesomeIcon icon={faEdit} />
+            <button className="icon-btn" onClick={() => setActiveSection('home')}>
+              <FontAwesomeIcon icon={faTimes} />
             </button>
           </div>
         </div>
@@ -270,52 +331,60 @@ const Chat = () => {
               <span>Start a conversation with a seller</span>
             </div>
           ) : (
-            conversations.map(conversation => {
-              const otherUser = getOtherParticipant(conversation);
-              const isActive = activeConversation?._id === conversation._id;
-              
-              return (
-                <div
-                  key={conversation._id}
-                  className={`conversation-item ${isActive ? 'active' : ''}`}
-                  onClick={() => {
-                    setActiveConversation(conversation);
-                    loadMessages(conversation._id);
-                  }}
-                >
-                  <div className="conversation-avatar">
-                    {otherUser?.avatar ? (
-                      <img src={otherUser.avatar} alt={otherUser.name} />
-                    ) : (
-                      <FontAwesomeIcon icon={faUserCircle} />
-                    )}
-                    {onlineUsers.includes(otherUser?._id) && (
-                      <span className="online-dot"></span>
-                    )}
-                  </div>
-                  
-                  <div className="conversation-info">
-                    <div className="conversation-header">
-                      <h4>{otherUser?.name || 'Unknown User'}</h4>
-                      <span className="conversation-time">
-                        {formatTime(conversation.updatedAt)}
-                      </span>
-                    </div>
-                    
-                    <div className="conversation-preview">
-                      <p className="last-message">
-                        {conversation.lastMessage?.text || 'No messages yet'}
-                      </p>
-                      {conversation.unreadCount > 0 && (
-                        <span className="unread-badge">
-                          {conversation.unreadCount}
-                        </span>
+            conversations
+              .filter(conv => {
+                if (!searchQuery) return true;
+                const otherUser = getOtherParticipant(conv);
+                return otherUser?.name?.toLowerCase().includes(searchQuery.toLowerCase());
+              })
+              .map(conversation => {
+                const otherUser = getOtherParticipant(conversation);
+                const isActive = activeConversation?._id === conversation._id;
+                
+                console.log('Rendering conversation with user:', otherUser); // Debug log
+                
+                return (
+                  <div
+                    key={conversation._id || conversation.id}
+                    className={`conversation-item ${isActive ? 'active' : ''}`}
+                    onClick={() => {
+                      setActiveConversation(conversation);
+                      loadMessages(conversation._id || conversation.id);
+                    }}
+                  >
+                    <div className="conversation-avatar">
+                      {otherUser?.avatar ? (
+                        <img src={otherUser.avatar} alt={otherUser.name} />
+                      ) : (
+                        <FontAwesomeIcon icon={faUserCircle} />
+                      )}
+                      {onlineUsers.includes(otherUser?._id) && (
+                        <span className="online-dot"></span>
                       )}
                     </div>
+                    
+                    <div className="conversation-info">
+                      <div className="conversation-header">
+                        <h4>{otherUser?.name || 'Unknown User'}</h4>
+                        <span className="conversation-time">
+                          {formatTime(conversation.updatedAt || conversation.createdAt)}
+                        </span>
+                      </div>
+                      
+                      <div className="conversation-preview">
+                        <p className="last-message">
+                          {conversation.lastMessage?.text || 'No messages yet'}
+                        </p>
+                        {conversation.unreadCount > 0 && (
+                          <span className="unread-badge">
+                            {conversation.unreadCount}
+                          </span>
+                        )}
+                      </div>
+                    </div>
                   </div>
-                </div>
-              );
-            })
+                );
+              })
           )}
         </div>
       </div>
@@ -383,13 +452,13 @@ const Chat = () => {
                 <>
                   <div className="messages-list">
                     {messages.map((message, index) => {
-                      const isOwn = message.sender._id === userId;
+                      const isOwn = message.sender._id === userId || message.sender.id === userId;
                       const showAvatar = index === 0 || 
                         messages[index - 1]?.sender._id !== message.sender._id;
                       
                       return (
                         <div
-                          key={message._id}
+                          key={message._id || message.id}
                           className={`message-wrapper ${isOwn ? 'own' : 'other'}`}
                         >
                           {!isOwn && showAvatar && (
@@ -404,7 +473,7 @@ const Chat = () => {
                           
                           <div className="message-content">
                             {!isOwn && showAvatar && (
-                              <span className="sender-name">{message.sender.name}</span>
+                              <span className="sender-name">{message.sender.name || 'User'}</span>
                             )}
                             
                             <div className="message-bubble">
@@ -496,7 +565,7 @@ const Chat = () => {
               <p>Choose a conversation from the list to start messaging</p>
               <button 
                 className="browse-sellers-btn"
-                onClick={() => navigate('/')}
+                onClick={() => setActiveSection('home')}
               >
                 Browse Sellers
               </button>

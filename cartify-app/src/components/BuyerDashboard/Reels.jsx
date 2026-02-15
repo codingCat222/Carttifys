@@ -38,85 +38,63 @@ const Reels = ({
   handleLikeComment,
   commentInputRef,
   navigate,
-  onBack,
-  handleReelTouchStart,
-  handleReelTouchMove,
-  handleReelTouchEnd
+  onBack
 }) => {
   const videoRefs = useRef([]);
   const [showChatbot, setShowChatbot] = useState(false);
   const [chatbotMessages, setChatbotMessages] = useState([]);
   const [chatbotInput, setChatbotInput] = useState('');
   const [chatbotTyping, setChatbotTyping] = useState(false);
-  const [videosReady, setVideosReady] = useState({});
+  const [isPlaying, setIsPlaying] = useState(true);
   const chatbotEndRef = useRef(null);
+  const touchStartY = useRef(0);
+  const touchEndY = useRef(0);
   
-  // FIXED: Improved video playback management to eliminate autoplay errors
+  // ✅ FIXED: Improved video playback management
   useEffect(() => {
-    let isMounted = true;
-    let playbackTimeout;
+    const playVideo = async () => {
+      // Pause all videos first
+      videoRefs.current.forEach((video, index) => {
+        if (video && index !== currentReelIndex) {
+          video.pause();
+          video.currentTime = 0;
+        }
+      });
 
-    const handleVideoPlayback = async () => {
-      // Small delay to let DOM stabilize and prevent race conditions
-      playbackTimeout = setTimeout(async () => {
-        if (!isMounted) return;
-
-        for (let index = 0; index < videoRefs.current.length; index++) {
-          const video = videoRefs.current[index];
-          
-          if (!video || !isMounted) continue;
-
-          try {
-            if (index === currentReelIndex) {
-              // Play current video
-              video.muted = isMuted;
-              
-              // Only try to play if video is ready and not already playing
-              if (videosReady[index] && video.paused) {
-                const playPromise = video.play();
-                if (playPromise !== undefined) {
-                  await playPromise.catch(error => {
-                    // Silently handle abort errors (expected during rapid transitions)
-                    if (error.name !== 'AbortError') {
-                      console.warn('Video playback issue:', error.message);
-                    }
-                  });
-                }
-              }
-            } else {
-              // Pause and reset other videos
-              if (!video.paused) {
-                video.pause();
-              }
-              video.currentTime = 0;
+      // Play current video
+      const currentVideo = videoRefs.current[currentReelIndex];
+      if (currentVideo) {
+        try {
+          currentVideo.muted = isMuted;
+          await currentVideo.play();
+          setIsPlaying(true);
+        } catch (error) {
+          console.error('Error playing video:', error);
+          // Retry with muted if autoplay fails
+          if (!isMuted) {
+            try {
+              currentVideo.muted = true;
+              await currentVideo.play();
+              setIsPlaying(true);
+            } catch (retryError) {
+              console.error('Retry failed:', retryError);
             }
-          } catch (error) {
-            console.error('Video control error:', error);
           }
         }
-      }, 100);
+      }
     };
 
-    handleVideoPlayback();
+    playVideo();
 
-    // Cleanup function
+    // Cleanup on unmount
     return () => {
-      isMounted = false;
-      if (playbackTimeout) {
-        clearTimeout(playbackTimeout);
-      }
-      // Pause all videos on unmount
       videoRefs.current.forEach(video => {
-        if (video && !video.paused) {
-          try {
-            video.pause();
-          } catch (e) {
-            // Ignore errors during cleanup
-          }
+        if (video) {
+          video.pause();
         }
       });
     };
-  }, [currentReelIndex, isMuted, videosReady]);
+  }, [currentReelIndex, isMuted]);
 
   // Initialize chatbot with welcome message
   useEffect(() => {
@@ -148,26 +126,45 @@ const Reels = ({
     chatbotEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
-  // Handle video ready state
-  const handleVideoCanPlay = (index) => {
-    setVideosReady(prev => ({ ...prev, [index]: true }));
-  };
-
-  // Improved video click handler
-  const handleVideoClick = (e, index) => {
+  // ✅ FIXED: Simplified video click handler
+  const handleVideoClick = (e) => {
     e.stopPropagation();
-    const video = videoRefs.current[index];
-    if (video && videosReady[index]) {
+    const video = videoRefs.current[currentReelIndex];
+    if (video) {
       if (video.paused) {
-        video.play().catch(err => {
-          if (err.name !== 'AbortError') {
-            console.error('Play error:', err);
-          }
-        });
+        video.play().then(() => setIsPlaying(true)).catch(err => console.error('Play error:', err));
       } else {
         video.pause();
+        setIsPlaying(false);
       }
     }
+  };
+
+  // ✅ ADDED: Touch/Swipe handlers for navigation
+  const handleTouchStart = (e) => {
+    touchStartY.current = e.touches[0].clientY;
+  };
+
+  const handleTouchMove = (e) => {
+    touchEndY.current = e.touches[0].clientY;
+  };
+
+  const handleTouchEnd = () => {
+    const swipeDistance = touchStartY.current - touchEndY.current;
+    const minSwipeDistance = 50;
+
+    if (Math.abs(swipeDistance) > minSwipeDistance) {
+      if (swipeDistance > 0 && currentReelIndex < reels.length - 1) {
+        // Swipe up - next reel
+        setCurrentReelIndex(currentReelIndex + 1);
+      } else if (swipeDistance < 0 && currentReelIndex > 0) {
+        // Swipe down - previous reel
+        setCurrentReelIndex(currentReelIndex - 1);
+      }
+    }
+
+    touchStartY.current = 0;
+    touchEndY.current = 0;
   };
 
   // Shopping Assistant Knowledge Base
@@ -350,14 +347,17 @@ const Reels = ({
     <div className="reels-page">
       <div 
         className="reel-container"
-        onTouchStart={handleReelTouchStart}
-        onTouchMove={handleReelTouchMove}
-        onTouchEnd={handleReelTouchEnd}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
       >
         {reels.map((reel, index) => (
           <div 
             key={reel._id || reel.id || index}
             className={`reel-video-wrapper ${index === currentReelIndex ? 'active' : ''}`}
+            style={{
+              display: index === currentReelIndex ? 'block' : 'none'
+            }}
           >
             <video
               ref={(el) => (videoRefs.current[index] = el)}
@@ -365,10 +365,14 @@ const Reels = ({
               loop
               muted={isMuted}
               playsInline
-              preload="metadata"
+              preload="auto"
               className="reel-video"
-              onCanPlay={() => handleVideoCanPlay(index)}
-              onClick={(e) => handleVideoClick(e, index)}
+              onClick={handleVideoClick}
+              style={{
+                width: '100%',
+                height: '100vh',
+                objectFit: 'cover'
+              }}
             />
             
             <div className="reel-overlay">
