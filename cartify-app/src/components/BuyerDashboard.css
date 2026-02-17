@@ -3462,8 +3462,6 @@ body {
 }
 
 
-/* src/components/BuyerDashboard/BuyerDashboard.css */
-/* Add these styles to your existing BuyerDashboard.css */
 
 /* Notification Styles */
 .notification {
@@ -3517,6 +3515,37 @@ body {
   color: #1f2937;
   font-size: 14px;
   flex: 1;
+}
+.seller-info-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 8px 0;
+  padding: 4px 0;
+}
+
+.message-seller-icon {
+  background: none;
+  border: none;
+  color: #007bff;
+  font-size: 1.2rem;
+  cursor: pointer;
+  padding: 8px;
+  border-radius: 50%;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.message-seller-icon:hover {
+  background-color: #f0f2f5;
+  color: #0056b3;
+  transform: scale(1.1);
+}
+
+.message-seller-icon:active {
+  transform: scale(0.95);
 }
 
 .notification-close {

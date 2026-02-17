@@ -4,7 +4,6 @@ const { auth, authorize } = require('../middleware/auth');
 const buyerController = require('../controllers/buyer/buyerController');
 
 
-// ✅ ADD THIS DEBUG CODE
 console.log('=== BUYER CONTROLLER CHECK ===');
 console.log('saveReel exists?', typeof buyerController.saveReel);
 console.log('getConversations exists?', typeof buyerController.getConversations);
@@ -43,8 +42,7 @@ router.post('/reels/:reelId/comments', auth, authorize('buyer'), buyerController
 router.post('/reels/:reelId/comments/:commentId/like', auth, authorize('buyer'), buyerController.likeReelComment);
 router.post('/reels/:reelId/comments/:commentId/reply', auth, authorize('buyer'), buyerController.addCommentReply);
 
-// ✅ FIXED: Moved this line AFTER the reels/:reelId/save route (line 27 was here before)
-// Chat/Messages routes
+
 router.get('/messages/conversations', auth, authorize('buyer'), buyerController.getConversations);
 router.get('/messages/conversations/:conversationId', auth, authorize('buyer'), buyerController.getMessages);
 router.post('/messages/send', auth, authorize('buyer'), buyerController.sendMessage);

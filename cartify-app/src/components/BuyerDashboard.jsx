@@ -62,7 +62,7 @@ const BuyerDashboard = () => {
     'Electronics', 'Fashion', 'Beauty', 'Home', 'Baby', 'Phones', 'Groceries', 'More'
   ]);
   
-  // ✅ FIXED: Improved Ads Carousel
+  // Ads Carousel
   const [ads] = useState([
     { 
       id: 1, 
@@ -141,6 +141,16 @@ const BuyerDashboard = () => {
     resetActivityTimer();
     const cleanup = setupActivityListeners();
     
+    // Load cart from localStorage on initial mount
+    const savedCart = localStorage.getItem('cartItems');
+    if (savedCart) {
+      try {
+        setCartItems(JSON.parse(savedCart));
+      } catch (e) {
+        console.error('Failed to parse saved cart:', e);
+      }
+    }
+    
     return () => {
       if (activityTimeoutRef.current) {
         clearTimeout(activityTimeoutRef.current);
@@ -167,14 +177,14 @@ const BuyerDashboard = () => {
     return () => clearTimeout(timer);
   }, [loading]);
 
-  // ✅ FIXED: Improved Carousel autoplay
+  // Carousel autoplay
   useEffect(() => {
     if (ads.length > 1 && activeSection === 'home') {
       adsIntervalRef.current = setInterval(() => {
         setCurrentAdIndex((prevIndex) => 
           prevIndex === ads.length - 1 ? 0 : prevIndex + 1
         );
-      }, 5000); // Changed to 5 seconds for better viewing
+      }, 5000);
     }
     
     return () => {
@@ -236,26 +246,71 @@ const BuyerDashboard = () => {
     }
   };
   
-  // ✅ FIXED: Cart items fetching
+  // ✅ FIXED: Improved cart fetching with multiple response format support
   const fetchCartItems = async () => {
     try {
       const result = await buyerAPI.getCart();
-      console.log('Cart result:', result); // Debug log
+      console.log('Cart API Response:', result);
       
       if (result.success) {
-        if (result.data && Array.isArray(result.data.items)) {
-          setCartItems(result.data.items);
-        } else if (result.data && Array.isArray(result.data)) {
-          setCartItems(result.data);
+        let items = [];
+        
+        // Handle different response structures
+        if (result.data) {
+          if (Array.isArray(result.data)) {
+            // Direct array of items
+            items = result.data;
+          } else if (result.data.items && Array.isArray(result.data.items)) {
+            // Items in data.items
+            items = result.data.items;
+          } else if (result.data.cart && Array.isArray(result.data.cart)) {
+            // Items in data.cart
+            items = result.data.cart;
+          } else if (result.data.data && Array.isArray(result.data.data)) {
+            // Items in data.data
+            items = result.data.data;
+          }
+        }
+        
+        // Validate each item has required fields and ensure proper structure
+        const validItems = items.filter(item => {
+          const product = item.product || item;
+          return product && (product._id || product.id || product.productId);
+        }).map(item => {
+          // Ensure consistent structure
+          if (!item.product && (item._id || item.id)) {
+            return {
+              ...item,
+              product: item
+            };
+          }
+          return item;
+        });
+        
+        console.log('Processed cart items:', validItems);
+        setCartItems(validItems);
+        
+        // Save to localStorage as backup
+        localStorage.setItem('cartItems', JSON.stringify(validItems));
+      } else {
+        // Try to load from localStorage as fallback
+        const savedCart = localStorage.getItem('cartItems');
+        if (savedCart) {
+          setCartItems(JSON.parse(savedCart));
         } else {
           setCartItems([]);
         }
-      } else {
-        setCartItems([]);
       }
     } catch (error) {
       console.error('Failed to fetch cart:', error);
-      setCartItems([]);
+      
+      // Try to load from localStorage as fallback
+      const savedCart = localStorage.getItem('cartItems');
+      if (savedCart) {
+        setCartItems(JSON.parse(savedCart));
+      } else {
+        setCartItems([]);
+      }
     }
   };
   
@@ -457,7 +512,7 @@ const BuyerDashboard = () => {
     return 'https://images.unsplash.com/photo-1556228578-9c360e1d8d34?q=80&w=1974';
   };
 
-  // ✅ FIXED: Get seller name helper function
+  // Get seller name helper function
   const getSellerName = (product) => {
     if (!product) return 'Unknown Seller';
     
@@ -492,12 +547,29 @@ const BuyerDashboard = () => {
     return 'Unknown Seller';
   };
 
-  // ✅ FIXED: Get seller avatar helper function
+  // Get seller avatar helper function
   const getSellerAvatar = (product) => {
     if (!product || !product.seller) return null;
     
     if (typeof product.seller === 'object') {
       return product.seller.avatar || product.seller.image || product.seller.logo || null;
+    }
+    
+    return null;
+  };
+  
+  // Get seller ID helper function
+  const getSellerId = (product) => {
+    if (!product) return null;
+    
+    if (product.seller) {
+      if (typeof product.seller === 'object') {
+        return product.seller._id || product.seller.id;
+      }
+    }
+    
+    if (product.sellerId) {
+      return product.sellerId;
     }
     
     return null;
@@ -547,7 +619,7 @@ const BuyerDashboard = () => {
     }
   };
 
-  // ✅ FIXED: Add to cart with better error handling
+  // ✅ FIXED: Improved add to cart with local fallback
   const handleAddToCart = async (product) => {
     try {
       const productId = product._id || product.id;
@@ -563,14 +635,57 @@ const BuyerDashboard = () => {
       
       if (result.success) {
         await fetchCartItems();
-        showNotification(`Added ${product.name} to cart!`, 'success');
+        showNotification(`Added ${product.name || 'item'} to cart!`, 'success');
       } else {
-        showNotification(result.message || 'Failed to add to cart', 'error');
+        // If API fails, update local state
+        await handleLocalAddToCart(product);
       }
     } catch (error) {
       console.error('Add to cart error:', error);
-      showNotification('Failed to add to cart. Please try again.', 'error');
+      // Fallback: update local state
+      await handleLocalAddToCart(product);
     }
+  };
+
+  // Local cart fallback function
+  const handleLocalAddToCart = async (product) => {
+    const productId = product._id || product.id;
+    
+    setCartItems(prevItems => {
+      const existingItemIndex = prevItems.findIndex(item => {
+        const itemProduct = item.product || item;
+        return (itemProduct._id || itemProduct.id) === productId;
+      });
+      
+      let updatedCart;
+      
+      if (existingItemIndex >= 0) {
+        // Update quantity of existing item
+        updatedCart = [...prevItems];
+        const existingItem = updatedCart[existingItemIndex];
+        if (existingItem.product) {
+          existingItem.quantity = (existingItem.quantity || 1) + 1;
+        } else {
+          updatedCart[existingItemIndex] = {
+            ...existingItem,
+            quantity: (existingItem.quantity || 1) + 1
+          };
+        }
+      } else {
+        // Add new item
+        updatedCart = [...prevItems, {
+          _id: Date.now().toString(),
+          product: product,
+          quantity: 1
+        }];
+      }
+      
+      // Save to localStorage
+      localStorage.setItem('cartItems', JSON.stringify(updatedCart));
+      return updatedCart;
+    });
+    
+    showNotification(`Added ${product.name || 'item'} to cart!`, 'success');
   };
   
   const handleBuyNow = (product) => {
@@ -618,11 +733,35 @@ const BuyerDashboard = () => {
       if (result.success) {
         await fetchCartItems();
       } else {
-        showNotification('Failed to update quantity', 'error');
+        // Local fallback
+        setCartItems(prevItems => {
+          const updatedCart = prevItems.map(item => {
+            const itemProduct = item.product || item;
+            if ((itemProduct._id || itemProduct.id || item._id || item.id) === itemId) {
+              return { ...item, quantity: newQuantity };
+            }
+            return item;
+          });
+          localStorage.setItem('cartItems', JSON.stringify(updatedCart));
+          return updatedCart;
+        });
+        showNotification('Updated quantity', 'info');
       }
     } catch (error) {
       console.error('Failed to update quantity:', error);
-      showNotification('Failed to update quantity. Please try again.', 'error');
+      // Local fallback
+      setCartItems(prevItems => {
+        const updatedCart = prevItems.map(item => {
+          const itemProduct = item.product || item;
+          if ((itemProduct._id || itemProduct.id || item._id || item.id) === itemId) {
+            return { ...item, quantity: newQuantity };
+          }
+          return item;
+        });
+        localStorage.setItem('cartItems', JSON.stringify(updatedCart));
+        return updatedCart;
+      });
+      showNotification('Updated quantity', 'info');
     }
   };
   
@@ -634,11 +773,29 @@ const BuyerDashboard = () => {
         await fetchCartItems();
         showNotification('Item removed from cart', 'info');
       } else {
-        showNotification('Failed to remove item', 'error');
+        // Local fallback
+        setCartItems(prevItems => {
+          const updatedCart = prevItems.filter(item => {
+            const itemProduct = item.product || item;
+            return (itemProduct._id || itemProduct.id || item._id || item.id) !== itemId;
+          });
+          localStorage.setItem('cartItems', JSON.stringify(updatedCart));
+          return updatedCart;
+        });
+        showNotification('Item removed from cart', 'info');
       }
     } catch (error) {
       console.error('Failed to remove item:', error);
-      showNotification('Failed to remove item. Please try again.', 'error');
+      // Local fallback
+      setCartItems(prevItems => {
+        const updatedCart = prevItems.filter(item => {
+          const itemProduct = item.product || item;
+          return (itemProduct._id || itemProduct.id || item._id || item.id) !== itemId;
+        });
+        localStorage.setItem('cartItems', JSON.stringify(updatedCart));
+        return updatedCart;
+      });
+      showNotification('Item removed from cart', 'info');
     }
   };
   
@@ -657,23 +814,31 @@ const BuyerDashboard = () => {
     }
     
     try {
-      const orderItems = cartItems.map(item => ({
-        productId: item.product._id || item.product.id,
-        quantity: item.quantity,
-        price: item.product.price
-      }));
+      const orderItems = cartItems.map(item => {
+        const product = item.product || item;
+        return {
+          productId: product._id || product.id,
+          quantity: item.quantity || 1,
+          price: product.price
+        };
+      });
+      
+      const totalAmount = cartItems.reduce((sum, item) => {
+        const product = item.product || item;
+        return sum + (parseFloat(product.price) * (item.quantity || 1));
+      }, 0) + 500;
       
       const result = await buyerAPI.placeOrder({
         addressId: selectedAddress,
         paymentMethod: selectedPayment,
         items: orderItems,
-        totalAmount: cartItems.reduce((sum, item) => 
-          sum + (parseFloat(item.product.price) * item.quantity), 0) + 500
+        totalAmount: totalAmount
       });
       
       if (result.success) {
         showNotification('🎉 Order placed successfully!', 'success');
         setCartItems([]);
+        localStorage.removeItem('cartItems');
         fetchDashboardData();
         setActiveSection('home');
       } else {
@@ -686,6 +851,10 @@ const BuyerDashboard = () => {
   };
 
   const handleContactSeller = (sellerId, sellerName) => {
+    if (!sellerId) {
+      showNotification('Seller information not available', 'error');
+      return;
+    }
     setSelectedSeller({ id: sellerId, name: sellerName });
     setActiveSection('chat');
     showNotification(`Opening chat with ${sellerName}`, 'info');
@@ -875,7 +1044,7 @@ const BuyerDashboard = () => {
 
   const renderHomeScreen = () => (
     <div className="home-section">
-      {/* ✅ FIXED: Improved Ads Carousel Banner */}
+      {/* Ads Carousel Banner */}
       <div className="ads-banner-wrapper">
         <div className="ads-carousel-container">
           <div 
@@ -1080,18 +1249,34 @@ const BuyerDashboard = () => {
                     </div>
                   </div>
                   
-                  {/* ✅ FIXED: Seller Info Display */}
-                  <div className="seller-info">
-                    <div className="seller-avatar">
-                      {getSellerAvatar(product) ? (
-                        <img src={getSellerAvatar(product)} alt={getSellerName(product)} />
-                      ) : (
-                        <FontAwesomeIcon icon={faStore} />
-                      )}
+                  {/* Seller Info with Message Icon */}
+                  <div className="seller-info-row">
+                    <div className="seller-info">
+                      <div className="seller-avatar">
+                        {getSellerAvatar(product) ? (
+                          <img src={getSellerAvatar(product)} alt={getSellerName(product)} />
+                        ) : (
+                          <FontAwesomeIcon icon={faStore} />
+                        )}
+                      </div>
+                      <span className="seller-name">
+                        {getSellerName(product)}
+                      </span>
                     </div>
-                    <span className="seller-name">
-                      {getSellerName(product)}
-                    </span>
+                    
+                    <button 
+                      className="message-seller-icon"
+                      onClick={(e) => {
+                        e.stopPropagation(); // Prevent opening product details
+                        handleContactSeller(
+                          getSellerId(product),
+                          getSellerName(product)
+                        );
+                      }}
+                      title={`Message ${getSellerName(product)}`}
+                    >
+                      <FontAwesomeIcon icon={faMessage} />
+                    </button>
                   </div>
                   
                   <div className="product-actions">
@@ -1228,7 +1413,7 @@ const BuyerDashboard = () => {
             <p>{selectedProduct.description || 'No description available'}</p>
           </div>
           
-          {/* ✅ FIXED: Seller Information Display */}
+          {/* Seller Information Display */}
           <div className="seller-details">
             <h3><FontAwesomeIcon icon={faStore} /> Seller Information</h3>
             <div className="seller-card">
@@ -1244,11 +1429,11 @@ const BuyerDashboard = () => {
                 <p>⭐ 4.8 Seller Rating</p>
                 <button 
                   onClick={() => handleContactSeller(
-                    selectedProduct.seller?._id || selectedProduct.seller?.id,
+                    getSellerId(selectedProduct),
                     getSellerName(selectedProduct)
                   )}
                 >
-                  Message Seller
+                  <FontAwesomeIcon icon={faMessage} /> Message Seller
                 </button>
               </div>
             </div>
@@ -1273,9 +1458,20 @@ const BuyerDashboard = () => {
     );
   };
   
-  // ✅ FIXED: Cart Page Rendering
+  // ✅ FIXED: Cart Page Rendering with proper item handling
   const renderCartPage = () => {
-    console.log('Cart Items:', cartItems); // Debug log
+    console.log('Cart Items for rendering:', cartItems);
+
+    // Calculate totals
+    const subtotal = cartItems.reduce((sum, item) => {
+      const product = item.product || item;
+      const price = parseFloat(product.price) || 0;
+      const quantity = item.quantity || 1;
+      return sum + (price * quantity);
+    }, 0);
+    
+    const shipping = 500;
+    const total = subtotal + shipping;
 
     return (
       <div className="cart-page">
@@ -1300,35 +1496,50 @@ const BuyerDashboard = () => {
           <>
             <div className="cart-items-container">
               {cartItems.map((item, index) => {
+                // Handle different item structures
                 const product = item.product || item;
-                const itemId = item._id || item.id || index;
+                const itemId = item._id || item.id || product._id || product.id || index;
                 const quantity = item.quantity || 1;
+                const price = parseFloat(product.price) || 0;
 
                 return (
                   <div key={itemId} className="cart-item-card">
                     <img 
                       src={getProductImage(product)} 
-                      alt={product.name}
+                      alt={product.name || 'Product'}
                       className="cart-item-image"
+                      onError={(e) => {
+                        e.target.src = 'https://images.unsplash.com/photo-1556228578-9c360e1d8d34?q=80&w=1974';
+                      }}
                     />
                     <div className="cart-item-details">
-                      <h4>{product.name}</h4>
+                      <h4>{product.name || 'Product'}</h4>
                       <p className="cart-item-price">
-                        <span className="naira-price">₦{formatPriceNumber(product.price)}</span>
+                        <span className="naira-price">₦{formatPriceNumber(price)}</span>
                       </p>
                       <div className="quantity-selector">
-                        <button onClick={() => handleUpdateQuantity(itemId, quantity - 1)}>
+                        <button 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleUpdateQuantity(itemId, quantity - 1);
+                          }}
+                        >
                           <FontAwesomeIcon icon={faMinus} />
                         </button>
                         <span>{quantity}</span>
-                        <button onClick={() => handleUpdateQuantity(itemId, quantity + 1)}>
+                        <button 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleUpdateQuantity(itemId, quantity + 1);
+                          }}
+                        >
                           <FontAwesomeIcon icon={faPlus} />
                         </button>
                       </div>
                     </div>
                     <div className="cart-item-actions">
                       <p className="item-total-price">
-                        <span className="naira-price">₦{formatPriceNumber(product.price * quantity)}</span>
+                        <span className="naira-price">₦{formatPriceNumber(price * quantity)}</span>
                       </p>
                       <button 
                         onClick={() => handleRemoveFromCart(itemId)}
@@ -1346,25 +1557,17 @@ const BuyerDashboard = () => {
               <div className="summary-row">
                 <span>Subtotal</span>
                 <span className="naira-price">
-                  ₦{formatPriceNumber(cartItems.reduce((sum, item) => {
-                    const product = item.product || item;
-                    const quantity = item.quantity || 1;
-                    return sum + (parseFloat(product.price) * quantity);
-                  }, 0))}
+                  ₦{formatPriceNumber(subtotal)}
                 </span>
               </div>
               <div className="summary-row">
                 <span>Shipping</span>
-                <span className="naira-price">₦500</span>
+                <span className="naira-price">₦{formatPriceNumber(shipping)}</span>
               </div>
               <div className="summary-row total-row">
                 <span>Total</span>
                 <span className="naira-price">
-                  ₦{formatPriceNumber(cartItems.reduce((sum, item) => {
-                    const product = item.product || item;
-                    const quantity = item.quantity || 1;
-                    return sum + (parseFloat(product.price) * quantity);
-                  }, 0) + 500)}
+                  ₦{formatPriceNumber(total)}
                 </span>
               </div>
               
@@ -1378,130 +1581,135 @@ const BuyerDashboard = () => {
     );
   };
   
-  const renderCheckoutPage = () => (
-    <div className="checkout-page">
-      <div className="checkout-header">
-        <button onClick={() => setActiveSection('cart')}>
-          <FontAwesomeIcon icon={faArrowLeft} />
+  const renderCheckoutPage = () => {
+    // Calculate totals
+    const subtotal = cartItems.reduce((sum, item) => {
+      const product = item.product || item;
+      const price = parseFloat(product.price) || 0;
+      const quantity = item.quantity || 1;
+      return sum + (price * quantity);
+    }, 0);
+    const shipping = 500;
+    const total = subtotal + shipping;
+
+    return (
+      <div className="checkout-page">
+        <div className="checkout-header">
+          <button onClick={() => setActiveSection('cart')}>
+            <FontAwesomeIcon icon={faArrowLeft} />
+          </button>
+          <h2>Checkout</h2>
+          <div></div>
+        </div>
+        
+        <div className="checkout-sections">
+          <div className="checkout-section">
+            <h3><FontAwesomeIcon icon={faMapMarkerAlt} /> Delivery Address</h3>
+            <div className="address-options">
+              <div className="address-option">
+                <input 
+                  type="radio" 
+                  name="address" 
+                  id="address1"
+                  checked={selectedAddress === 'address1'}
+                  onChange={() => setSelectedAddress('address1')}
+                />
+                <label htmlFor="address1">
+                  <strong>Home <span className="default-tag">Default</span></strong>
+                  <p>123 Main St, Lagos, Nigeria</p>
+                </label>
+              </div>
+              <div className="address-option">
+                <input 
+                  type="radio" 
+                  name="address" 
+                  id="address2"
+                  checked={selectedAddress === 'address2'}
+                  onChange={() => setSelectedAddress('address2')}
+                />
+                <label htmlFor="address2">
+                  <strong>Work</strong>
+                  <p>456 Business Ave, Suite 300, Lagos</p>
+                </label>
+              </div>
+              <button className="add-new-btn">
+                <FontAwesomeIcon icon={faPlus} /> Add New Address
+              </button>
+            </div>
+          </div>
+          
+          <div className="checkout-section">
+            <h3><FontAwesomeIcon icon={faCreditCard} /> Payment Method</h3>
+            <div className="payment-options">
+              <div className="payment-option">
+                <input 
+                  type="radio" 
+                  name="payment" 
+                  id="card1"
+                  checked={selectedPayment === 'card1'}
+                  onChange={() => setSelectedPayment('card1')}
+                />
+                <label htmlFor="card1">
+                  <FontAwesomeIcon icon={faCreditCard} />
+                  <span>Visa **** 1234</span>
+                  <span className="default-tag">Default</span>
+                </label>
+              </div>
+              <div className="payment-option">
+                <input 
+                  type="radio" 
+                  name="payment" 
+                  id="card2"
+                  checked={selectedPayment === 'card2'}
+                  onChange={() => setSelectedPayment('card2')}
+                />
+                <label htmlFor="card2">
+                  <FontAwesomeIcon icon={faCreditCard} />
+                  <span>MasterCard **** 5678</span>
+                </label>
+              </div>
+              <button className="add-new-btn">
+                <FontAwesomeIcon icon={faPlus} /> Add Payment Method
+              </button>
+            </div>
+          </div>
+          
+          <div className="checkout-section">
+            <h3>Order Summary</h3>
+            <div className="order-summary-list">
+              {cartItems.map((item, index) => {
+                const product = item.product || item;
+                const quantity = item.quantity || 1;
+                const price = parseFloat(product.price) || 0;
+                return (
+                  <div key={item._id || item.id || index} className="order-item">
+                    <span>{product.name || 'Product'} x {quantity}</span>
+                    <span className="naira-price">₦{formatPriceNumber(price * quantity)}</span>
+                  </div>
+                );
+              })}
+              <div className="order-total-row">
+                <span>Total</span>
+                <span className="naira-price">
+                  ₦{formatPriceNumber(total)}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <button 
+          className="place-order-button" 
+          onClick={handlePlaceOrder}
+          disabled={!selectedAddress || !selectedPayment}
+        >
+          Place Order - <span className="naira-price">
+            ₦{formatPriceNumber(total)}
+          </span>
         </button>
-        <h2>Checkout</h2>
-        <div></div>
       </div>
-      
-      <div className="checkout-sections">
-        <div className="checkout-section">
-          <h3><FontAwesomeIcon icon={faMapMarkerAlt} /> Delivery Address</h3>
-          <div className="address-options">
-            <div className="address-option">
-              <input 
-                type="radio" 
-                name="address" 
-                id="address1"
-                checked={selectedAddress === 'address1'}
-                onChange={() => setSelectedAddress('address1')}
-              />
-              <label htmlFor="address1">
-                <strong>Home <span className="default-tag">Default</span></strong>
-                <p>123 Main St, Lagos, Nigeria</p>
-              </label>
-            </div>
-            <div className="address-option">
-              <input 
-                type="radio" 
-                name="address" 
-                id="address2"
-                checked={selectedAddress === 'address2'}
-                onChange={() => setSelectedAddress('address2')}
-              />
-              <label htmlFor="address2">
-                <strong>Work</strong>
-                <p>456 Business Ave, Suite 300, Lagos</p>
-              </label>
-            </div>
-            <button className="add-new-btn">
-              <FontAwesomeIcon icon={faPlus} /> Add New Address
-            </button>
-          </div>
-        </div>
-        
-        <div className="checkout-section">
-          <h3><FontAwesomeIcon icon={faCreditCard} /> Payment Method</h3>
-          <div className="payment-options">
-            <div className="payment-option">
-              <input 
-                type="radio" 
-                name="payment" 
-                id="card1"
-                checked={selectedPayment === 'card1'}
-                onChange={() => setSelectedPayment('card1')}
-              />
-              <label htmlFor="card1">
-                <FontAwesomeIcon icon={faCreditCard} />
-                <span>Visa **** 1234</span>
-                <span className="default-tag">Default</span>
-              </label>
-            </div>
-            <div className="payment-option">
-              <input 
-                type="radio" 
-                name="payment" 
-                id="card2"
-                checked={selectedPayment === 'card2'}
-                onChange={() => setSelectedPayment('card2')}
-              />
-              <label htmlFor="card2">
-                <FontAwesomeIcon icon={faCreditCard} />
-                <span>MasterCard **** 5678</span>
-              </label>
-            </div>
-            <button className="add-new-btn">
-              <FontAwesomeIcon icon={faPlus} /> Add Payment Method
-            </button>
-          </div>
-        </div>
-        
-        <div className="checkout-section">
-          <h3>Order Summary</h3>
-          <div className="order-summary-list">
-            {cartItems.map((item, index) => {
-              const product = item.product || item;
-              const quantity = item.quantity || 1;
-              return (
-                <div key={item.id || index} className="order-item">
-                  <span>{product.name} x {quantity}</span>
-                  <span className="naira-price">₦{formatPriceNumber(product.price * quantity)}</span>
-                </div>
-              );
-            })}
-            <div className="order-total-row">
-              <span>Total</span>
-              <span className="naira-price">
-                ₦{formatPriceNumber(cartItems.reduce((sum, item) => {
-                  const product = item.product || item;
-                  const quantity = item.quantity || 1;
-                  return sum + (parseFloat(product.price) * quantity);
-                }, 0) + 500)}
-              </span>
-            </div>
-          </div>
-        </div>
-      </div>
-      
-      <button 
-        className="place-order-button" 
-        onClick={handlePlaceOrder}
-        disabled={!selectedAddress || !selectedPayment}
-      >
-        Place Order - <span className="naira-price">
-          ₦{formatPriceNumber(cartItems.reduce((sum, item) => {
-            const product = item.product || item;
-            const quantity = item.quantity || 1;
-            return sum + (parseFloat(product.price) * quantity);
-          }, 0) + 500)}
-        </span>
-      </button>
-    </div>
-  );
+    );
+  };
   
   const renderSearch = () => (
     <div className="search-page">

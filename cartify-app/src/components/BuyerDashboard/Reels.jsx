@@ -1,11 +1,11 @@
 // src/components/BuyerDashboard/Reels.jsx
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
   faArrowLeft, faVolumeUp, faVolumeMute, faHeart,
   faComment, faShare, faBookmark, faEllipsisV, faMusic,
   faShoppingCart, faUserCircle, faPaperPlane, faPaperclip, faSmile,
-  faRobot, faTimes
+  faRobot, faTimes, faPause, faPlay
 } from '@fortawesome/free-solid-svg-icons';
 import './Reels.css';
 
@@ -15,8 +15,8 @@ const Reels = ({
   setCurrentReelIndex,
   isMuted,
   setIsMuted,
-  likedReels,
-  savedReels,
+  likedReels = [],
+  savedReels = [],
   handleReelLike,
   handleReelSave,
   handleReelShare,
@@ -25,7 +25,7 @@ const Reels = ({
   formatPriceNumber,
   showComments,
   setShowComments,
-  comments,
+  comments = [],
   getCurrentReelComments,
   handleAddComment,
   newComment,
@@ -41,21 +41,34 @@ const Reels = ({
   onBack
 }) => {
   const videoRefs = useRef([]);
+  const containerRef = useRef(null);
   const [showChatbot, setShowChatbot] = useState(false);
   const [chatbotMessages, setChatbotMessages] = useState([]);
   const [chatbotInput, setChatbotInput] = useState('');
   const [chatbotTyping, setChatbotTyping] = useState(false);
   const [isPlaying, setIsPlaying] = useState(true);
+  const [isLoading, setIsLoading] = useState(true);
+  const [videoError, setVideoError] = useState(false);
   const chatbotEndRef = useRef(null);
   const touchStartY = useRef(0);
   const touchEndY = useRef(0);
+  const touchStartX = useRef(0);
+  const touchEndX = useRef(0);
   
-  // ✅ FIXED: Improved video playback management
+  // Default video URL as fallback
+  const DEFAULT_VIDEO = 'https://assets.mixkit.co/videos/preview/mixkit-man-doing-tricks-with-a-skateboard-in-a-park-34553-large.mp4';
+
+  // Initialize video refs array
   useEffect(() => {
-    const playVideo = async () => {
+    videoRefs.current = videoRefs.current.slice(0, reels.length);
+  }, [reels]);
+
+  // Handle video playback when index changes
+  useEffect(() => {
+    const playCurrentVideo = async () => {
       // Pause all videos first
       videoRefs.current.forEach((video, index) => {
-        if (video && index !== currentReelIndex) {
+        if (video) {
           video.pause();
           video.currentTime = 0;
         }
@@ -64,37 +77,127 @@ const Reels = ({
       // Play current video
       const currentVideo = videoRefs.current[currentReelIndex];
       if (currentVideo) {
+        setIsLoading(true);
+        setVideoError(false);
+        
         try {
+          // Set muted state
           currentVideo.muted = isMuted;
+          
+          // Try to play
           await currentVideo.play();
           setIsPlaying(true);
+          setIsLoading(false);
         } catch (error) {
-          console.error('Error playing video:', error);
-          // Retry with muted if autoplay fails
-          if (!isMuted) {
-            try {
-              currentVideo.muted = true;
-              await currentVideo.play();
-              setIsPlaying(true);
-            } catch (retryError) {
-              console.error('Retry failed:', retryError);
-            }
-          }
+          console.log('Video play error:', error);
+          setIsPlaying(false);
+          setIsLoading(false);
         }
       }
     };
 
-    playVideo();
-
-    // Cleanup on unmount
-    return () => {
-      videoRefs.current.forEach(video => {
-        if (video) {
-          video.pause();
-        }
-      });
-    };
+    playCurrentVideo();
   }, [currentReelIndex, isMuted]);
+
+  // Handle video loaded data
+  const handleVideoLoaded = (index) => {
+    if (index === currentReelIndex) {
+      setIsLoading(false);
+    }
+  };
+
+  // Handle video error
+  const handleVideoError = (index) => {
+    if (index === currentReelIndex) {
+      setVideoError(true);
+      setIsLoading(false);
+    }
+  };
+
+  // Handle mute/unmute
+  const toggleMute = (e) => {
+    e.stopPropagation();
+    setIsMuted(!isMuted);
+  };
+
+  // Handle video click to play/pause
+  const handleVideoClick = (e) => {
+    e.stopPropagation();
+    const video = videoRefs.current[currentReelIndex];
+    if (video) {
+      if (video.paused) {
+        video.play()
+          .then(() => setIsPlaying(true))
+          .catch(err => console.error('Play error:', err));
+      } else {
+        video.pause();
+        setIsPlaying(false);
+      }
+    }
+  };
+
+  // Touch handlers for swipe navigation
+  const handleTouchStart = (e) => {
+    touchStartY.current = e.touches[0].clientY;
+    touchStartX.current = e.touches[0].clientX;
+  };
+
+  const handleTouchMove = (e) => {
+    touchEndY.current = e.touches[0].clientY;
+    touchEndX.current = e.touches[0].clientX;
+    
+    // Prevent default scrolling when swiping vertically
+    const diffY = Math.abs(touchStartY.current - touchEndY.current);
+    const diffX = Math.abs(touchStartX.current - touchEndX.current);
+    
+    if (diffY > diffX && diffY > 10) {
+      e.preventDefault();
+    }
+  };
+
+  const handleTouchEnd = (e) => {
+    const diffY = touchStartY.current - touchEndY.current;
+    const diffX = touchStartX.current - touchEndX.current;
+    const minSwipeDistance = 50;
+
+    // Vertical swipe (for changing reels)
+    if (Math.abs(diffY) > Math.abs(diffX) && Math.abs(diffY) > minSwipeDistance) {
+      if (diffY > 0 && currentReelIndex < reels.length - 1) {
+        // Swipe up - next reel
+        setCurrentReelIndex(currentReelIndex + 1);
+      } else if (diffY < 0 && currentReelIndex > 0) {
+        // Swipe down - previous reel
+        setCurrentReelIndex(currentReelIndex - 1);
+      }
+    }
+
+    touchStartY.current = 0;
+    touchEndY.current = 0;
+    touchStartX.current = 0;
+    touchEndX.current = 0;
+  };
+
+  // Wheel handler for desktop scrolling
+  const handleWheel = useCallback((e) => {
+    if (Math.abs(e.deltaY) > 30) {
+      e.preventDefault();
+      
+      if (e.deltaY > 0 && currentReelIndex < reels.length - 1) {
+        setCurrentReelIndex(prev => Math.min(prev + 1, reels.length - 1));
+      } else if (e.deltaY < 0 && currentReelIndex > 0) {
+        setCurrentReelIndex(prev => Math.max(prev - 1, 0));
+      }
+    }
+  }, [currentReelIndex, reels.length]);
+
+  // Add wheel event listener with options
+  useEffect(() => {
+    const container = containerRef.current;
+    if (container) {
+      container.addEventListener('wheel', handleWheel, { passive: false });
+      return () => container.removeEventListener('wheel', handleWheel);
+    }
+  }, [handleWheel]);
 
   // Initialize chatbot with welcome message
   useEffect(() => {
@@ -120,58 +223,18 @@ const Reels = ({
     if (showChatbot) {
       scrollChatbotToBottom();
     }
-  }, [chatbotMessages]);
+  }, [chatbotMessages, showChatbot]);
 
   const scrollChatbotToBottom = () => {
-    chatbotEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  };
-
-  // ✅ FIXED: Simplified video click handler
-  const handleVideoClick = (e) => {
-    e.stopPropagation();
-    const video = videoRefs.current[currentReelIndex];
-    if (video) {
-      if (video.paused) {
-        video.play().then(() => setIsPlaying(true)).catch(err => console.error('Play error:', err));
-      } else {
-        video.pause();
-        setIsPlaying(false);
-      }
-    }
-  };
-
-  // ✅ ADDED: Touch/Swipe handlers for navigation
-  const handleTouchStart = (e) => {
-    touchStartY.current = e.touches[0].clientY;
-  };
-
-  const handleTouchMove = (e) => {
-    touchEndY.current = e.touches[0].clientY;
-  };
-
-  const handleTouchEnd = () => {
-    const swipeDistance = touchStartY.current - touchEndY.current;
-    const minSwipeDistance = 50;
-
-    if (Math.abs(swipeDistance) > minSwipeDistance) {
-      if (swipeDistance > 0 && currentReelIndex < reels.length - 1) {
-        // Swipe up - next reel
-        setCurrentReelIndex(currentReelIndex + 1);
-      } else if (swipeDistance < 0 && currentReelIndex > 0) {
-        // Swipe down - previous reel
-        setCurrentReelIndex(currentReelIndex - 1);
-      }
-    }
-
-    touchStartY.current = 0;
-    touchEndY.current = 0;
+    setTimeout(() => {
+      chatbotEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }, 100);
   };
 
   // Shopping Assistant Knowledge Base
   const getChatbotResponse = (userMessage, currentProduct = null) => {
     const message = userMessage.toLowerCase();
     
-    // Product-specific queries
     if (message.includes('this product') || message.includes('product in video') || message.includes('item shown')) {
       if (currentProduct) {
         return {
@@ -185,7 +248,6 @@ const Reels = ({
       };
     }
 
-    // Similar products
     if (message.includes('similar') || message.includes('alternative') || message.includes('like this')) {
       return {
         content: "To find similar products:\n\n1. Tap on the product card in the reel\n2. Scroll down to 'Similar Products' section\n3. Use filters to refine your search\n4. Save items you like for later\n\nYou can also search by category or use our smart recommendations based on your interests!",
@@ -193,7 +255,6 @@ const Reels = ({
       };
     }
 
-    // How to order
     if (message.includes('order') || message.includes('buy') || message.includes('purchase') || message.includes('checkout')) {
       return {
         content: "Placing an order is easy! 📦\n\n1. Tap the product card or 🛒 button\n2. Choose size/color if applicable\n3. Click 'Add to Cart'\n4. Go to Cart and review items\n5. Proceed to Checkout\n6. Fill in delivery details\n7. Choose payment method\n8. Confirm and pay!\n\nYou'll get instant confirmation and can track your order in 'My Orders' section.",
@@ -201,7 +262,6 @@ const Reels = ({
       };
     }
 
-    // Payment options
     if (message.includes('payment') || message.includes('pay') || message.includes('card') || message.includes('bank')) {
       return {
         content: "We accept multiple payment methods:\n\n💳 Debit/Credit Cards (Visa, Mastercard, Verve)\n🏦 Bank Transfer\n📱 USSD\n💰 Pay on Delivery (selected areas)\n🔒 Paystack/Flutterwave (100% secure)\n\nAll transactions are encrypted and secure. You can save your payment details for faster checkout!",
@@ -209,7 +269,6 @@ const Reels = ({
       };
     }
 
-    // Delivery/Shipping
     if (message.includes('deliver') || message.includes('shipping') || message.includes('ship') || message.includes('track')) {
       return {
         content: "Delivery Information 🚚\n\n📍 Coverage: All states in Nigeria\n⏱️ Timeline:\n  • Lagos: 1-2 days\n  • Major cities: 2-3 days\n  • Other areas: 3-5 days\n\n💰 Fees: From ₦500 (free on orders above ₦10,000)\n\n📦 Track your order:\n1. Go to 'My Orders'\n2. Select your order\n3. View real-time tracking\n\nYou'll receive SMS/email updates at each stage!",
@@ -217,7 +276,6 @@ const Reels = ({
       };
     }
 
-    // Search/Find products
     if (message.includes('search') || message.includes('find') || message.includes('looking for')) {
       return {
         content: "Finding products on CartifyMarket:\n\n🔍 Search Bar: Type product name, brand, or category\n📂 Categories: Browse by department\n🔥 Trending: See what's popular\n🎬 Reels: Discover through videos (where you are now!)\n⭐ Recommendations: Based on your activity\n🏷️ Hashtags: Follow tags in reels\n\nTip: Use specific keywords for better results!",
@@ -225,7 +283,6 @@ const Reels = ({
       };
     }
 
-    // Cart management
     if (message.includes('cart') || message.includes('basket') || message.includes('added')) {
       return {
         content: "Managing Your Cart 🛒\n\n• Items stay in cart for 7 days\n• Update quantities anytime\n• Remove unwanted items easily\n• Apply promo codes at checkout\n• See total before paying\n• Save for later option available\n\nTo view cart: Tap the cart icon (🛒) at top right!",
@@ -233,7 +290,6 @@ const Reels = ({
       };
     }
 
-    // Returns/Refunds
     if (message.includes('return') || message.includes('refund') || message.includes('cancel') || message.includes('exchange')) {
       return {
         content: "Returns & Refunds Policy:\n\n✅ 7-day return window\n✅ Full refund or exchange\n✅ Free return shipping\n\nHow to return:\n1. Go to 'My Orders'\n2. Select order\n3. Click 'Return Item'\n4. Choose reason\n5. We'll arrange pickup\n\nRefunds processed within 3-5 business days after item received. Items must be unused with tags attached.",
@@ -241,7 +297,6 @@ const Reels = ({
       };
     }
 
-    // Account/Profile
     if (message.includes('account') || message.includes('profile') || message.includes('login') || message.includes('register')) {
       return {
         content: "Account Benefits:\n\n✨ Track orders easily\n💾 Save favorite items\n🎯 Personalized recommendations\n💰 Exclusive deals & early access\n📍 Save delivery addresses\n💳 Quick checkout\n\nCreate account:\n1. Tap profile icon\n2. Click 'Sign Up'\n3. Use email or phone number\n4. Verify and you're done!\n\nOr continue as guest for quick shopping.",
@@ -249,7 +304,6 @@ const Reels = ({
       };
     }
 
-    // Deals/Discounts
     if (message.includes('deal') || message.includes('discount') || message.includes('promo') || message.includes('coupon') || message.includes('sale')) {
       return {
         content: "Current Deals & Offers 🎉\n\n🔥 Flash Sales: Daily at 10 AM & 6 PM\n💝 First Order: 10% off (code: FIRST10)\n📦 Free Shipping: Orders above ₦10,000\n⚡ Weekend Deals: Up to 50% off\n🎁 Refer & Earn: ₦500 per friend\n\nCheck 'Deals' section for more!\n\nHow to use promo code:\n1. Add items to cart\n2. Proceed to checkout\n3. Enter code in promo box\n4. Discount applied automatically!",
@@ -257,7 +311,6 @@ const Reels = ({
       };
     }
 
-    // Help/Support
     if (message.includes('help') || message.includes('support') || message.includes('contact') || message.includes('customer service')) {
       return {
         content: "We're Here to Help! 💬\n\n📧 Email: support@cartifymarket.com.ng\n📞 Phone: +234 800 CARTIFY (24/7)\n💬 Live Chat: Available 8 AM - 10 PM\n📱 WhatsApp: +234 901 234 5678\n\n🏢 Office Hours: Mon-Sat, 9 AM - 6 PM\n\nFAQ: cartifymarket.com.ng/help\nChat with us: Tap the chat icon\n\nAverage response time: Under 5 minutes!",
@@ -265,7 +318,6 @@ const Reels = ({
       };
     }
 
-    // Default response with product context
     if (currentProduct) {
       return {
         content: `I'm here to help you shop on CartifyMarket! Currently viewing: "${currentProduct.name}" for ₦${formatPriceNumber(currentProduct.price)}\n\nI can help you with:\n\n🛍️ Product details & recommendations\n📦 Placing & tracking orders\n💳 Payment & delivery info\n↩️ Returns & refunds\n🎁 Deals & discounts\n❓ Any shopping questions\n\nWhat would you like to know?`,
@@ -273,7 +325,6 @@ const Reels = ({
       };
     }
 
-    // Generic default response
     return {
       content: "I'm your CartifyMarket shopping assistant! I can help you with:\n\n🔍 Finding products\n🛒 Placing orders\n💳 Payment methods\n🚚 Delivery & tracking\n↩️ Returns & refunds\n🎁 Deals & promo codes\n⭐ Reviews & ratings\n👤 Account management\n💬 Seller communication\n\nWhat would you like to know about?",
       suggestions: [
@@ -299,10 +350,8 @@ const Reels = ({
     setChatbotInput('');
     setChatbotTyping(true);
 
-    // Get current product context if available
     const currentProduct = reels[currentReelIndex]?.product;
 
-    // Simulate typing delay
     setTimeout(() => {
       const response = getChatbotResponse(messageText, currentProduct);
       const botMessage = {
@@ -315,6 +364,7 @@ const Reels = ({
 
       setChatbotMessages(prev => [...prev, botMessage]);
       setChatbotTyping(false);
+      scrollChatbotToBottom();
     }, 1000);
   };
 
@@ -347,6 +397,7 @@ const Reels = ({
     <div className="reels-page">
       <div 
         className="reel-container"
+        ref={containerRef}
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
@@ -361,19 +412,40 @@ const Reels = ({
           >
             <video
               ref={(el) => (videoRefs.current[index] = el)}
-              src={reel.videoUrl || reel.mediaUrl || 'https://assets.mixkit.co/videos/preview/mixkit-man-doing-tricks-with-a-skateboard-in-a-park-34553-large.mp4'}
+              src={reel.videoUrl || reel.mediaUrl || DEFAULT_VIDEO}
               loop
               muted={isMuted}
               playsInline
               preload="auto"
               className="reel-video"
               onClick={handleVideoClick}
-              style={{
-                width: '100%',
-                height: '100vh',
-                objectFit: 'cover'
-              }}
+              onLoadedData={() => handleVideoLoaded(index)}
+              onError={() => handleVideoError(index)}
             />
+            
+            {/* Loading indicator */}
+            {isLoading && index === currentReelIndex && (
+              <div className="video-loading">
+                <FontAwesomeIcon icon={faMusic} spin />
+              </div>
+            )}
+            
+            {/* Video error message */}
+            {videoError && index === currentReelIndex && (
+              <div className="video-error">
+                <p>Video failed to load</p>
+                <button onClick={() => window.location.reload()}>
+                  Retry
+                </button>
+              </div>
+            )}
+            
+            {/* Play/Pause indicator */}
+            {!isPlaying && index === currentReelIndex && !videoError && (
+              <div className="play-pause-indicator" onClick={handleVideoClick}>
+                <FontAwesomeIcon icon={faPlay} />
+              </div>
+            )}
             
             <div className="reel-overlay">
               <div className="reel-top-bar">
@@ -385,7 +457,7 @@ const Reels = ({
                   <button className="helper-btn" onClick={() => setShowChatbot(true)} title="Shopping Assistant">
                     <FontAwesomeIcon icon={faRobot} />
                   </button>
-                  <button className="volume-btn" onClick={() => setIsMuted(!isMuted)}>
+                  <button className="volume-btn" onClick={toggleMute}>
                     <FontAwesomeIcon icon={isMuted ? faVolumeMute : faVolumeUp} />
                   </button>
                 </div>
@@ -460,7 +532,7 @@ const Reels = ({
                 {reel.product && (
                   <div className="reel-product-card-tiktok" onClick={() => handleViewProduct(reel.product)}>
                     <div className="product-image-tiktok">
-                      <img src={getProductImage(reel.product)} alt={reel.productName} />
+                      <img src={getProductImage(reel.product)} alt={reel.productName || reel.product.name} />
                     </div>
                     <div className="product-info-tiktok">
                       <h5>{reel.productName || reel.product.name}</h5>

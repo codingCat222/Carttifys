@@ -248,6 +248,7 @@ export const buyerAPI = {
   likeReel: (reelId) => apiCall(`/api/buyer/reels/${reelId}/like`, {
     method: 'POST'
   }),
+getSellers: () => apiCall('/api/buyer/sellers'),
   
   // NEW: ADD THESE MISSING FUNCTIONS
   getAds: () => apiCall('/api/buyer/ads'),

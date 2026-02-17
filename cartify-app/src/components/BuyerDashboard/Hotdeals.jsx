@@ -1,65 +1,152 @@
 // src/components/BuyerDashboard/Hotdeals.jsx
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
   faArrowLeft, faFire, faPercent, faClock, faTag,
-  faShoppingCart, faHeart, faEye, faStar, faStore
+  faShoppingCart, faHeart, faEye, faStar, faStore,
+  faSpinner
 } from '@fortawesome/free-solid-svg-icons';
 import './Hotdeals.css';
 
 const Hotdeals = ({ navigate, setSearchQuery, setActiveSection }) => {
-  const hotDeals = [
-    {
-      id: 1,
-      name: "iPhone 14 Pro Max",
-      price: "750000",
-      originalPrice: "850000",
-      discount: "12",
-      timeLeft: "12:45:23",
-      image: "https://images.unsplash.com/photo-1592750475338-74b7b21085ab?q=80&w=1974",
-      rating: 4.8,
-      sold: 124
-    },
-    {
-      id: 2,
-      name: "Nike Air Max 270",
-      price: "45000",
-      originalPrice: "55000",
-      discount: "18",
-      timeLeft: "08:30:15",
-      image: "https://images.unsplash.com/photo-1542291026-7eec264c27ff?q=80&w=2070",
-      rating: 4.5,
-      sold: 89
-    },
-    {
-      id: 3,
-      name: "Samsung QLED TV 55\"",
-      price: "320000",
-      originalPrice: "380000",
-      discount: "16",
-      timeLeft: "23:15:42",
-      image: "https://images.unsplash.com/photo-1593359677879-a4bb92f829d1?q=80&w=2070",
-      rating: 4.7,
-      sold: 45
-    },
-    {
-      id: 4,
-      name: "Rolex Submariner Watch",
-      price: "1200000",
-      originalPrice: "1500000",
-      discount: "20",
-      timeLeft: "05:20:10",
-      image: "https://images.unsplash.com/photo-1523170335258-f5ed11844a49?q=80&w=2080",
-      rating: 4.9,
-      sold: 12
+  const [hotDeals, setHotDeals] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [timeLeft, setTimeLeft] = useState({});
+
+  // Fetch hot deals from API
+  useEffect(() => {
+    fetchHotDeals();
+  }, []);
+
+  const fetchHotDeals = async () => {
+    try {
+      setLoading(true);
+      const response = await fetch('/api/products/hot-deals'); // Update with your actual endpoint
+      if (!response.ok) throw new Error('Failed to fetch hot deals');
+      const data = await response.json();
+      setHotDeals(data);
+      
+      // Initialize timers for deals with expiry
+      data.forEach(deal => {
+        if (deal.expiryDate) {
+          calculateTimeLeft(deal.id, deal.expiryDate);
+        }
+      });
+    } catch (err) {
+      setError(err.message);
+      console.error('Error fetching hot deals:', err);
+    } finally {
+      setLoading(false);
     }
-  ];
+  };
+
+  // Calculate time left for flash sales
+  const calculateTimeLeft = (id, expiryDate) => {
+    const expiry = new Date(expiryDate).getTime();
+    const now = new Date().getTime();
+    const difference = expiry - now;
+
+    if (difference > 0) {
+      const hours = Math.floor((difference / (1000 * 60 * 60)) % 24);
+      const minutes = Math.floor((difference / 1000 / 60) % 60);
+      const seconds = Math.floor((difference / 1000) % 60);
+
+      setTimeLeft(prev => ({
+        ...prev,
+        [id]: `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`
+      }));
+    } else {
+      setTimeLeft(prev => ({ ...prev, [id]: 'Expired' }));
+    }
+  };
+
+  // Update timers every second
+  useEffect(() => {
+    const timer = setInterval(() => {
+      hotDeals.forEach(deal => {
+        if (deal.expiryDate) {
+          calculateTimeLeft(deal.id, deal.expiryDate);
+        }
+      });
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [hotDeals]);
 
   const formatPrice = (price) => {
     const nairaPrice = parseFloat(price);
     if (isNaN(nairaPrice)) return '₦0';
     return `₦${nairaPrice.toLocaleString('en-NG')}`;
   };
+
+  const handleAddToCart = async (productId) => {
+    try {
+      const response = await fetch('/api/cart/add', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify({ productId, quantity: 1 })
+      });
+      
+      if (!response.ok) throw new Error('Failed to add to cart');
+      
+      // Show success notification
+      alert('Item added to cart!');
+    } catch (err) {
+      console.error('Error adding to cart:', err);
+      alert('Failed to add item to cart');
+    }
+  };
+
+  const handleAddToWishlist = async (productId) => {
+    try {
+      const response = await fetch('/api/wishlist/add', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify({ productId })
+      });
+      
+      if (!response.ok) throw new Error('Failed to add to wishlist');
+      
+      alert('Item added to wishlist!');
+    } catch (err) {
+      console.error('Error adding to wishlist:', err);
+      alert('Failed to add item to wishlist');
+    }
+  };
+
+  const handleBuyNow = (productId) => {
+    // Navigate to checkout with this product
+    navigate(`/checkout?product=${productId}`);
+  };
+
+  if (loading) {
+    return (
+      <div className="hotdeals-page loading-state">
+        <div className="spinner-container">
+          <FontAwesomeIcon icon={faSpinner} spin size="3x" />
+          <p>Loading hot deals...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="hotdeals-page error-state">
+        <div className="error-container">
+          <p>Error: {error}</p>
+          <button onClick={fetchHotDeals}>Try Again</button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="hotdeals-page">
@@ -102,20 +189,26 @@ const Hotdeals = ({ navigate, setSearchQuery, setActiveSection }) => {
           {hotDeals.map(deal => (
             <div key={deal.id} className="deal-card">
               <div className="deal-image-container">
-                <img src={deal.image} alt={deal.name} />
+                <img src={deal.images?.[0] || deal.image} alt={deal.name} />
                 <div className="deal-badge">
                   <FontAwesomeIcon icon={faPercent} />
                   <span>{deal.discount}% OFF</span>
                 </div>
                 <div className="deal-time">
                   <FontAwesomeIcon icon={faClock} />
-                  <span>{deal.timeLeft}</span>
+                  <span>{timeLeft[deal.id] || deal.timeLeft || 'Limited'}</span>
                 </div>
                 <div className="deal-overlay">
-                  <button className="deal-wishlist">
+                  <button 
+                    className="deal-wishlist"
+                    onClick={() => handleAddToWishlist(deal.id)}
+                  >
                     <FontAwesomeIcon icon={faHeart} />
                   </button>
-                  <button className="deal-quickview">
+                  <button 
+                    className="deal-quickview"
+                    onClick={() => navigate(`/product/${deal.id}`)}
+                  >
                     <FontAwesomeIcon icon={faEye} />
                   </button>
                 </div>
@@ -134,22 +227,28 @@ const Hotdeals = ({ navigate, setSearchQuery, setActiveSection }) => {
                       <FontAwesomeIcon 
                         key={star} 
                         icon={faStar} 
-                        className={star <= deal.rating ? 'star-filled' : 'star-empty'}
+                        className={star <= (deal.rating || 0) ? 'star-filled' : 'star-empty'}
                       />
                     ))}
-                    <span className="rating-text">{deal.rating}</span>
+                    <span className="rating-text">({deal.reviewCount || 0})</span>
                   </div>
                   <div className="deal-sold">
-                    <span>{deal.sold} sold</span>
+                    <span>{deal.soldCount || 0} sold</span>
                   </div>
                 </div>
                 
                 <div className="deal-actions">
-                  <button className="add-to-cart-btn">
+                  <button 
+                    className="add-to-cart-btn"
+                    onClick={() => handleAddToCart(deal.id)}
+                  >
                     <FontAwesomeIcon icon={faShoppingCart} />
                     Add to Cart
                   </button>
-                  <button className="buy-now-btn">
+                  <button 
+                    className="buy-now-btn"
+                    onClick={() => handleBuyNow(deal.id)}
+                  >
                     Buy Now
                   </button>
                 </div>
@@ -174,7 +273,7 @@ const Hotdeals = ({ navigate, setSearchQuery, setActiveSection }) => {
                 <FontAwesomeIcon icon={faStore} />
               </div>
               <span>{cat}</span>
-              <span className="deal-count">{Math.floor(Math.random() * 50) + 10} deals</span>
+              <span className="deal-count">View deals</span>
             </div>
           ))}
         </div>

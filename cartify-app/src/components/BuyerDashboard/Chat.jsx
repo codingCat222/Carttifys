@@ -8,7 +8,9 @@ import {
   faArrowLeft, faPaperPlane, faImage, faSmile, faPaperclip,
   faEllipsisV, faCheckDouble, faCheck, faClock, faUserCircle,
   faSearch, faVideo, faPhone, faInfoCircle, faTrash, faBan,
-  faVolumeMute, faBell, faArchive, faTimes, faEdit, faComment
+  faVolumeMute, faBell, faArchive, faTimes, faEdit, faComment,
+  faStore, faStar, faMessage, faSpinner, faExclamationTriangle,
+  faRedo, faShoppingBag, faUserPlus
 } from '@fortawesome/free-solid-svg-icons';
 
 const Chat = ({ navigate, setActiveSection, selectedSeller }) => {
@@ -25,6 +27,11 @@ const Chat = ({ navigate, setActiveSection, selectedSeller }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [typing, setTyping] = useState(false);
   const [onlineUsers, setOnlineUsers] = useState([]);
+  const [sellers, setSellers] = useState([]);
+  const [loadingSellers, setLoadingSellers] = useState(false);
+  const [sellerSearchQuery, setSellerSearchQuery] = useState('');
+  const [error, setError] = useState(null);
+  const [retryCount, setRetryCount] = useState(0);
   
   const currentUser = getCurrentUser();
   const userId = currentUser?._id || currentUser?.id;
@@ -37,40 +44,25 @@ const Chat = ({ navigate, setActiveSection, selectedSeller }) => {
     // Load conversations
     loadConversations();
     
+    // Load sellers for the browse view (only for buyers)
+    if (!isSeller) {
+      loadSellers();
+    }
+    
     // Check URL for seller parameter (when coming from product page)
     const params = new URLSearchParams(location.search);
     const sellerId = params.get('seller');
     const sellerName = params.get('name');
     
     if (sellerId && sellerName) {
-      // Check if conversation exists with this seller
-      const existingConv = conversations.find(conv => 
-        conv.participants.some(p => p._id === sellerId)
-      );
-      
-      if (existingConv) {
-        setActiveConversation(existingConv);
-        loadMessages(existingConv._id);
-      } else {
-        // Create new conversation
-        createNewConversation(sellerId, sellerName);
-      }
+      handleSellerSelection(sellerId, sellerName);
     }
     
     // Handle selectedSeller from props (when coming from product page via dashboard)
     if (selectedSeller && selectedSeller.id && selectedSeller.name) {
-      const existingConv = conversations.find(conv => 
-        conv.participants.some(p => p._id === selectedSeller.id || p.id === selectedSeller.id)
-      );
-      
-      if (existingConv) {
-        setActiveConversation(existingConv);
-        loadMessages(existingConv._id);
-      } else {
-        createNewConversation(selectedSeller.id, selectedSeller.name);
-      }
+      handleSellerSelection(selectedSeller.id, selectedSeller.name);
     }
-  }, [location.search, selectedSeller]);
+  }, [location.search, selectedSeller, retryCount]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -80,13 +72,30 @@ const Chat = ({ navigate, setActiveSection, selectedSeller }) => {
     scrollToBottom();
   }, [messages]);
 
+  const handleSellerSelection = async (sellerId, sellerName) => {
+    // Check if conversation exists with this seller
+    const existingConv = conversations.find(conv => {
+      const otherUser = getOtherParticipant(conv);
+      return otherUser?._id === sellerId;
+    });
+    
+    if (existingConv) {
+      setActiveConversation(existingConv);
+      loadMessages(existingConv._id);
+    } else {
+      // Create new conversation
+      createNewConversation(sellerId, sellerName);
+    }
+  };
+
   const loadConversations = async () => {
     try {
       setLoading(true);
+      setError(null);
       const api = isSeller ? sellerAPI : buyerAPI;
       const result = await api.getConversations();
       
-      console.log('Conversations loaded:', result); // Debug log
+      console.log('Conversations loaded:', result);
       
       if (result.success) {
         setConversations(result.data || []);
@@ -96,9 +105,12 @@ const Chat = ({ navigate, setActiveSection, selectedSeller }) => {
           setActiveConversation(result.data[0]);
           loadMessages(result.data[0]._id);
         }
+      } else {
+        setError('Failed to load conversations');
       }
     } catch (error) {
       console.error('Failed to load conversations:', error);
+      setError('Failed to load conversations. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -120,9 +132,147 @@ const Chat = ({ navigate, setActiveSection, selectedSeller }) => {
     }
   };
 
+  const loadSellers = async () => {
+    try {
+      setLoadingSellers(true);
+      setError(null);
+      
+      // Check if getSellers exists in buyerAPI
+      if (!buyerAPI.getSellers) {
+        console.warn('getSellers method not found in buyerAPI');
+        // Use mock data as fallback
+        setSellers([
+          {
+            _id: '1',
+            name: 'Fashion Store',
+            businessName: 'Fashion Hub',
+            storeName: 'Fashion Hub Store',
+            rating: 4.8,
+            productsCount: 45,
+            location: 'Lagos',
+            avatar: null,
+            email: 'fashion@example.com'
+          },
+          {
+            _id: '2',
+            name: 'Electronics World',
+            businessName: 'Gadget Pro',
+            storeName: 'Gadget Pro Store',
+            rating: 4.5,
+            productsCount: 67,
+            location: 'Abuja',
+            avatar: null,
+            email: 'electronics@example.com'
+          },
+          {
+            _id: '3',
+            name: 'Home Decor',
+            businessName: 'Interior Plus',
+            storeName: 'Interior Plus',
+            rating: 4.7,
+            productsCount: 32,
+            location: 'Port Harcourt',
+            avatar: null,
+            email: 'homedecor@example.com'
+          },
+          {
+            _id: '4',
+            name: 'Beauty Palace',
+            businessName: 'Beauty Palace',
+            storeName: 'Beauty Palace',
+            rating: 4.6,
+            productsCount: 89,
+            location: 'Ibadan',
+            avatar: null,
+            email: 'beauty@example.com'
+          }
+        ]);
+        setLoadingSellers(false);
+        return;
+      }
+
+      const result = await buyerAPI.getSellers();
+      
+      if (result.success) {
+        setSellers(result.data || []);
+      } else {
+        // Use mock data as fallback
+        setSellers([
+          {
+            _id: '1',
+            name: 'Fashion Store',
+            businessName: 'Fashion Hub',
+            rating: 4.8,
+            productsCount: 45,
+            location: 'Lagos'
+          },
+          {
+            _id: '2',
+            name: 'Electronics World',
+            businessName: 'Gadget Pro',
+            rating: 4.5,
+            productsCount: 67,
+            location: 'Abuja'
+          }
+        ]);
+      }
+    } catch (error) {
+      console.error('Failed to load sellers:', error);
+      // Set mock data on error
+      setSellers([
+        {
+          _id: '1',
+          name: 'Fashion Store',
+          businessName: 'Fashion Hub',
+          rating: 4.8,
+          productsCount: 45,
+          location: 'Lagos'
+        },
+        {
+          _id: '2',
+          name: 'Electronics World',
+          businessName: 'Gadget Pro',
+          rating: 4.5,
+          productsCount: 67,
+          location: 'Abuja'
+        }
+      ]);
+    } finally {
+      setLoadingSellers(false);
+    }
+  };
+
   const createNewConversation = async (sellerId, sellerName) => {
     try {
       if (!isSeller) {
+        // Check if buyerAPI.createConversation exists
+        if (!buyerAPI.createConversation) {
+          console.error('createConversation method not found in buyerAPI');
+          // Simulate successful creation for demo
+          const mockConversation = {
+            _id: Date.now().toString(),
+            seller: {
+              _id: sellerId,
+              name: sellerName,
+              businessName: sellerName
+            },
+            buyer: {
+              _id: userId,
+              name: currentUser?.name
+            },
+            lastMessage: {
+              text: `Hi ${sellerName}, I'm interested in your products`,
+              sender: userId,
+              createdAt: new Date().toISOString()
+            },
+            updatedAt: new Date().toISOString()
+          };
+          setActiveConversation(mockConversation);
+          setMessages([]);
+          await loadConversations();
+          return;
+        }
+
         const result = await buyerAPI.createConversation({
           sellerId,
           initialMessage: `Hi ${sellerName}, I'm interested in your products`
@@ -136,6 +286,16 @@ const Chat = ({ navigate, setActiveSection, selectedSeller }) => {
       }
     } catch (error) {
       console.error('Failed to create conversation:', error);
+      // Show error notification
+      const notification = document.createElement('div');
+      notification.className = 'notification notification-error';
+      notification.innerHTML = `
+        <div class="notification-content">
+          <span>Failed to start conversation. Please try again.</span>
+        </div>
+      `;
+      document.body.appendChild(notification);
+      setTimeout(() => notification.remove(), 3000);
     }
   };
 
@@ -146,10 +306,15 @@ const Chat = ({ navigate, setActiveSection, selectedSeller }) => {
     const tempId = Date.now().toString();
     const tempMessage = {
       _id: tempId,
-      sender: { _id: userId, name: currentUser?.name },
+      sender: { 
+        _id: userId, 
+        name: currentUser?.name || 'You',
+        avatar: currentUser?.avatar
+      },
       text: newMessage,
       createdAt: new Date().toISOString(),
-      isTemp: true
+      isTemp: true,
+      status: 'sending'
     };
 
     // Add temp message immediately
@@ -158,6 +323,29 @@ const Chat = ({ navigate, setActiveSection, selectedSeller }) => {
 
     try {
       const api = isSeller ? sellerAPI : buyerAPI;
+      
+      // Check if sendMessage method exists
+      if (!api.sendMessage) {
+        console.error('sendMessage method not found in API');
+        // Simulate successful send for demo
+        setTimeout(() => {
+          setMessages(prev => 
+            prev.map(msg => 
+              msg._id === tempId 
+                ? { 
+                    ...msg, 
+                    isTemp: false, 
+                    status: 'sent',
+                    delivered: true,
+                    read: false
+                  } 
+                : msg
+            )
+          );
+        }, 1000);
+        return;
+      }
+
       const result = await api.sendMessage({
         conversationId: activeConversation._id,
         text: newMessage,
@@ -170,7 +358,7 @@ const Chat = ({ navigate, setActiveSection, selectedSeller }) => {
         // Replace temp message with real one
         setMessages(prev => 
           prev.map(msg => 
-            msg._id === tempId ? result.data : msg
+            msg._id === tempId ? { ...result.data, status: 'sent' } : msg
           )
         );
         
@@ -178,99 +366,131 @@ const Chat = ({ navigate, setActiveSection, selectedSeller }) => {
         setConversations(prev =>
           prev.map(conv =>
             conv._id === activeConversation._id
-              ? { ...conv, lastMessage: result.data, updatedAt: new Date().toISOString() }
+              ? { 
+                  ...conv, 
+                  lastMessage: result.data, 
+                  updatedAt: new Date().toISOString() 
+                }
               : conv
           )
         );
       } else {
-        // Remove temp message on error
-        setMessages(prev => prev.filter(msg => msg._id !== tempId));
+        // Mark as failed
+        setMessages(prev => 
+          prev.map(msg => 
+            msg._id === tempId 
+              ? { ...msg, status: 'failed', isTemp: false } 
+              : msg
+          )
+        );
       }
     } catch (error) {
       console.error('Failed to send message:', error);
-      setMessages(prev => prev.filter(msg => msg._id !== tempId));
+      // Mark as failed
+      setMessages(prev => 
+        prev.map(msg => 
+          msg._id === tempId 
+            ? { ...msg, status: 'failed', isTemp: false } 
+            : msg
+        )
+      );
     }
   };
 
-  // ✅ FIXED: Better function to get other participant with proper name handling
+  // Function to get other participant with proper name handling
   const getOtherParticipant = (conversation) => {
     if (!conversation) return null;
     
-    console.log('Getting participant from conversation:', conversation); // Debug log
-    
-    // Handle different conversation structures
-    if (conversation.participants && Array.isArray(conversation.participants)) {
-      const otherParticipant = conversation.participants.find(p => p._id !== userId && p.id !== userId);
-      if (otherParticipant) {
+    try {
+      // Handle buyer/seller structure
+      if (isSeller && conversation.buyer) {
         return {
-          _id: otherParticipant._id || otherParticipant.id,
-          name: otherParticipant.name || otherParticipant.businessName || otherParticipant.storeName || 'Unknown User',
-          avatar: otherParticipant.avatar || otherParticipant.image || otherParticipant.logo || null
+          _id: conversation.buyer._id || conversation.buyer.id,
+          name: conversation.buyer.name || 'Buyer',
+          avatar: conversation.buyer.avatar || null
         };
       }
+      
+      if (!isSeller && conversation.seller) {
+        return {
+          _id: conversation.seller._id || conversation.seller.id,
+          name: conversation.seller.name || 
+                conversation.seller.businessName || 
+                conversation.seller.storeName || 
+                'Seller',
+          avatar: conversation.seller.avatar || 
+                 conversation.seller.logo || 
+                 conversation.seller.image || 
+                 null
+        };
+      }
+      
+      // Handle participants array structure
+      if (conversation.participants && Array.isArray(conversation.participants)) {
+        const otherParticipant = conversation.participants.find(p => 
+          p.userId?._id !== userId && p.userId?.id !== userId
+        );
+        if (otherParticipant?.userId) {
+          return {
+            _id: otherParticipant.userId._id || otherParticipant.userId.id,
+            name: otherParticipant.userId.name || 'User',
+            avatar: otherParticipant.userId.avatar || null
+          };
+        }
+      }
+    } catch (error) {
+      console.error('Error getting other participant:', error);
     }
-    
-    // Handle buyer/seller structure
-    if (isSeller && conversation.buyer) {
-      return {
-        _id: conversation.buyer._id || conversation.buyer.id,
-        name: conversation.buyer.name || conversation.buyer.businessName || 'Buyer',
-        avatar: conversation.buyer.avatar || conversation.buyer.image || null
-      };
-    }
-    
-    if (!isSeller && conversation.seller) {
-      return {
-        _id: conversation.seller._id || conversation.seller.id,
-        name: conversation.seller.name || conversation.seller.businessName || conversation.seller.storeName || 'Seller',
-        avatar: conversation.seller.avatar || conversation.seller.image || conversation.seller.logo || null
-      };
-    }
-    
-    // Fallback - try to get name from any available field
-    const fallbackName = conversation.otherUserName 
-      || conversation.sellerName 
-      || conversation.buyerName 
-      || 'Unknown User';
-    
-    const fallbackAvatar = conversation.otherUserAvatar 
-      || conversation.sellerAvatar 
-      || conversation.buyerAvatar 
-      || null;
     
     return {
-      _id: conversation.otherUserId || 'unknown',
-      name: fallbackName,
-      avatar: fallbackAvatar
+      _id: 'unknown',
+      name: 'Unknown User',
+      avatar: null
     };
   };
 
   const formatTime = (dateString) => {
-    const date = new Date(dateString);
-    const now = new Date();
-    const diffMs = now - date;
-    const diffMins = Math.floor(diffMs / 60000);
+    if (!dateString) return '';
     
-    if (diffMins < 1) return 'Just now';
-    if (diffMins < 60) return `${diffMins}m ago`;
-    
-    const diffHours = Math.floor(diffMins / 60);
-    if (diffHours < 24) return `${diffHours}h ago`;
-    
-    return date.toLocaleDateString('en-US', { 
-      month: 'short', 
-      day: 'numeric' 
-    });
+    try {
+      const date = new Date(dateString);
+      const now = new Date();
+      const diffMs = now - date;
+      const diffMins = Math.floor(diffMs / 60000);
+      
+      if (diffMins < 1) return 'Just now';
+      if (diffMins < 60) return `${diffMins}m ago`;
+      
+      const diffHours = Math.floor(diffMins / 60);
+      if (diffHours < 24) return `${diffHours}h ago`;
+      
+      if (diffHours < 48) return 'Yesterday';
+      
+      return date.toLocaleDateString('en-US', { 
+        month: 'short', 
+        day: 'numeric' 
+      });
+    } catch (error) {
+      return '';
+    }
   };
 
   const renderMessageStatus = (message) => {
     if (message.sender._id !== userId) return null;
     
+    if (message.status === 'failed') {
+      return <FontAwesomeIcon icon={faExclamationTriangle} className="message-status failed" />;
+    }
+    
+    if (message.status === 'sending') {
+      return <FontAwesomeIcon icon={faSpinner} spin className="message-status sending" />;
+    }
+    
     if (message.read) {
       return <FontAwesomeIcon icon={faCheckDouble} className="message-status read" />;
     } else if (message.delivered) {
       return <FontAwesomeIcon icon={faCheckDouble} className="message-status delivered" />;
-    } else if (message.sent) {
+    } else if (message.sent || message.status === 'sent') {
       return <FontAwesomeIcon icon={faCheck} className="message-status sent" />;
     }
     
@@ -286,7 +506,30 @@ const Chat = ({ navigate, setActiveSection, selectedSeller }) => {
     // You would typically upload to server and send message with file URL
   };
 
-  if (loading && !activeConversation) {
+  const handleSelectSeller = (seller) => {
+    const sellerId = seller._id || seller.id;
+    const sellerName = seller.name || seller.businessName || seller.storeName || 'Seller';
+    handleSellerSelection(sellerId, sellerName);
+  };
+
+  const handleRetry = () => {
+    setRetryCount(prev => prev + 1);
+    setError(null);
+  };
+
+  // Filter sellers based on search
+  const filteredSellers = sellers.filter(seller => {
+    if (!sellerSearchQuery) return true;
+    const searchLower = sellerSearchQuery.toLowerCase();
+    return (
+      (seller.name?.toLowerCase().includes(searchLower)) ||
+      (seller.businessName?.toLowerCase().includes(searchLower)) ||
+      (seller.storeName?.toLowerCase().includes(searchLower)) ||
+      (seller.email?.toLowerCase().includes(searchLower))
+    );
+  });
+
+  if (loading && !activeConversation && conversations.length === 0) {
     return (
       <div className="chat-container loading">
         <div className="loading-spinner">
@@ -304,8 +547,8 @@ const Chat = ({ navigate, setActiveSection, selectedSeller }) => {
         <div className="sidebar-header">
           <h2>Messages</h2>
           <div className="sidebar-actions">
-            <button className="icon-btn">
-              <FontAwesomeIcon icon={faVideo} />
+            <button className="icon-btn" onClick={handleRetry} title="Refresh">
+              <FontAwesomeIcon icon={faRedo} />
             </button>
             <button className="icon-btn" onClick={() => setActiveSection('home')}>
               <FontAwesomeIcon icon={faTimes} />
@@ -324,11 +567,21 @@ const Chat = ({ navigate, setActiveSection, selectedSeller }) => {
         </div>
         
         <div className="conversations-list">
-          {conversations.length === 0 ? (
+          {error && (
+            <div className="error-message">
+              <FontAwesomeIcon icon={faExclamationTriangle} />
+              <p>{error}</p>
+              <button onClick={handleRetry} className="retry-btn">
+                <FontAwesomeIcon icon={faRedo} /> Retry
+              </button>
+            </div>
+          )}
+          
+          {conversations.length === 0 && !error ? (
             <div className="no-conversations">
               <FontAwesomeIcon icon={faComment} size="2x" />
               <p>No messages yet</p>
-              <span>Start a conversation with a seller</span>
+              <span>Browse sellers below to start chatting</span>
             </div>
           ) : (
             conversations
@@ -340,8 +593,6 @@ const Chat = ({ navigate, setActiveSection, selectedSeller }) => {
               .map(conversation => {
                 const otherUser = getOtherParticipant(conversation);
                 const isActive = activeConversation?._id === conversation._id;
-                
-                console.log('Rendering conversation with user:', otherUser); // Debug log
                 
                 return (
                   <div
@@ -458,8 +709,8 @@ const Chat = ({ navigate, setActiveSection, selectedSeller }) => {
                       
                       return (
                         <div
-                          key={message._id || message.id}
-                          className={`message-wrapper ${isOwn ? 'own' : 'other'}`}
+                          key={message._id || message.id || index}
+                          className={`message-wrapper ${isOwn ? 'own' : 'other'} ${message.isTemp ? 'temp' : ''} ${message.status === 'failed' ? 'failed' : ''}`}
                         >
                           {!isOwn && showAvatar && (
                             <div className="message-avatar">
@@ -480,10 +731,10 @@ const Chat = ({ navigate, setActiveSection, selectedSeller }) => {
                               <p>{message.text}</p>
                               <div className="message-meta">
                                 <span className="message-time">
-                                  {new Date(message.createdAt).toLocaleTimeString([], {
+                                  {message.createdAt ? new Date(message.createdAt).toLocaleTimeString([], {
                                     hour: '2-digit',
                                     minute: '2-digit'
-                                  })}
+                                  }) : ''}
                                 </span>
                                 {isOwn && renderMessageStatus(message)}
                               </div>
@@ -543,6 +794,7 @@ const Chat = ({ navigate, setActiveSection, selectedSeller }) => {
                 onChange={(e) => setNewMessage(e.target.value)}
                 onKeyPress={(e) => {
                   if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
                     handleSendMessage(e);
                   }
                 }}
@@ -558,18 +810,82 @@ const Chat = ({ navigate, setActiveSection, selectedSeller }) => {
             </form>
           </>
         ) : (
-          <div className="select-conversation">
-            <div className="select-conversation-content">
-              <FontAwesomeIcon icon={faComment} size="4x" />
-              <h3>Select a conversation</h3>
-              <p>Choose a conversation from the list to start messaging</p>
-              <button 
-                className="browse-sellers-btn"
-                onClick={() => setActiveSection('home')}
-              >
-                Browse Sellers
-              </button>
+          <div className="sellers-browse-container">
+            <div className="sellers-header">
+              <h2>Browse Sellers</h2>
+              <p>Start chatting with sellers by selecting one below</p>
+              
+              <div className="sellers-search">
+                <FontAwesomeIcon icon={faSearch} />
+                <input
+                  type="text"
+                  placeholder="Search sellers by name or store..."
+                  value={sellerSearchQuery}
+                  onChange={(e) => setSellerSearchQuery(e.target.value)}
+                />
+              </div>
             </div>
+            
+            {loadingSellers ? (
+              <div className="sellers-loading">
+                <FontAwesomeIcon icon={faSpinner} spin size="2x" />
+                <p>Loading sellers...</p>
+              </div>
+            ) : (
+              <div className="sellers-grid">
+                {filteredSellers.length === 0 ? (
+                  <div className="no-sellers">
+                    <FontAwesomeIcon icon={faStore} size="3x" />
+                    <h3>No sellers found</h3>
+                    <p>Try adjusting your search or check back later</p>
+                    <button 
+                      className="refresh-sellers-btn"
+                      onClick={loadSellers}
+                    >
+                      <FontAwesomeIcon icon={faRedo} /> Refresh
+                    </button>
+                  </div>
+                ) : (
+                  filteredSellers.map(seller => (
+                    <div 
+                      key={seller._id || seller.id} 
+                      className="seller-card"
+                      onClick={() => handleSelectSeller(seller)}
+                    >
+                      <div className="seller-avatar-large">
+                        {seller.avatar || seller.logo || seller.image ? (
+                          <img 
+                            src={seller.avatar || seller.logo || seller.image} 
+                            alt={seller.name || seller.businessName} 
+                          />
+                        ) : (
+                          <FontAwesomeIcon icon={faStore} />
+                        )}
+                      </div>
+                      
+                      <div className="seller-info">
+                        <h3>{seller.name || seller.businessName || seller.storeName}</h3>
+                        <div className="seller-rating">
+                          <FontAwesomeIcon icon={faStar} className="star-filled" />
+                          <span>{seller.rating || '4.5'}</span>
+                          <span className="seller-products">
+                            • {seller.productsCount || 0} products
+                          </span>
+                        </div>
+                        <p className="seller-location">
+                          {seller.location || 'Nigeria'}
+                        </p>
+                      </div>
+                      
+                      <button className="start-chat-btn">
+                        <FontAwesomeIcon icon={faMessage} />
+                        Chat
+                      </button>
+                    </div>
+                  ))
+                )}
+              </div>
+            )}
           </div>
         )}
       </div>

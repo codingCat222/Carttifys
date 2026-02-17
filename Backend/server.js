@@ -87,7 +87,9 @@ const buyerRoutes = require('./routes/buyerRoutes');
 const sellerRoutes = require('./routes/sellerRoutes');
 const userRoutes = require('./routes/userRoutes');
 const helpRoutes = require('./routes/helpRoutes');
-const adminRoutes = require('./routes/adminRoutes'); // ← NEW: Admin routes
+const adminRoutes = require('./routes/adminRoutes');
+// NEW: Import chat routes
+const chatRoutes = require('./routes/chatRoutes');
 
 // Use routes
 app.use('/api/auth', authRoutes);
@@ -98,7 +100,10 @@ app.use('/api/buyer', buyerRoutes);
 app.use('/api/seller', sellerRoutes);
 app.use('/api/user', userRoutes);
 app.use('/api/help', helpRoutes);
-app.use('/api/admin', adminRoutes); // ← NEW: Mount admin routes
+app.use('/api/admin', adminRoutes);
+// NEW: Mount chat routes for both buyer and seller
+app.use('/api/buyer', chatRoutes); // For buyer chat endpoints
+app.use('/api/seller', chatRoutes); // For seller chat endpoints
 
 app.get('/api/health', (req, res) => {
   const mongoose = require('mongoose');
@@ -137,7 +142,15 @@ const server = app.listen(PORT, () => {
   console.log(`\n📍 Health Check: http://localhost:${PORT}/api/health`);
   console.log(`📍 Register: POST http://localhost:${PORT}/api/auth/register`);
   console.log(`📍 Login: POST http://localhost:${PORT}/api/auth/login`);
-  console.log(`📍 Admin Dashboard: GET http://localhost:${PORT}/api/admin/dashboard`); // ← NEW
+  console.log(`📍 Admin Dashboard: GET http://localhost:${PORT}/api/admin/dashboard`);
+  // NEW: Chat endpoints
+  console.log(`\n📱 Chat Endpoints:`);
+  console.log(`📍 Get Sellers: GET http://localhost:${PORT}/api/buyer/sellers`);
+  console.log(`📍 Get Conversations: GET http://localhost:${PORT}/api/buyer/messages/conversations`);
+  console.log(`📍 Create Conversation: POST http://localhost:${PORT}/api/buyer/messages/conversations`);
+  console.log(`📍 Get Messages: GET http://localhost:${PORT}/api/buyer/messages/conversations/:conversationId`);
+  console.log(`📍 Send Message: POST http://localhost:${PORT}/api/buyer/messages/send`);
+  console.log(`📍 Mark as Read: PUT http://localhost:${PORT}/api/buyer/messages/conversations/:conversationId/read`);
   console.log(`\n✅ Server is ready to accept connections!\n`);
 });
 
