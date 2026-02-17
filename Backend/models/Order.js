@@ -102,7 +102,7 @@ const orderSchema = new mongoose.Schema({
   orderId: {
     type: String,
     unique: true,
-    required: true,
+    sparse: true, // FIX: removed 'required: true' — auto-generated in pre-save hook
     index: true
   },
   
@@ -175,7 +175,8 @@ const orderSchema = new mongoose.Schema({
   
   paymentStatus: {
     type: String,
-    enum: ['pending', 'completed', 'failed', 'refunded', 'partially_refunded'],
+    // FIX: added 'none' for cart/saved orders that have no payment yet
+    enum: ['pending', 'completed', 'failed', 'refunded', 'partially_refunded', 'none'],
     default: 'pending'
   },
   
@@ -192,6 +193,7 @@ const orderSchema = new mongoose.Schema({
   // Order Status
   status: {
     type: String,
+    // FIX: added 'cart' and 'saved' used by buyerController
     enum: [
       'pending', 
       'confirmed', 
@@ -199,7 +201,9 @@ const orderSchema = new mongoose.Schema({
       'shipped', 
       'delivered', 
       'cancelled', 
-      'refunded'
+      'refunded',
+      'cart',
+      'saved'
     ],
     default: 'pending'
   },
@@ -399,7 +403,9 @@ orderSchema.methods.updateStatus = async function(newStatus, notes = '') {
     shipped: ['delivered'],
     delivered: ['refunded'],
     cancelled: [],
-    refunded: []
+    refunded: [],
+    cart: ['pending', 'cancelled'],   // FIX: added transitions for cart/saved
+    saved: ['pending', 'cancelled']
   };
   
   if (!validTransitions[this.status]?.includes(newStatus)) {

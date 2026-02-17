@@ -2,20 +2,17 @@ const express = require('express');
 const router = express.Router();
 const mongoose = require('mongoose');
 
-// Import models (you'll need to create these)
 const Conversation = require('../models/Conversation');
 const Message = require('../models/Message');
 const User = require('../models/User');
 
-// Authentication middleware (you already have this)
-const { protect } = require('../middleware/auth');
+// FIX: your middleware exports 'auth', not 'protect'
+const { auth } = require('../middleware/auth');
 
 // ========== SELLER ENDPOINTS ==========
 
-// GET /api/buyer/sellers - Get all sellers (for buyers)
-router.get('/sellers', protect, async (req, res) => {
+router.get('/sellers', auth, async (req, res) => {
   try {
-    // Only allow buyers to access this
     if (req.user.role !== 'buyer') {
       return res.status(403).json({ 
         success: false, 
@@ -23,13 +20,11 @@ router.get('/sellers', protect, async (req, res) => {
       });
     }
 
-    // Find all users with role 'seller' who are active
     const sellers = await User.find({ 
       role: 'seller',
-      isActive: { $ne: false } // Assuming you have an isActive field
+      isActive: { $ne: false }
     }).select('_id name email businessName storeName avatar logo location rating productsCount');
 
-    // Get product counts for each seller
     const Product = require('../models/Product');
     const sellersWithCounts = await Promise.all(sellers.map(async (seller) => {
       const productsCount = await Product.countDocuments({ sellerId: seller._id });
@@ -51,8 +46,7 @@ router.get('/sellers', protect, async (req, res) => {
 
 // ========== CONVERSATION ENDPOINTS ==========
 
-// GET /api/buyer/messages/conversations - Get all conversations for current user
-router.get('/messages/conversations', protect, async (req, res) => {
+router.get('/messages/conversations', auth, async (req, res) => {
   try {
     const userId = req.user._id;
     const userRole = req.user.role;
@@ -71,7 +65,6 @@ router.get('/messages/conversations', protect, async (req, res) => {
       .populate('lastMessage.sender', 'name')
       .sort('-updatedAt');
     
-    // Add unread count for current user
     const conversationsWithUnread = conversations.map(conv => {
       const unreadCount = conv.unreadCount || 0;
       return {
@@ -90,13 +83,11 @@ router.get('/messages/conversations', protect, async (req, res) => {
   }
 });
 
-// POST /api/buyer/messages/conversations - Create new conversation
-router.post('/messages/conversations', protect, async (req, res) => {
+router.post('/messages/conversations', auth, async (req, res) => {
   try {
     const { sellerId, initialMessage } = req.body;
     const buyerId = req.user._id;
 
-    // Validate seller exists
     const seller = await User.findOne({ _id: sellerId, role: 'seller' });
     if (!seller) {
       return res.status(404).json({ 
@@ -105,14 +96,12 @@ router.post('/messages/conversations', protect, async (req, res) => {
       });
     }
 
-    // Check if conversation already exists
     let conversation = await Conversation.findOne({
       buyer: buyerId,
       seller: sellerId
     });
 
     if (!conversation) {
-      // Create new conversation
       conversation = new Conversation({
         participants: [
           { userId: buyerId, role: 'buyer', lastRead: new Date() },
@@ -125,7 +114,6 @@ router.post('/messages/conversations', protect, async (req, res) => {
       
       await conversation.save();
       
-      // Create first message
       const message = new Message({
         conversationId: conversation._id,
         sender: buyerId,
@@ -136,7 +124,6 @@ router.post('/messages/conversations', protect, async (req, res) => {
       
       await message.save();
       
-      // Update conversation with last message
       conversation.lastMessage = {
         text: message.text,
         sender: message.sender,
@@ -161,13 +148,11 @@ router.post('/messages/conversations', protect, async (req, res) => {
   }
 });
 
-// GET /api/buyer/messages/conversations/:conversationId - Get messages for a conversation
-router.get('/messages/conversations/:conversationId', protect, async (req, res) => {
+router.get('/messages/conversations/:conversationId', auth, async (req, res) => {
   try {
     const { conversationId } = req.params;
     const userId = req.user._id;
 
-    // Verify conversation exists and user is participant
     const conversation = await Conversation.findOne({
       _id: conversationId,
       $or: [
@@ -197,13 +182,11 @@ router.get('/messages/conversations/:conversationId', protect, async (req, res) 
   }
 });
 
-// POST /api/buyer/messages/send - Send a message
-router.post('/messages/send', protect, async (req, res) => {
+router.post('/messages/send', auth, async (req, res) => {
   try {
     const { conversationId, text } = req.body;
     const senderId = req.user._id;
 
-    // Verify conversation exists and user is participant
     const conversation = await Conversation.findOne({
       _id: conversationId,
       $or: [
@@ -229,12 +212,6 @@ router.post('/messages/send', protect, async (req, res) => {
     
     await message.save();
 
-    // Determine receiver (for unread count)
-    const receiverId = conversation.buyer.toString() === senderId.toString() 
-      ? conversation.seller 
-      : conversation.buyer;
-
-    // Update conversation
     await Conversation.findByIdAndUpdate(conversationId, {
       lastMessage: {
         text: message.text,
@@ -258,13 +235,11 @@ router.post('/messages/send', protect, async (req, res) => {
   }
 });
 
-// PUT /api/buyer/messages/conversations/:conversationId/read - Mark conversation as read
-router.put('/messages/conversations/:conversationId/read', protect, async (req, res) => {
+router.put('/messages/conversations/:conversationId/read', auth, async (req, res) => {
   try {
     const { conversationId } = req.params;
     const userId = req.user._id;
 
-    // Verify conversation exists and user is participant
     const conversation = await Conversation.findOne({
       _id: conversationId,
       $or: [
@@ -280,17 +255,15 @@ router.put('/messages/conversations/:conversationId/read', protect, async (req, 
       });
     }
 
-    // Mark all messages as read
     await Message.updateMany(
       { 
         conversationId, 
         read: false,
-        sender: { $ne: userId } // Don't mark own messages as read
+        sender: { $ne: userId }
       },
       { read: true }
     );
 
-    // Reset unread count
     await Conversation.findByIdAndUpdate(conversationId, {
       unreadCount: 0
     });

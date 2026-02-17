@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { buyerAPI, userAPI } from '../services/Api';
+import { useCart } from '../contexts/CartContext';
 import './BuyerDashboard.css';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
@@ -16,7 +17,10 @@ import {
   faLock, faShieldAlt, faVideo, faPause, faPlay, faVolumeUp, faVolumeMute,
   faShare, faComment, faEllipsisV, faChevronUp, faShoppingBag as faBag,
   faFire, faEye, faShoppingCart as faCart, faPaperPlane, faNairaSign,
-  faPaperclip, faSmile, faMusic, faBars, faChevronLeft, faSun, faMoon
+  faPaperclip, faSmile, faMusic, faBars, faChevronLeft, faSun, faMoon,
+  faTag, faMobile, faLaptop, faHeadphones, faCamera,  faTshirt,
+  faShoePrints, faRing, faCar, faBook, faGamepad, faCouch, faUtensils,
+  faBaby, faPaw, faFutbol, faBrush, faTools
 } from '@fortawesome/free-solid-svg-icons';
 
 // Import Components
@@ -28,9 +32,21 @@ import Verify from './BuyerDashboard/Verify';
 import HelpSupport from './BuyerDashboard/HelpSupport';
 import PurchaseHistory from './BuyerDashboard/PurchaseHistory';
 import Chat from './BuyerDashboard/Chat';
+import Cart from './Cart'; // Import the Cart component from its location
 
 const BuyerDashboard = () => {
   const navigate = useNavigate();
+  
+  // Use CartContext instead of local cart state
+  const { 
+    cartItems, 
+    addToCart, 
+    removeFromCart, 
+    updateQuantity, 
+    clearCart,
+    getCartItemsCount 
+  } = useCart();
+  
   const [dashboardData, setDashboardData] = useState({
     stats: { totalOrders: 0, pendingOrders: 0, completedOrders: 0, totalSpent: 0 },
     recentOrders: [],
@@ -50,7 +66,6 @@ const BuyerDashboard = () => {
   const [error, setError] = useState(null);
   const [lastRefreshTime, setLastRefreshTime] = useState(Date.now());
   
-  const [cartItems, setCartItems] = useState([]);
   const [savedItems, setSavedItems] = useState([]);
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [selectedAddress, setSelectedAddress] = useState('address1');
@@ -59,7 +74,14 @@ const BuyerDashboard = () => {
   const [selectedSeller, setSelectedSeller] = useState(null);
   
   const [categories] = useState([
-    'Electronics', 'Fashion', 'Beauty', 'Home', 'Baby', 'Phones', 'Groceries', 'More'
+    { name: 'Electronics', icon: faLaptop },
+    { name: 'Fashion', icon: faTshirt },
+    { name: 'Beauty', icon: faBrush },
+    { name: 'Home', icon: faCouch },
+    { name: 'Baby', icon: faBaby },
+    { name: 'Phones', icon: faMobile },
+    { name: 'Groceries', icon: faUtensils },
+    { name: 'More', icon: faList }
   ]);
   
   // Ads Carousel
@@ -141,16 +163,6 @@ const BuyerDashboard = () => {
     resetActivityTimer();
     const cleanup = setupActivityListeners();
     
-    // Load cart from localStorage on initial mount
-    const savedCart = localStorage.getItem('cartItems');
-    if (savedCart) {
-      try {
-        setCartItems(JSON.parse(savedCart));
-      } catch (e) {
-        console.error('Failed to parse saved cart:', e);
-      }
-    }
-    
     return () => {
       if (activityTimeoutRef.current) {
         clearTimeout(activityTimeoutRef.current);
@@ -162,7 +174,6 @@ const BuyerDashboard = () => {
   // Initial data fetching
   useEffect(() => {
     fetchDashboardData();
-    fetchCartItems();
     fetchSavedItems();
     fetchReels();
   }, []);
@@ -243,74 +254,6 @@ const BuyerDashboard = () => {
       setError(err.message || 'Failed to load data. Pull down to refresh.');
     } finally {
       setLoading(false);
-    }
-  };
-  
-  // ✅ FIXED: Improved cart fetching with multiple response format support
-  const fetchCartItems = async () => {
-    try {
-      const result = await buyerAPI.getCart();
-      console.log('Cart API Response:', result);
-      
-      if (result.success) {
-        let items = [];
-        
-        // Handle different response structures
-        if (result.data) {
-          if (Array.isArray(result.data)) {
-            // Direct array of items
-            items = result.data;
-          } else if (result.data.items && Array.isArray(result.data.items)) {
-            // Items in data.items
-            items = result.data.items;
-          } else if (result.data.cart && Array.isArray(result.data.cart)) {
-            // Items in data.cart
-            items = result.data.cart;
-          } else if (result.data.data && Array.isArray(result.data.data)) {
-            // Items in data.data
-            items = result.data.data;
-          }
-        }
-        
-        // Validate each item has required fields and ensure proper structure
-        const validItems = items.filter(item => {
-          const product = item.product || item;
-          return product && (product._id || product.id || product.productId);
-        }).map(item => {
-          // Ensure consistent structure
-          if (!item.product && (item._id || item.id)) {
-            return {
-              ...item,
-              product: item
-            };
-          }
-          return item;
-        });
-        
-        console.log('Processed cart items:', validItems);
-        setCartItems(validItems);
-        
-        // Save to localStorage as backup
-        localStorage.setItem('cartItems', JSON.stringify(validItems));
-      } else {
-        // Try to load from localStorage as fallback
-        const savedCart = localStorage.getItem('cartItems');
-        if (savedCart) {
-          setCartItems(JSON.parse(savedCart));
-        } else {
-          setCartItems([]);
-        }
-      }
-    } catch (error) {
-      console.error('Failed to fetch cart:', error);
-      
-      // Try to load from localStorage as fallback
-      const savedCart = localStorage.getItem('cartItems');
-      if (savedCart) {
-        setCartItems(JSON.parse(savedCart));
-      } else {
-        setCartItems([]);
-      }
     }
   };
   
@@ -619,77 +562,14 @@ const BuyerDashboard = () => {
     }
   };
 
-  // ✅ FIXED: Improved add to cart with local fallback
-  const handleAddToCart = async (product) => {
-    try {
-      const productId = product._id || product.id;
-      if (!productId) {
-        showNotification('Invalid product', 'error');
-        return;
-      }
-
-      const result = await buyerAPI.addToCart({ 
-        productId: productId, 
-        quantity: 1 
-      });
-      
-      if (result.success) {
-        await fetchCartItems();
-        showNotification(`Added ${product.name || 'item'} to cart!`, 'success');
-      } else {
-        // If API fails, update local state
-        await handleLocalAddToCart(product);
-      }
-    } catch (error) {
-      console.error('Add to cart error:', error);
-      // Fallback: update local state
-      await handleLocalAddToCart(product);
-    }
-  };
-
-  // Local cart fallback function
-  const handleLocalAddToCart = async (product) => {
-    const productId = product._id || product.id;
-    
-    setCartItems(prevItems => {
-      const existingItemIndex = prevItems.findIndex(item => {
-        const itemProduct = item.product || item;
-        return (itemProduct._id || itemProduct.id) === productId;
-      });
-      
-      let updatedCart;
-      
-      if (existingItemIndex >= 0) {
-        // Update quantity of existing item
-        updatedCart = [...prevItems];
-        const existingItem = updatedCart[existingItemIndex];
-        if (existingItem.product) {
-          existingItem.quantity = (existingItem.quantity || 1) + 1;
-        } else {
-          updatedCart[existingItemIndex] = {
-            ...existingItem,
-            quantity: (existingItem.quantity || 1) + 1
-          };
-        }
-      } else {
-        // Add new item
-        updatedCart = [...prevItems, {
-          _id: Date.now().toString(),
-          product: product,
-          quantity: 1
-        }];
-      }
-      
-      // Save to localStorage
-      localStorage.setItem('cartItems', JSON.stringify(updatedCart));
-      return updatedCart;
-    });
-    
+  // Updated to use CartContext
+  const handleAddToCart = (product) => {
+    addToCart(product);
     showNotification(`Added ${product.name || 'item'} to cart!`, 'success');
   };
   
   const handleBuyNow = (product) => {
-    handleAddToCart(product);
+    addToCart(product);
     setSelectedProduct(product);
     setActiveSection('cart');
   };
@@ -720,85 +600,6 @@ const BuyerDashboard = () => {
     }
   };
   
-  // ✅ FIXED: Update quantity with better validation
-  const handleUpdateQuantity = async (itemId, newQuantity) => {
-    if (newQuantity < 1) {
-      handleRemoveFromCart(itemId);
-      return;
-    }
-    
-    try {
-      const result = await buyerAPI.updateCartItem(itemId, { quantity: newQuantity });
-      
-      if (result.success) {
-        await fetchCartItems();
-      } else {
-        // Local fallback
-        setCartItems(prevItems => {
-          const updatedCart = prevItems.map(item => {
-            const itemProduct = item.product || item;
-            if ((itemProduct._id || itemProduct.id || item._id || item.id) === itemId) {
-              return { ...item, quantity: newQuantity };
-            }
-            return item;
-          });
-          localStorage.setItem('cartItems', JSON.stringify(updatedCart));
-          return updatedCart;
-        });
-        showNotification('Updated quantity', 'info');
-      }
-    } catch (error) {
-      console.error('Failed to update quantity:', error);
-      // Local fallback
-      setCartItems(prevItems => {
-        const updatedCart = prevItems.map(item => {
-          const itemProduct = item.product || item;
-          if ((itemProduct._id || itemProduct.id || item._id || item.id) === itemId) {
-            return { ...item, quantity: newQuantity };
-          }
-          return item;
-        });
-        localStorage.setItem('cartItems', JSON.stringify(updatedCart));
-        return updatedCart;
-      });
-      showNotification('Updated quantity', 'info');
-    }
-  };
-  
-  const handleRemoveFromCart = async (itemId) => {
-    try {
-      const result = await buyerAPI.removeFromCart(itemId);
-      
-      if (result.success) {
-        await fetchCartItems();
-        showNotification('Item removed from cart', 'info');
-      } else {
-        // Local fallback
-        setCartItems(prevItems => {
-          const updatedCart = prevItems.filter(item => {
-            const itemProduct = item.product || item;
-            return (itemProduct._id || itemProduct.id || item._id || item.id) !== itemId;
-          });
-          localStorage.setItem('cartItems', JSON.stringify(updatedCart));
-          return updatedCart;
-        });
-        showNotification('Item removed from cart', 'info');
-      }
-    } catch (error) {
-      console.error('Failed to remove item:', error);
-      // Local fallback
-      setCartItems(prevItems => {
-        const updatedCart = prevItems.filter(item => {
-          const itemProduct = item.product || item;
-          return (itemProduct._id || itemProduct.id || item._id || item.id) !== itemId;
-        });
-        localStorage.setItem('cartItems', JSON.stringify(updatedCart));
-        return updatedCart;
-      });
-      showNotification('Item removed from cart', 'info');
-    }
-  };
-  
   const handleCheckout = () => {
     if (cartItems.length === 0) {
       showNotification('Your cart is empty!', 'warning');
@@ -810,6 +611,11 @@ const BuyerDashboard = () => {
   const handlePlaceOrder = async () => {
     if (!selectedAddress || !selectedPayment) {
       showNotification('Please select address and payment method', 'warning');
+      return;
+    }
+    
+    if (cartItems.length === 0) {
+      showNotification('Your cart is empty!', 'warning');
       return;
     }
     
@@ -837,8 +643,7 @@ const BuyerDashboard = () => {
       
       if (result.success) {
         showNotification('🎉 Order placed successfully!', 'success');
-        setCartItems([]);
-        localStorage.removeItem('cartItems');
+        clearCart(); // Clear cart after successful order
         fetchDashboardData();
         setActiveSection('home');
       } else {
@@ -1110,27 +915,21 @@ const BuyerDashboard = () => {
         </div>
       </div>
 
+      {/* Categories Grid */}
       <div className="categories-grid">
         {categories.map((category, index) => (
           <button 
             key={index} 
             className="category-item-grid"
             onClick={() => {
-              setSearchQuery(category);
+              setSearchQuery(category.name);
               setActiveSection('search');
             }}
           >
             <div className="category-icon">
-              {index === 0 && <FontAwesomeIcon icon={faBag} />}
-              {index === 1 && <FontAwesomeIcon icon={faUser} />}
-              {index === 2 && <FontAwesomeIcon icon={faGift} />}
-              {index === 3 && <FontAwesomeIcon icon={faHome} />}
-              {index === 4 && <FontAwesomeIcon icon={faUsers} />}
-              {index === 5 && <FontAwesomeIcon icon={faPhone} />}
-              {index === 6 && <FontAwesomeIcon icon={faShoppingBasket} />}
-              {index === 7 && <FontAwesomeIcon icon={faList} />}
+              <FontAwesomeIcon icon={category.icon} />
             </div>
-            <span className="category-name">{category}</span>
+            <span className="category-name">{category.name}</span>
           </button>
         ))}
       </div>
@@ -1155,7 +954,7 @@ const BuyerDashboard = () => {
           </button>
         </div>
         
-        {dashboardData.recommendedProducts.length === 0 ? (
+        {!dashboardData.recommendedProducts || dashboardData.recommendedProducts.length === 0 ? (
           <div className="empty-products">
             <FontAwesomeIcon icon={faBox} size="2x" />
             <p>No trending products yet</p>
@@ -1267,7 +1066,7 @@ const BuyerDashboard = () => {
                     <button 
                       className="message-seller-icon"
                       onClick={(e) => {
-                        e.stopPropagation(); // Prevent opening product details
+                        e.stopPropagation();
                         handleContactSeller(
                           getSellerId(product),
                           getSellerName(product)
@@ -1307,7 +1106,7 @@ const BuyerDashboard = () => {
         )}
       </div>
 
-      {savedItems.length > 0 && (
+      {savedItems && savedItems.length > 0 && (
         <div className="recently-viewed">
           <div className="section-header">
             <h3>Recently Viewed</h3>
@@ -1458,131 +1257,15 @@ const BuyerDashboard = () => {
     );
   };
   
-  // ✅ FIXED: Cart Page Rendering with proper item handling
+  // Updated to use Cart component
   const renderCartPage = () => {
-    console.log('Cart Items for rendering:', cartItems);
-
-    // Calculate totals
-    const subtotal = cartItems.reduce((sum, item) => {
-      const product = item.product || item;
-      const price = parseFloat(product.price) || 0;
-      const quantity = item.quantity || 1;
-      return sum + (price * quantity);
-    }, 0);
-    
-    const shipping = 500;
-    const total = subtotal + shipping;
-
     return (
-      <div className="cart-page">
-        <div className="cart-header">
-          <button onClick={() => setActiveSection('home')}>
-            <FontAwesomeIcon icon={faArrowLeft} />
-          </button>
-          <h2>Your Cart ({cartItems.length})</h2>
-          <div></div>
-        </div>
-        
-        {cartItems.length === 0 ? (
-          <div className="empty-cart">
-            <FontAwesomeIcon icon={faShoppingBasket} size="3x" />
-            <h3>Your cart is empty</h3>
-            <p>Add items to get started</p>
-            <button onClick={() => setActiveSection('home')}>
-              Continue Shopping
-            </button>
-          </div>
-        ) : (
-          <>
-            <div className="cart-items-container">
-              {cartItems.map((item, index) => {
-                // Handle different item structures
-                const product = item.product || item;
-                const itemId = item._id || item.id || product._id || product.id || index;
-                const quantity = item.quantity || 1;
-                const price = parseFloat(product.price) || 0;
-
-                return (
-                  <div key={itemId} className="cart-item-card">
-                    <img 
-                      src={getProductImage(product)} 
-                      alt={product.name || 'Product'}
-                      className="cart-item-image"
-                      onError={(e) => {
-                        e.target.src = 'https://images.unsplash.com/photo-1556228578-9c360e1d8d34?q=80&w=1974';
-                      }}
-                    />
-                    <div className="cart-item-details">
-                      <h4>{product.name || 'Product'}</h4>
-                      <p className="cart-item-price">
-                        <span className="naira-price">₦{formatPriceNumber(price)}</span>
-                      </p>
-                      <div className="quantity-selector">
-                        <button 
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleUpdateQuantity(itemId, quantity - 1);
-                          }}
-                        >
-                          <FontAwesomeIcon icon={faMinus} />
-                        </button>
-                        <span>{quantity}</span>
-                        <button 
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleUpdateQuantity(itemId, quantity + 1);
-                          }}
-                        >
-                          <FontAwesomeIcon icon={faPlus} />
-                        </button>
-                      </div>
-                    </div>
-                    <div className="cart-item-actions">
-                      <p className="item-total-price">
-                        <span className="naira-price">₦{formatPriceNumber(price * quantity)}</span>
-                      </p>
-                      <button 
-                        onClick={() => handleRemoveFromCart(itemId)}
-                        className="remove-item-btn"
-                      >
-                        <FontAwesomeIcon icon={faTrash} />
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-            
-            <div className="cart-summary">
-              <div className="summary-row">
-                <span>Subtotal</span>
-                <span className="naira-price">
-                  ₦{formatPriceNumber(subtotal)}
-                </span>
-              </div>
-              <div className="summary-row">
-                <span>Shipping</span>
-                <span className="naira-price">₦{formatPriceNumber(shipping)}</span>
-              </div>
-              <div className="summary-row total-row">
-                <span>Total</span>
-                <span className="naira-price">
-                  ₦{formatPriceNumber(total)}
-                </span>
-              </div>
-              
-              <button className="checkout-button" onClick={handleCheckout}>
-                Proceed to Checkout
-              </button>
-            </div>
-          </>
-        )}
-      </div>
+      <Cart />
     );
   };
   
   const renderCheckoutPage = () => {
-    // Calculate totals
+    // Calculate totals using cartItems from context
     const subtotal = cartItems.reduce((sum, item) => {
       const product = item.product || item;
       const price = parseFloat(product.price) || 0;
@@ -1590,7 +1273,8 @@ const BuyerDashboard = () => {
       return sum + (price * quantity);
     }, 0);
     const shipping = 500;
-    const total = subtotal + shipping;
+    const tax = subtotal * 0.08;
+    const total = subtotal + shipping + tax;
 
     return (
       <div className="checkout-page">
@@ -1701,7 +1385,7 @@ const BuyerDashboard = () => {
         <button 
           className="place-order-button" 
           onClick={handlePlaceOrder}
-          disabled={!selectedAddress || !selectedPayment}
+          disabled={!selectedAddress || !selectedPayment || cartItems.length === 0}
         >
           Place Order - <span className="naira-price">
             ₦{formatPriceNumber(total)}
@@ -1791,20 +1475,13 @@ const BuyerDashboard = () => {
       <div className="categories-list-full">
         {categories.map((cat, index) => (
           <button key={index} className="category-full-item" onClick={() => {
-            setSearchQuery(cat);
+            setSearchQuery(cat.name);
             setActiveSection('search');
           }}>
             <div className="category-full-icon">
-              {index === 0 && <FontAwesomeIcon icon={faBag} />}
-              {index === 1 && <FontAwesomeIcon icon={faUser} />}
-              {index === 2 && <FontAwesomeIcon icon={faGift} />}
-              {index === 3 && <FontAwesomeIcon icon={faHome} />}
-              {index === 4 && <FontAwesomeIcon icon={faUsers} />}
-              {index === 5 && <FontAwesomeIcon icon={faPhone} />}
-              {index === 6 && <FontAwesomeIcon icon={faShoppingBasket} />}
-              {index === 7 && <FontAwesomeIcon icon={faList} />}
+              <FontAwesomeIcon icon={cat.icon} />
             </div>
-            <span>{cat}</span>
+            <span>{cat.name}</span>
             <FontAwesomeIcon icon={faChevronRight} />
           </button>
         ))}
@@ -1814,7 +1491,7 @@ const BuyerDashboard = () => {
 
   // ==================== MAIN RENDER ====================
 
-  if (loading && activeSection === 'home' && dashboardData.recommendedProducts.length === 0) {
+  if (loading && activeSection === 'home' && (!dashboardData.recommendedProducts || dashboardData.recommendedProducts.length === 0)) {
     return (
       <div className="buyer-dashboard">
         <div className="loading-screen">
@@ -1828,7 +1505,7 @@ const BuyerDashboard = () => {
     );
   }
 
-  if (error && dashboardData.recommendedProducts.length === 0 && activeSection === 'home') {
+  if (error && (!dashboardData.recommendedProducts || dashboardData.recommendedProducts.length === 0) && activeSection === 'home') {
     return (
       <div className="buyer-dashboard">
         <div className="error-screen">
@@ -1879,7 +1556,7 @@ const BuyerDashboard = () => {
           onClick={() => setActiveSection('cart')}
         >
           <FontAwesomeIcon icon={faShoppingCart} />
-          {cartItems.length > 0 && (
+          {cartItems && cartItems.length > 0 && (
             <span className="cart-count-top">{cartItems.length}</span>
           )}
         </button>
@@ -1980,7 +1657,7 @@ const BuyerDashboard = () => {
       <BottomNavigation 
         activeSection={activeSection}
         onSectionChange={setActiveSection}
-        pendingOrdersCount={dashboardData.stats.pendingOrders}
+        pendingOrdersCount={dashboardData.stats?.pendingOrders || 0}
       />
     </div>
   );

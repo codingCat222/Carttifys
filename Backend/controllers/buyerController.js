@@ -2,6 +2,690 @@ const Product = require('../../models/Product');
 const Order = require('../../models/Order');
 const User = require('../../models/User');
 
+// ============= REEL FUNCTIONS =============
+const saveReel = async (req, res) => {
+    try {
+        const { reelId } = req.params;
+        const buyerId = req.user._id;
+        
+        res.json({
+            success: true,
+            message: 'Reel saved successfully',
+            data: {
+                reelId,
+                isSaved: true,
+                savedAt: new Date()
+            }
+        });
+    } catch (error) {
+        console.error('Error saving reel:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Error saving reel',
+            error: error.message
+        });
+    }
+};
+
+const getReels = async (req, res) => {
+    try {
+        const { page = 1, limit = 10 } = req.query;
+        const skip = (page - 1) * limit;
+        
+        const productsWithVideos = await Product.find({
+            'videos.0': { $exists: true },
+            stock: { $gt: 0 },
+            status: 'active'
+        })
+        .populate('seller', 'name businessName email rating')
+        .select('name price category videos seller images description averageRating salesCount')
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(parseInt(limit))
+        .lean();
+        
+        const total = await Product.countDocuments({
+            'videos.0': { $exists: true },
+            stock: { $gt: 0 },
+            status: 'active'
+        });
+        const totalPages = Math.ceil(total / limit);
+        
+        const reels = [];
+        productsWithVideos.forEach(product => {
+            if (!product.videos || product.videos.length === 0) return;
+            
+            product.videos.forEach((video, index) => {
+                let thumbnailUrl = video.thumbnail || 
+                                 (product.images?.[0]?.url) || 
+                                 '/images/product-placeholder.png';
+                
+                reels.push({
+                    id: `${product._id.toString()}_${index}`,
+                    _id: `${product._id.toString()}_${index}`,
+                    reelId: video._id?.toString() || `${product._id.toString()}_${index}`,
+                    videoUrl: video.url,
+                    thumbnail: thumbnailUrl,
+                    mediaType: 'video',
+                    mediaUrl: video.url,
+                    caption: `Check out ${product.name} - ${product.description?.substring(0, 100)}...`,
+                    product: {
+                        id: product._id.toString(),
+                        _id: product._id,
+                        name: product.name,
+                        price: product.price,
+                        category: product.category,
+                        image: product.images?.[0]?.url || '/images/product-placeholder.png',
+                        inStock: true
+                    },
+                    seller: {
+                        id: product.seller?._id,
+                        _id: product.seller?._id,
+                        name: product.seller?.businessName || product.seller?.name,
+                        email: product.seller?.email,
+                        rating: product.seller?.rating || 0,
+                        avatar: null,
+                        image: null
+                    },
+                    sellerName: product.seller?.businessName || product.seller?.name,
+                    productName: product.name,
+                    productPrice: product.price,
+                    likesCount: Math.floor(Math.random() * 1000),
+                    commentsCount: Math.floor(Math.random() * 100),
+                    sharesCount: Math.floor(Math.random() * 50),
+                    viewsCount: Math.floor(Math.random() * 5000),
+                    duration: video.duration || 15,
+                    createdAt: product.createdAt || new Date(),
+                    isLiked: false,
+                    tags: [product.category, 'shopping', 'product']
+                });
+            });
+        });
+
+        if (reels.length === 0) {
+            const trendingProducts = await Product.find({
+                stock: { $gt: 0 },
+                status: 'active',
+                'images.0': { $exists: true }
+            })
+            .populate('seller', 'name businessName')
+            .sort({ salesCount: -1, averageRating: -1 })
+            .limit(10)
+            .lean();
+            
+            trendingProducts.forEach(product => {
+                reels.push({
+                    id: product._id.toString(),
+                    _id: product._id,
+                    reelId: product._id.toString(),
+                    videoUrl: product.images?.[0]?.url || '/images/product-placeholder.png',
+                    thumbnail: product.images?.[0]?.url || '/images/product-placeholder.png',
+                    mediaType: 'image',
+                    mediaUrl: product.images?.[0]?.url || '/images/product-placeholder.png',
+                    caption: `Trending: ${product.name} - ${product.description?.substring(0, 100)}...`,
+                    product: {
+                        id: product._id.toString(),
+                        _id: product._id,
+                        name: product.name,
+                        price: product.price,
+                        category: product.category,
+                        image: product.images?.[0]?.url || '/images/product-placeholder.png',
+                        inStock: true
+                    },
+                    seller: {
+                        id: product.seller?._id,
+                        _id: product.seller?._id,
+                        name: product.seller?.businessName || product.seller?.name,
+                        avatar: null,
+                        image: null
+                    },
+                    sellerName: product.seller?.businessName || product.seller?.name,
+                    productName: product.name,
+                    productPrice: product.price,
+                    likesCount: Math.floor(Math.random() * 500),
+                    commentsCount: Math.floor(Math.random() * 50),
+                    sharesCount: Math.floor(Math.random() * 30),
+                    viewsCount: Math.floor(Math.random() * 3000),
+                    duration: 0,
+                    createdAt: product.createdAt || new Date(),
+                    isLiked: false,
+                    tags: [product.category, 'trending', 'shopping']
+                });
+            });
+        }
+
+        res.json({
+            success: true,
+            data: reels,
+            pagination: {
+                currentPage: parseInt(page),
+                totalPages,
+                totalReels: reels.length,
+                hasNext: page < totalPages,
+                hasPrev: page > 1
+            }
+        });
+    } catch (error) {
+        console.error('Error fetching reels:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Error fetching reels',
+            error: error.message
+        });
+    }
+};
+
+const likeReel = async (req, res) => {
+    try {
+        const { reelId } = req.params;
+        
+        res.json({
+            success: true,
+            message: 'Reel liked successfully',
+            data: {
+                reelId,
+                isLiked: true,
+                likesCount: Math.floor(Math.random() * 1000) + 1
+            }
+        });
+    } catch (error) {
+        console.error('Error liking reel:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Error liking reel',
+            error: error.message
+        });
+    }
+};
+
+const getReelComments = async (req, res) => {
+    try {
+        const { reelId } = req.params;
+        
+        const comments = [
+            {
+                id: '1',
+                _id: '1',
+                user: { _id: 'user1', name: 'John Doe', avatar: null },
+                text: 'This looks amazing!',
+                likes: 15,
+                time: '2h ago',
+                createdAt: new Date(Date.now() - 7200000),
+                replies: []
+            },
+            {
+                id: '2',
+                _id: '2',
+                user: { _id: 'user2', name: 'Jane Smith', avatar: null },
+                text: 'Where can I buy this?',
+                likes: 8,
+                time: '1h ago',
+                createdAt: new Date(Date.now() - 3600000),
+                replies: []
+            }
+        ];
+        
+        res.json({
+            success: true,
+            data: comments
+        });
+    } catch (error) {
+        console.error('Error fetching reel comments:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Error fetching comments',
+            error: error.message
+        });
+    }
+};
+
+const addReelComment = async (req, res) => {
+    try {
+        const { reelId } = req.params;
+        const { text } = req.body;
+        const userId = req.user._id;
+        
+        if (!text || !text.trim()) {
+            return res.status(400).json({
+                success: false,
+                message: 'Comment text is required'
+            });
+        }
+        
+        const comment = {
+            id: Date.now().toString(),
+            _id: Date.now().toString(),
+            user: { 
+                _id: userId, 
+                name: req.user.name,
+                avatar: req.user.avatar || null
+            },
+            text: text.trim(),
+            likes: 0,
+            time: 'Just now',
+            createdAt: new Date(),
+            replies: []
+        };
+        
+        res.json({
+            success: true,
+            message: 'Comment added successfully',
+            data: comment
+        });
+    } catch (error) {
+        console.error('Error adding reel comment:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Error adding comment',
+            error: error.message
+        });
+    }
+};
+
+const likeReelComment = async (req, res) => {
+    try {
+        const { reelId, commentId } = req.params;
+        
+        res.json({
+            success: true,
+            message: 'Comment liked successfully',
+            data: {
+                commentId,
+                isLiked: true,
+                likesCount: Math.floor(Math.random() * 50) + 1
+            }
+        });
+    } catch (error) {
+        console.error('Error liking comment:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Error liking comment',
+            error: error.message
+        });
+    }
+};
+
+const addCommentReply = async (req, res) => {
+    try {
+        const { reelId, commentId } = req.params;
+        const { text } = req.body;
+        const userId = req.user._id;
+        
+        if (!text || !text.trim()) {
+            return res.status(400).json({
+                success: false,
+                message: 'Reply text is required'
+            });
+        }
+        
+        const reply = {
+            id: Date.now().toString(),
+            _id: Date.now().toString(),
+            user: { 
+                _id: userId, 
+                name: req.user.name,
+                avatar: req.user.avatar || null
+            },
+            text: text.trim(),
+            likes: 0,
+            time: 'Just now',
+            createdAt: new Date()
+        };
+        
+        res.json({
+            success: true,
+            message: 'Reply added successfully',
+            data: reply
+        });
+    } catch (error) {
+        console.error('Error adding reply:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Error adding reply',
+            error: error.message
+        });
+    }
+};
+
+// ============= CONVERSATION FUNCTIONS =============
+const getConversations = async (req, res) => {
+    try {
+        const buyerId = req.user._id;
+        
+        const orders = await Order.find({ buyer: buyerId })
+            .populate('seller', 'name businessName email')
+            .select('seller createdAt status')
+            .sort({ createdAt: -1 })
+            .lean();
+        
+        const uniqueSellers = [];
+        const seenSellers = new Set();
+        
+        orders.forEach(order => {
+            if (order.seller && !seenSellers.has(order.seller._id.toString())) {
+                seenSellers.add(order.seller._id.toString());
+                uniqueSellers.push({
+                    _id: `conv-${order.seller._id}-${buyerId}`,
+                    seller: order.seller,
+                    lastOrderDate: order.createdAt,
+                    orderStatus: order.status
+                });
+            }
+        });
+        
+        const conversations = uniqueSellers.map(sellerData => {
+            const lastMessageText = sellerData.orderStatus === 'delivered' 
+                ? 'Your order has been delivered!'
+                : sellerData.orderStatus === 'shipped'
+                ? 'Your order has been shipped'
+                : 'Order placed successfully';
+            
+            return {
+                _id: sellerData._id,
+                id: sellerData._id,
+                participants: [
+                    { 
+                        _id: sellerData.seller._id.toString(), 
+                        name: sellerData.seller.businessName || sellerData.seller.name,
+                        role: 'seller'
+                    },
+                    { 
+                        _id: buyerId.toString(), 
+                        name: req.user.name,
+                        role: 'buyer'
+                    }
+                ],
+                lastMessage: {
+                    text: lastMessageText,
+                    sender: sellerData.seller._id.toString(),
+                    createdAt: sellerData.lastOrderDate
+                },
+                unreadCount: 0,
+                updatedAt: sellerData.lastOrderDate,
+                sellerId: sellerData.seller._id,
+                sellerName: sellerData.seller.businessName || sellerData.seller.name,
+                name: sellerData.seller.businessName || sellerData.seller.name,
+                unread: false,
+                archived: false
+            };
+        });
+
+        res.json({
+            success: true,
+            data: {
+                conversations: conversations
+            }
+        });
+    } catch (error) {
+        console.error('Error fetching conversations:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Error fetching conversations',
+            error: error.message
+        });
+    }
+};
+
+const getMessages = async (req, res) => {
+    try {
+        const { conversationId } = req.params;
+        const buyerId = req.user._id;
+        
+        const parts = conversationId.split('-');
+        if (parts.length < 3) {
+            return res.status(400).json({
+                success: false,
+                message: 'Invalid conversation ID'
+            });
+        }
+        
+        const sellerId = parts[1];
+        
+        const orders = await Order.find({
+            buyer: buyerId,
+            seller: sellerId
+        })
+        .populate('seller', 'name businessName')
+        .sort({ createdAt: -1 })
+        .limit(5)
+        .lean();
+        
+        const messages = [];
+        
+        orders.forEach(order => {
+            messages.push({
+                _id: `msg-order-${order._id}`,
+                id: `msg-order-${order._id}`,
+                conversationId,
+                sender: { 
+                    _id: sellerId, 
+                    name: order.seller?.businessName || order.seller?.name || 'Seller'
+                },
+                content: `Order #${order._id.toString().slice(-6)} status: ${order.status}`,
+                text: `Order #${order._id.toString().slice(-6)} status: ${order.status}`,
+                timestamp: order.createdAt,
+                createdAt: order.createdAt,
+                read: true,
+                isSystem: true
+            });
+            
+            messages.push({
+                _id: `msg-created-${order._id}`,
+                id: `msg-created-${order._id}`,
+                conversationId,
+                sender: { 
+                    _id: buyerId.toString(), 
+                    name: req.user.name
+                },
+                content: `I placed an order for ${order.items.length} item(s)`,
+                text: `I placed an order for ${order.items.length} item(s)`,
+                timestamp: order.createdAt,
+                createdAt: order.createdAt,
+                read: true,
+                sent: true,
+                delivered: true
+            });
+        });
+        
+        messages.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+
+        res.json({
+            success: true,
+            data: {
+                messages: messages
+            }
+        });
+    } catch (error) {
+        console.error('Error fetching messages:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Error fetching messages',
+            error: error.message
+        });
+    }
+};
+
+const sendMessage = async (req, res) => {
+    try {
+        const { conversationId, message, text } = req.body;
+        const senderId = req.user._id;
+        
+        const messageText = message || text;
+        
+        if (!messageText || !messageText.trim()) {
+            return res.status(400).json({
+                success: false,
+                message: 'Message text is required'
+            });
+        }
+        
+        let sellerId = null;
+        if (conversationId && conversationId.startsWith('conv-')) {
+            const parts = conversationId.split('-');
+            sellerId = parts[1];
+        }
+        
+        if (!sellerId) {
+            return res.status(400).json({
+                success: false,
+                message: 'Receiver ID is required'
+            });
+        }
+        
+        const newMessage = {
+            _id: `msg-${Date.now()}`,
+            id: `msg-${Date.now()}`,
+            conversationId: conversationId || `conv-${sellerId}-${senderId}`,
+            sender: senderId.toString(),
+            content: messageText.trim(),
+            text: messageText.trim(),
+            timestamp: new Date(),
+            createdAt: new Date(),
+            read: false,
+            sent: true,
+            delivered: true
+        };
+        
+        res.json({
+            success: true,
+            message: 'Message sent successfully',
+            data: {
+                message: newMessage
+            }
+        });
+    } catch (error) {
+        console.error('Error sending message:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Error sending message',
+            error: error.message
+        });
+    }
+};
+
+const markConversationAsRead = async (req, res) => {
+    try {
+        const { conversationId } = req.params;
+        
+        res.json({
+            success: true,
+            message: 'Conversation marked as read',
+            data: { conversationId, read: true }
+        });
+    } catch (error) {
+        console.error('Error marking conversation as read:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Error marking conversation as read',
+            error: error.message
+        });
+    }
+};
+
+const createConversation = async (req, res) => {
+    try {
+        const { sellerId } = req.body;
+        const buyerId = req.user._id;
+        
+        if (!sellerId) {
+            return res.status(400).json({
+                success: false,
+                message: 'Seller ID is required'
+            });
+        }
+        
+        const seller = await User.findById(sellerId);
+        if (!seller || seller.role !== 'seller') {
+            return res.status(404).json({
+                success: false,
+                message: 'Seller not found'
+            });
+        }
+        
+        const conversationId = `conv-${sellerId}-${buyerId}`;
+        
+        const conversation = {
+            _id: conversationId,
+            id: conversationId,
+            participants: [
+                { 
+                    _id: sellerId, 
+                    name: seller.businessName || seller.name,
+                    role: 'seller'
+                },
+                { 
+                    _id: buyerId.toString(), 
+                    name: req.user.name,
+                    role: 'buyer'
+                }
+            ],
+            lastMessage: {
+                text: `Started conversation with ${seller.businessName || seller.name}`,
+                sender: buyerId.toString(),
+                createdAt: new Date()
+            },
+            unreadCount: 0,
+            updatedAt: new Date(),
+            sellerId: sellerId,
+            sellerName: seller.businessName || seller.name
+        };
+        
+        res.json({
+            success: true,
+            message: 'Conversation created',
+            data: conversation
+        });
+    } catch (error) {
+        console.error('Error creating conversation:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Error creating conversation',
+            error: error.message
+        });
+    }
+};
+
+// ============= ADS FUNCTIONS =============
+const getAds = async (req, res) => {
+    try {
+        const ads = [
+            {
+                id: '1',
+                _id: '1',
+                title: 'Summer Sale - Up to 50% Off!',
+                description: 'Limited time offer on selected items',
+                image: '/images/ad-summer-sale.jpg',
+                link: '/products?sale=summer',
+                type: 'banner',
+                active: true
+            },
+            {
+                id: '2',
+                _id: '2',
+                title: 'Free Shipping on Orders Over ₦10,000',
+                description: 'Shop now and save on delivery',
+                image: '/images/ad-free-shipping.jpg',
+                link: '/products',
+                type: 'banner',
+                active: true
+            }
+        ];
+        
+        res.json({
+            success: true,
+            data: ads
+        });
+    } catch (error) {
+        console.error('Error fetching ads:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Error fetching ads',
+            error: error.message
+        });
+    }
+};
+
+// ============= DASHBOARD FUNCTIONS =============
 const getDashboard = async (req, res) => {
     try {
         const buyerId = req.user._id;
@@ -1120,687 +1804,7 @@ const toggleSaveItem = async (req, res) => {
     }
 };
 
-const getReels = async (req, res) => {
-    try {
-        const { page = 1, limit = 10 } = req.query;
-        const skip = (page - 1) * limit;
-        
-        const productsWithVideos = await Product.find({
-            'videos.0': { $exists: true },
-            stock: { $gt: 0 },
-            status: 'active'
-        })
-        .populate('seller', 'name businessName email rating')
-        .select('name price category videos seller images description averageRating salesCount')
-        .sort({ createdAt: -1 })
-        .skip(skip)
-        .limit(parseInt(limit))
-        .lean();
-        
-        const total = await Product.countDocuments({
-            'videos.0': { $exists: true },
-            stock: { $gt: 0 },
-            status: 'active'
-        });
-        const totalPages = Math.ceil(total / limit);
-        
-        const reels = [];
-        productsWithVideos.forEach(product => {
-            if (!product.videos || product.videos.length === 0) return;
-            
-            product.videos.forEach((video, index) => {
-                let thumbnailUrl = video.thumbnail || 
-                                 (product.images?.[0]?.url) || 
-                                 '/images/product-placeholder.png';
-                
-                reels.push({
-                    id: `${product._id.toString()}_${index}`,
-                    _id: `${product._id.toString()}_${index}`,
-                    reelId: video._id?.toString() || `${product._id.toString()}_${index}`,
-                    videoUrl: video.url,
-                    thumbnail: thumbnailUrl,
-                    mediaType: 'video',
-                    mediaUrl: video.url,
-                    caption: `Check out ${product.name} - ${product.description?.substring(0, 100)}...`,
-                    product: {
-                        id: product._id.toString(),
-                        _id: product._id,
-                        name: product.name,
-                        price: product.price,
-                        category: product.category,
-                        image: product.images?.[0]?.url || '/images/product-placeholder.png',
-                        inStock: true
-                    },
-                    seller: {
-                        id: product.seller?._id,
-                        _id: product.seller?._id,
-                        name: product.seller?.businessName || product.seller?.name,
-                        email: product.seller?.email,
-                        rating: product.seller?.rating || 0,
-                        avatar: null,
-                        image: null
-                    },
-                    sellerName: product.seller?.businessName || product.seller?.name,
-                    productName: product.name,
-                    productPrice: product.price,
-                    likesCount: Math.floor(Math.random() * 1000),
-                    commentsCount: Math.floor(Math.random() * 100),
-                    sharesCount: Math.floor(Math.random() * 50),
-                    viewsCount: Math.floor(Math.random() * 5000),
-                    duration: video.duration || 15,
-                    createdAt: product.createdAt || new Date(),
-                    isLiked: false,
-                    tags: [product.category, 'shopping', 'product']
-                });
-            });
-        });
-
-        if (reels.length === 0) {
-            const trendingProducts = await Product.find({
-                stock: { $gt: 0 },
-                status: 'active',
-                'images.0': { $exists: true }
-            })
-            .populate('seller', 'name businessName')
-            .sort({ salesCount: -1, averageRating: -1 })
-            .limit(10)
-            .lean();
-            
-            trendingProducts.forEach(product => {
-                reels.push({
-                    id: product._id.toString(),
-                    _id: product._id,
-                    reelId: product._id.toString(),
-                    videoUrl: product.images?.[0]?.url || '/images/product-placeholder.png',
-                    thumbnail: product.images?.[0]?.url || '/images/product-placeholder.png',
-                    mediaType: 'image',
-                    mediaUrl: product.images?.[0]?.url || '/images/product-placeholder.png',
-                    caption: `Trending: ${product.name} - ${product.description?.substring(0, 100)}...`,
-                    product: {
-                        id: product._id.toString(),
-                        _id: product._id,
-                        name: product.name,
-                        price: product.price,
-                        category: product.category,
-                        image: product.images?.[0]?.url || '/images/product-placeholder.png',
-                        inStock: true
-                    },
-                    seller: {
-                        id: product.seller?._id,
-                        _id: product.seller?._id,
-                        name: product.seller?.businessName || product.seller?.name,
-                        avatar: null,
-                        image: null
-                    },
-                    sellerName: product.seller?.businessName || product.seller?.name,
-                    productName: product.name,
-                    productPrice: product.price,
-                    likesCount: Math.floor(Math.random() * 500),
-                    commentsCount: Math.floor(Math.random() * 50),
-                    sharesCount: Math.floor(Math.random() * 30),
-                    viewsCount: Math.floor(Math.random() * 3000),
-                    duration: 0,
-                    createdAt: product.createdAt || new Date(),
-                    isLiked: false,
-                    tags: [product.category, 'trending', 'shopping']
-                });
-            });
-        }
-
-        res.json({
-            success: true,
-            data: reels,
-            pagination: {
-                currentPage: parseInt(page),
-                totalPages,
-                totalReels: reels.length,
-                hasNext: page < totalPages,
-                hasPrev: page > 1
-            }
-        });
-    } catch (error) {
-        console.error('Error fetching reels:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Error fetching reels',
-            error: error.message
-        });
-    }
-};
-
-const likeReel = async (req, res) => {
-    try {
-        const { reelId } = req.params;
-        
-        res.json({
-            success: true,
-            message: 'Reel liked successfully',
-            data: {
-                reelId,
-                isLiked: true,
-                likesCount: Math.floor(Math.random() * 1000) + 1
-            }
-        });
-    } catch (error) {
-        console.error('Error liking reel:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Error liking reel',
-            error: error.message
-        });
-    }
-};
-
-const saveReel = async (req, res) => {
-    try {
-        const { reelId } = req.params;
-        const buyerId = req.user._id;
-        
-        res.json({
-            success: true,
-            message: 'Reel saved successfully',
-            data: {
-                reelId,
-                isSaved: true,
-                savedAt: new Date()
-            }
-        });
-    } catch (error) {
-        console.error('Error saving reel:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Error saving reel',
-            error: error.message
-        });
-    }
-};
-
-const getReelComments = async (req, res) => {
-    try {
-        const { reelId } = req.params;
-        
-        const comments = [
-            {
-                id: '1',
-                _id: '1',
-                user: { _id: 'user1', name: 'John Doe', avatar: null },
-                text: 'This looks amazing!',
-                likes: 15,
-                time: '2h ago',
-                createdAt: new Date(Date.now() - 7200000),
-                replies: []
-            },
-            {
-                id: '2',
-                _id: '2',
-                user: { _id: 'user2', name: 'Jane Smith', avatar: null },
-                text: 'Where can I buy this?',
-                likes: 8,
-                time: '1h ago',
-                createdAt: new Date(Date.now() - 3600000),
-                replies: []
-            }
-        ];
-        
-        res.json({
-            success: true,
-            data: comments
-        });
-    } catch (error) {
-        console.error('Error fetching reel comments:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Error fetching comments',
-            error: error.message
-        });
-    }
-};
-
-const addReelComment = async (req, res) => {
-    try {
-        const { reelId } = req.params;
-        const { text } = req.body;
-        const userId = req.user._id;
-        
-        if (!text || !text.trim()) {
-            return res.status(400).json({
-                success: false,
-                message: 'Comment text is required'
-            });
-        }
-        
-        const comment = {
-            id: Date.now().toString(),
-            _id: Date.now().toString(),
-            user: { 
-                _id: userId, 
-                name: req.user.name,
-                avatar: req.user.avatar || null
-            },
-            text: text.trim(),
-            likes: 0,
-            time: 'Just now',
-            createdAt: new Date(),
-            replies: []
-        };
-        
-        res.json({
-            success: true,
-            message: 'Comment added successfully',
-            data: comment
-        });
-    } catch (error) {
-        console.error('Error adding reel comment:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Error adding comment',
-            error: error.message
-        });
-    }
-};
-
-const likeReelComment = async (req, res) => {
-    try {
-        const { reelId, commentId } = req.params;
-        
-        res.json({
-            success: true,
-            message: 'Comment liked successfully',
-            data: {
-                commentId,
-                isLiked: true,
-                likesCount: Math.floor(Math.random() * 50) + 1
-            }
-        });
-    } catch (error) {
-        console.error('Error liking comment:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Error liking comment',
-            error: error.message
-        });
-    }
-};
-
-const addCommentReply = async (req, res) => {
-    try {
-        const { reelId, commentId } = req.params;
-        const { text } = req.body;
-        const userId = req.user._id;
-        
-        if (!text || !text.trim()) {
-            return res.status(400).json({
-                success: false,
-                message: 'Reply text is required'
-            });
-        }
-        
-        const reply = {
-            id: Date.now().toString(),
-            _id: Date.now().toString(),
-            user: { 
-                _id: userId, 
-                name: req.user.name,
-                avatar: req.user.avatar || null
-            },
-            text: text.trim(),
-            likes: 0,
-            time: 'Just now',
-            createdAt: new Date()
-        };
-        
-        res.json({
-            success: true,
-            message: 'Reply added successfully',
-            data: reply
-        });
-    } catch (error) {
-        console.error('Error adding reply:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Error adding reply',
-            error: error.message
-        });
-    }
-};
-
-const getAds = async (req, res) => {
-    try {
-        const ads = [
-            {
-                id: '1',
-                _id: '1',
-                title: 'Summer Sale - Up to 50% Off!',
-                description: 'Limited time offer on selected items',
-                image: '/images/ad-summer-sale.jpg',
-                link: '/products?sale=summer',
-                type: 'banner',
-                active: true
-            },
-            {
-                id: '2',
-                _id: '2',
-                title: 'Free Shipping on Orders Over ₦10,000',
-                description: 'Shop now and save on delivery',
-                image: '/images/ad-free-shipping.jpg',
-                link: '/products',
-                type: 'banner',
-                active: true
-            }
-        ];
-        
-        res.json({
-            success: true,
-            data: ads
-        });
-    } catch (error) {
-        console.error('Error fetching ads:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Error fetching ads',
-            error: error.message
-        });
-    }
-};
-
-const getConversations = async (req, res) => {
-    try {
-        const buyerId = req.user._id;
-        
-        const orders = await Order.find({ buyer: buyerId })
-            .populate('seller', 'name businessName email')
-            .select('seller createdAt status')
-            .sort({ createdAt: -1 })
-            .lean();
-        
-        const uniqueSellers = [];
-        const seenSellers = new Set();
-        
-        orders.forEach(order => {
-            if (order.seller && !seenSellers.has(order.seller._id.toString())) {
-                seenSellers.add(order.seller._id.toString());
-                uniqueSellers.push({
-                    _id: `conv-${order.seller._id}-${buyerId}`,
-                    seller: order.seller,
-                    lastOrderDate: order.createdAt,
-                    orderStatus: order.status
-                });
-            }
-        });
-        
-        const conversations = uniqueSellers.map(sellerData => {
-            const lastMessageText = sellerData.orderStatus === 'delivered' 
-                ? 'Your order has been delivered!'
-                : sellerData.orderStatus === 'shipped'
-                ? 'Your order has been shipped'
-                : 'Order placed successfully';
-            
-            return {
-                _id: sellerData._id,
-                id: sellerData._id,
-                participants: [
-                    { 
-                        _id: sellerData.seller._id.toString(), 
-                        name: sellerData.seller.businessName || sellerData.seller.name,
-                        role: 'seller'
-                    },
-                    { 
-                        _id: buyerId.toString(), 
-                        name: req.user.name,
-                        role: 'buyer'
-                    }
-                ],
-                lastMessage: {
-                    text: lastMessageText,
-                    sender: sellerData.seller._id.toString(),
-                    createdAt: sellerData.lastOrderDate
-                },
-                unreadCount: 0,
-                updatedAt: sellerData.lastOrderDate,
-                sellerId: sellerData.seller._id,
-                sellerName: sellerData.seller.businessName || sellerData.seller.name,
-                name: sellerData.seller.businessName || sellerData.seller.name,
-                unread: false,
-                archived: false
-            };
-        });
-
-        res.json({
-            success: true,
-            data: {
-                conversations: conversations
-            }
-        });
-    } catch (error) {
-        console.error('Error fetching conversations:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Error fetching conversations',
-            error: error.message
-        });
-    }
-};
-
-const getMessages = async (req, res) => {
-    try {
-        const { conversationId } = req.params;
-        const buyerId = req.user._id;
-        
-        const parts = conversationId.split('-');
-        if (parts.length < 3) {
-            return res.status(400).json({
-                success: false,
-                message: 'Invalid conversation ID'
-            });
-        }
-        
-        const sellerId = parts[1];
-        
-        const orders = await Order.find({
-            buyer: buyerId,
-            seller: sellerId
-        })
-        .populate('seller', 'name businessName')
-        .sort({ createdAt: -1 })
-        .limit(5)
-        .lean();
-        
-        const messages = [];
-        
-        orders.forEach(order => {
-            messages.push({
-                _id: `msg-order-${order._id}`,
-                id: `msg-order-${order._id}`,
-                conversationId,
-                sender: { 
-                    _id: sellerId, 
-                    name: order.seller?.businessName || order.seller?.name || 'Seller'
-                },
-                content: `Order #${order._id.toString().slice(-6)} status: ${order.status}`,
-                text: `Order #${order._id.toString().slice(-6)} status: ${order.status}`,
-                timestamp: order.createdAt,
-                createdAt: order.createdAt,
-                read: true,
-                isSystem: true
-            });
-            
-            messages.push({
-                _id: `msg-created-${order._id}`,
-                id: `msg-created-${order._id}`,
-                conversationId,
-                sender: { 
-                    _id: buyerId.toString(), 
-                    name: req.user.name
-                },
-                content: `I placed an order for ${order.items.length} item(s)`,
-                text: `I placed an order for ${order.items.length} item(s)`,
-                timestamp: order.createdAt,
-                createdAt: order.createdAt,
-                read: true,
-                sent: true,
-                delivered: true
-            });
-        });
-        
-        messages.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
-
-        res.json({
-            success: true,
-            data: {
-                messages: messages
-            }
-        });
-    } catch (error) {
-        console.error('Error fetching messages:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Error fetching messages',
-            error: error.message
-        });
-    }
-};
-
-const sendMessage = async (req, res) => {
-    try {
-        const { conversationId, message, text } = req.body;
-        const senderId = req.user._id;
-        
-        const messageText = message || text;
-        
-        if (!messageText || !messageText.trim()) {
-            return res.status(400).json({
-                success: false,
-                message: 'Message text is required'
-            });
-        }
-        
-        let sellerId = null;
-        if (conversationId && conversationId.startsWith('conv-')) {
-            const parts = conversationId.split('-');
-            sellerId = parts[1];
-        }
-        
-        if (!sellerId) {
-            return res.status(400).json({
-                success: false,
-                message: 'Receiver ID is required'
-            });
-        }
-        
-        const newMessage = {
-            _id: `msg-${Date.now()}`,
-            id: `msg-${Date.now()}`,
-            conversationId: conversationId || `conv-${sellerId}-${senderId}`,
-            sender: senderId.toString(),
-            content: messageText.trim(),
-            text: messageText.trim(),
-            timestamp: new Date(),
-            createdAt: new Date(),
-            read: false,
-            sent: true,
-            delivered: true
-        };
-        
-        res.json({
-            success: true,
-            message: 'Message sent successfully',
-            data: {
-                message: newMessage
-            }
-        });
-    } catch (error) {
-        console.error('Error sending message:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Error sending message',
-            error: error.message
-        });
-    }
-};
-
-const markConversationAsRead = async (req, res) => {
-    try {
-        const { conversationId } = req.params;
-        
-        res.json({
-            success: true,
-            message: 'Conversation marked as read',
-            data: { conversationId, read: true }
-        });
-    } catch (error) {
-        console.error('Error marking conversation as read:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Error marking conversation as read',
-            error: error.message
-        });
-    }
-};
-
-const createConversation = async (req, res) => {
-    try {
-        const { sellerId } = req.body;
-        const buyerId = req.user._id;
-        
-        if (!sellerId) {
-            return res.status(400).json({
-                success: false,
-                message: 'Seller ID is required'
-            });
-        }
-        
-        const seller = await User.findById(sellerId);
-        if (!seller || seller.role !== 'seller') {
-            return res.status(404).json({
-                success: false,
-                message: 'Seller not found'
-            });
-        }
-        
-        const conversationId = `conv-${sellerId}-${buyerId}`;
-        
-        const conversation = {
-            _id: conversationId,
-            id: conversationId,
-            participants: [
-                { 
-                    _id: sellerId, 
-                    name: seller.businessName || seller.name,
-                    role: 'seller'
-                },
-                { 
-                    _id: buyerId.toString(), 
-                    name: req.user.name,
-                    role: 'buyer'
-                }
-            ],
-            lastMessage: {
-                text: `Started conversation with ${seller.businessName || seller.name}`,
-                sender: buyerId.toString(),
-                createdAt: new Date()
-            },
-            unreadCount: 0,
-            updatedAt: new Date(),
-            sellerId: sellerId,
-            sellerName: seller.businessName || seller.name
-        };
-        
-        res.json({
-            success: true,
-            message: 'Conversation created',
-            data: conversation
-        });
-    } catch (error) {
-        console.error('Error creating conversation:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Error creating conversation',
-            error: error.message
-        });
-    }
-};
-
-// Address Management
+// ============= ADDRESS FUNCTIONS =============
 const getAddresses = async (req, res) => {
     try {
         const buyerId = req.user._id;
@@ -1926,7 +1930,7 @@ const deleteAddress = async (req, res) => {
     }
 };
 
-// Payment Methods
+// ============= PAYMENT METHODS FUNCTIONS =============
 const getPaymentMethods = async (req, res) => {
     try {
         const buyerId = req.user._id;
@@ -2009,7 +2013,7 @@ const removePaymentMethod = async (req, res) => {
     }
 };
 
-// Notifications
+// ============= NOTIFICATIONS FUNCTIONS =============
 const getNotifications = async (req, res) => {
     try {
         const buyerId = req.user._id;
@@ -2083,7 +2087,7 @@ const markAllNotificationsAsRead = async (req, res) => {
     }
 };
 
-// Wishlist
+// ============= WISHLIST FUNCTIONS =============
 const getWishlist = async (req, res) => {
     try {
         return await getSavedItems(req, res);
@@ -2137,7 +2141,7 @@ const removeFromWishlist = async (req, res) => {
     }
 };
 
-// Order Tracking
+// ============= ORDER TRACKING FUNCTIONS =============
 const getOrderTracking = async (req, res) => {
     try {
         const { orderId } = req.params;
@@ -2247,15 +2251,36 @@ const addOrderReview = async (req, res) => {
     }
 };
 
-// Helper function
+// ============= HELPER FUNCTIONS =============
 const getSellerFromProducts = async (items) => {
     const product = await Product.findById(items[0].productId);
     return product.seller;
 };
 
-// Aliases
+// ============= ALIASES =============
 const getProducts = getMarketplaceProducts;
 const getOrders = getBuyerOrders;
+
+// ============= DEBUG CHECK =============
+console.log('=== INSIDE CONTROLLER FILE ===');
+console.log('saveReel defined?', typeof saveReel);
+console.log('getConversations defined?', typeof getConversations);
+console.log('===============================');
+// ============= FINAL DEBUG CHECK =============
+console.log('=== FINAL CHECK BEFORE EXPORTS ===');
+console.log('saveReel type:', typeof saveReel);
+console.log('getConversations type:', typeof getConversations);
+console.log('All functions that will be exported:', {
+    hasSaveReel: !!saveReel,
+    hasGetConversations: !!getConversations,
+    // List a few others to verify
+    hasGetDashboard: !!getDashboard,
+    hasGetReels: !!getReels
+});
+console.log('===================================');
+
+
+// ============= EXPORTS =============
 module.exports = {
     // Dashboard & Products
     getDashboard,
@@ -2322,9 +2347,6 @@ module.exports = {
     getWishlist,
     addToWishlist,
     removeFromWishlist,
-
-     saveReel,
-  getConversations,
     
     // Order Tracking & Reviews
     getOrderTracking,

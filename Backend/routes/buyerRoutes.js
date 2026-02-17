@@ -31,7 +31,7 @@ router.post('/saved-items/toggle', auth, authorize('buyer'), buyerController.tog
 // Reels routes
 router.get('/reels', auth, authorize('buyer'), buyerController.getReels);
 router.post('/reels/:reelId/like', auth, authorize('buyer'), buyerController.likeReel);
-router.post('/reels/:reelId/save', auth, authorize('buyer'), buyerController.saveReel);
+// router.post('/reels/:reelId/save', auth, authorize('buyer'), buyerController.saveReel);
 
 // Ads routes
 router.get('/ads', auth, authorize('buyer'), buyerController.getAds);

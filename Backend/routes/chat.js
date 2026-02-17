@@ -2,15 +2,15 @@ const express = require('express');
 const router = express.Router();
 const Conversation = require('../models/Conversation');
 const Message = require('../models/Message');
-const Seller = require('../models/Seller');
-const { protect } = require('../middleware/auth');
+const User = require('../models/User');           // FIX: Seller is a User with role 'seller'
+const { auth } = require('../middleware/auth');   // FIX: was 'protect', correct name is 'auth'
 
 // Get all sellers
-router.get('/sellers', protect, async (req, res) => {
+router.get('/sellers', auth, async (req, res) => {
   try {
-    const sellers = await Seller.find({ isActive: true })
-      .populate('userId', 'name email avatar')
-      .select('-__v');
+    // FIX: query User model filtering by role instead of missing Seller model
+    const sellers = await User.find({ role: 'seller', isActive: true })
+      .select('name email businessName businessType profileImage rating isSellerVerified');
     
     res.json({
       success: true,
@@ -23,7 +23,7 @@ router.get('/sellers', protect, async (req, res) => {
 });
 
 // Get all conversations for a user
-router.get('/messages/conversations', protect, async (req, res) => {
+router.get('/messages/conversations', auth, async (req, res) => {
   try {
     const userId = req.user._id;
     
@@ -34,8 +34,8 @@ router.get('/messages/conversations', protect, async (req, res) => {
         { seller: userId }
       ]
     })
-    .populate('buyer', 'name email avatar')
-    .populate('seller', 'name businessName storeName avatar logo')
+    .populate('buyer', 'name email profileImage')
+    .populate('seller', 'name businessName profileImage')
     .populate('lastMessage.sender', 'name')
     .sort('-updatedAt');
     
@@ -50,7 +50,7 @@ router.get('/messages/conversations', protect, async (req, res) => {
 });
 
 // Create new conversation
-router.post('/messages/conversations', protect, async (req, res) => {
+router.post('/messages/conversations', auth, async (req, res) => {
   try {
     const { sellerId, initialMessage } = req.body;
     const buyerId = req.user._id;
@@ -62,7 +62,6 @@ router.post('/messages/conversations', protect, async (req, res) => {
     });
     
     if (!conversation) {
-      // Create new conversation
       conversation = new Conversation({
         participants: [
           { userId: buyerId, role: 'buyer' },
@@ -75,7 +74,6 @@ router.post('/messages/conversations', protect, async (req, res) => {
       
       await conversation.save();
       
-      // Create first message
       const message = new Message({
         conversationId: conversation._id,
         sender: buyerId,
@@ -86,7 +84,6 @@ router.post('/messages/conversations', protect, async (req, res) => {
       
       await message.save();
       
-      // Update conversation with last message
       conversation.lastMessage = {
         text: message.text,
         sender: message.sender,
@@ -97,8 +94,8 @@ router.post('/messages/conversations', protect, async (req, res) => {
     }
     
     const populatedConversation = await Conversation.findById(conversation._id)
-      .populate('buyer', 'name email avatar')
-      .populate('seller', 'name businessName storeName avatar logo');
+      .populate('buyer', 'name email profileImage')
+      .populate('seller', 'name businessName profileImage');
     
     res.json({
       success: true,
@@ -111,12 +108,12 @@ router.post('/messages/conversations', protect, async (req, res) => {
 });
 
 // Get messages for a conversation
-router.get('/messages/:conversationId', protect, async (req, res) => {
+router.get('/messages/:conversationId', auth, async (req, res) => {
   try {
     const { conversationId } = req.params;
     
     const messages = await Message.find({ conversationId })
-      .populate('sender', 'name avatar')
+      .populate('sender', 'name profileImage')
       .sort('createdAt');
     
     res.json({
@@ -130,7 +127,7 @@ router.get('/messages/:conversationId', protect, async (req, res) => {
 });
 
 // Send a message
-router.post('/messages/send', protect, async (req, res) => {
+router.post('/messages/send', auth, async (req, res) => {
   try {
     const { conversationId, text, receiverId } = req.body;
     const senderId = req.user._id;
@@ -145,7 +142,6 @@ router.post('/messages/send', protect, async (req, res) => {
     
     await message.save();
     
-    // Update conversation
     await Conversation.findByIdAndUpdate(conversationId, {
       lastMessage: {
         text: message.text,
@@ -157,7 +153,7 @@ router.post('/messages/send', protect, async (req, res) => {
     });
     
     const populatedMessage = await Message.findById(message._id)
-      .populate('sender', 'name avatar');
+      .populate('sender', 'name profileImage');
     
     res.json({
       success: true,
@@ -170,7 +166,7 @@ router.post('/messages/send', protect, async (req, res) => {
 });
 
 // Mark conversation as read
-router.put('/messages/read/:conversationId', protect, async (req, res) => {
+router.put('/messages/read/:conversationId', auth, async (req, res) => {
   try {
     const { conversationId } = req.params;
     const userId = req.user._id;
